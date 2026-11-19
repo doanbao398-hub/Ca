@@ -10,7 +10,6 @@ import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 
 export function calcXpRequiredForLevel(level) {
-  // Cày cấp thử thách dần từ Lv.1 -> Lv.100
   return Math.floor(180 + Math.pow(level, 1.85) * 42);
 }
 
@@ -187,7 +186,6 @@ export class Player extends Creature {
     this.xp = 0;
     this.xpNext = calcXpRequiredForLevel(this.level);
 
-    // Cập nhật chỉ số nền tương ứng cấp độ
     this.baseRadius = Math.min(135, 22 + (this.level - 1) * 0.95);
     this.maxHp = this.cfg.maxHp + (this.level - 1) * 14;
     this.hp = this.maxHp;
@@ -208,7 +206,6 @@ export class Player extends Creature {
       EVOLUTION_FORMS[EVOLUTION_FORMS.length - 1];
     const ultMult = this.ultTimer > 0 ? 1.18 : 1.0;
 
-    // Điểm số càng cao -> Kích thước tăng tiến liên tục (lên tới +95px từ điểm)
     const scoreGrowthBonus = Math.min(
       95,
       Math.sqrt(Math.max(0, this.score)) * 0.22,
@@ -218,7 +215,6 @@ export class Player extends Creature {
       evo.scaleBonus *
       ultMult;
 
-    // Giới hạn kích cỡ khổng lồ lên tới 320px bán kính (đường kính 640px)
     this.radius = Math.min(320, Math.max(18, rawRadius));
   }
 
@@ -272,22 +268,41 @@ export class Player extends Creature {
       }
     });
 
-    const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
-    const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
-    const dx = worldMouseX - this.x;
-    const dy = worldMouseY - this.y;
-    const dist = Math.hypot(dx, dy);
+    // HỖ TRỢ CẢ VIRTUAL JOYSTICK TRÊN ĐIỆN THOẠI VÀ CHUỘT TRÊN PC
+    let hasMoveInput = false;
+    let moveIntensity = 1.0;
 
-    if (dist > 8) {
-      const targetAngle = Math.atan2(dy, dx);
-      let diff = targetAngle - this.angle;
-      while (diff < -Math.PI) diff += Math.PI * 2;
-      while (diff > Math.PI) diff -= Math.PI * 2;
-      this.angle += diff * 0.14;
+    if (input.joystick && input.joystick.active) {
+      if (input.joystick.force > 0.05) {
+        const targetAngle = Math.atan2(input.joystick.dy, input.joystick.dx);
+        let diff = targetAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * 0.22;
+        hasMoveInput = true;
+        moveIntensity = Math.max(0.35, input.joystick.force);
+      }
+    } else {
+      const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
+      const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
+      const dx = worldMouseX - this.x;
+      const dy = worldMouseY - this.y;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist > 8) {
+        const targetAngle = Math.atan2(dy, dx);
+        let diff = targetAngle - this.angle;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        this.angle += diff * 0.14;
+        hasMoveInput = true;
+        moveIntensity = Math.min(1, dist / 95);
+      }
     }
 
     const canBoost = !this.isExhausted && this.stamina > 0;
-    const isBoosting = input.wantsBoost && canBoost && dist > 15;
+    const isBoosting =
+      input.wantsBoost && canBoost && (hasMoveInput || this.dashTimer > 0);
     let speedMult = 1 + this.speedBonus + (this.ultTimer > 0 ? 0.3 : 0);
 
     if (this.dashTimer > 0) {
@@ -323,7 +338,11 @@ export class Player extends Creature {
 
     const maxSpeed = this.cfg.baseSpeed * speedMult;
     const moveSpeed =
-      this.dashTimer > 0 ? maxSpeed : Math.min(dist * 0.052, maxSpeed);
+      this.dashTimer > 0
+        ? maxSpeed
+        : hasMoveInput
+          ? maxSpeed * (isBoosting ? 1.0 : moveIntensity)
+          : 0;
 
     const frameScale = dt * 60;
     this.x += Math.cos(this.angle) * moveSpeed * frameScale;
@@ -361,10 +380,8 @@ export class Player extends Creature {
     this.rage = Math.min(100, this.rage + 6);
     this.eatAnim = 1;
 
-    // Cập nhật kích thước liên tục theo điểm số
     this.recalculateRadius();
 
-    // Lên cấp (tối đa Lv.100)
     let leveledUp = false;
     while (this.xp >= this.xpNext && this.level < MAX_PLAYER_LEVEL) {
       this.level++;
@@ -377,7 +394,6 @@ export class Player extends Creature {
       this.bitePower += 0.025;
       leveledUp = true;
 
-      // Tự động mở khóa chuẩn tiến hóa mới khi đạt mốc cấp độ tương ứng
       const expectedStage = getExpectedEvoStageForLevel(this.level);
       if (expectedStage > this.evoStage) {
         this.setEvoStage(expectedStage, particleSystem, camera, false);

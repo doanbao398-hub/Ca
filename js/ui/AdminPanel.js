@@ -26,19 +26,19 @@ export class AdminPanel {
     btn.innerText = "👑 ADMIN";
     btn.style.cssText = `
       position: fixed;
-      top: 12px;
+      top: 56px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 9999;
-      padding: 6px 14px;
+      padding: 4px 12px;
       border-radius: 20px;
-      border: 2px solid #fee440;
+      border: 1.5px solid #fee440;
       background: linear-gradient(90deg, #3a0ca3, #7209b7);
       color: #fee440;
       font-weight: 900;
-      font-size: 11px;
+      font-size: 10px;
       cursor: pointer;
-      box-shadow: 0 0 15px rgba(254, 228, 64, 0.5);
+      box-shadow: 0 0 12px rgba(254, 228, 64, 0.45);
       display: none;
     `;
     document.body.appendChild(btn);

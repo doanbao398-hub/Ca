@@ -1,76 +1,102 @@
 import { eventBus } from "./EventBus.js";
+import { sound } from "./SoundSystem.js";
 
 export class InputManager {
   constructor(canvas) {
     this.canvas = canvas;
     this.x = window.innerWidth / 2;
     this.y = window.innerHeight / 2;
-    this.isDown = false;
-    this.mobileBoost = false;
+    this.isMouseDown = false;
+    this.isSpaceDown = false;
+    this.isTouchBoost = false;
+
+    // Trạng thái cần gạt cảm ứng Mobile
+    this.joystick = {
+      active: false,
+      touchId: null,
+      dx: 0,
+      dy: 0,
+      force: 0,
+    };
 
     this.bindEvents();
   }
 
   get wantsBoost() {
-    return this.isDown || this.mobileBoost;
-  }
-
-  isTypingInInput() {
-    const active = document.activeElement;
-    if (!active) return false;
-    const tag = active.tagName.toLowerCase();
-    return tag === "input" || tag === "textarea" || active.isContentEditable;
+    return this.isMouseDown || this.isSpaceDown || this.isTouchBoost;
   }
 
   bindEvents() {
     window.addEventListener("mousemove", (e) => {
+      if (this.joystick.active) return;
       this.x = e.clientX;
       this.y = e.clientY;
     });
 
-    window.addEventListener("mousedown", (e) => {
-      if (e.target !== this.canvas) return;
-      if (e.button === 0) this.isDown = true;
-      if (e.button === 2) eventBus.emit("INPUT_SKILL");
+    this.canvas.addEventListener("mousedown", (e) => {
+      if (e.button === 0) {
+        this.isMouseDown = true;
+        sound.resume();
+      }
     });
 
     window.addEventListener("mouseup", (e) => {
-      if (e.button === 0) this.isDown = false;
+      if (e.button === 0) this.isMouseDown = false;
     });
 
-    window.addEventListener("blur", () => {
-      this.isDown = false;
-      this.mobileBoost = false;
+    window.addEventListener("keydown", (e) => {
+      const tag = document.activeElement?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
+        return;
+      }
+
+      if (e.code === "Enter") {
+        e.preventDefault();
+        eventBus.emit("FOCUS_CHAT");
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        this.isSpaceDown = true;
+        sound.resume();
+      }
+      if (e.code === "KeyE") eventBus.emit("INPUT_SKILL");
+      if (e.code === "KeyR") eventBus.emit("INPUT_ULTIMATE");
+      if (e.code === "Escape") eventBus.emit("INPUT_PAUSE");
     });
 
-    window.addEventListener("contextmenu", (e) => {
-      if (e.target === this.canvas) e.preventDefault();
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "Space") this.isSpaceDown = false;
     });
 
+    // Thiết lập Cần Gạt Ảo (Virtual Joystick) cho thiết bị cảm ứng
+    this.bindVirtualJoystick();
+
+    // Vẫn hỗ trợ chạm trực tiếp vào Canvas nếu người dùng không dùng Joystick
     this.canvas.addEventListener(
       "touchstart",
       (e) => {
-        e.preventDefault();
-        if (e.touches.length > 0) {
-          const t = e.touches[0];
-          this.x = t.clientX;
-          this.y = t.clientY;
-        }
+        if (this.joystick.active) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        this.x = touch.clientX;
+        this.y = touch.clientY;
+        sound.resume();
       },
-      { passive: false },
+      { passive: true },
     );
 
     this.canvas.addEventListener(
       "touchmove",
       (e) => {
-        e.preventDefault();
-        if (e.touches.length > 0) {
-          const t = e.touches[0];
-          this.x = t.clientX;
-          this.y = t.clientY;
-        }
+        if (this.joystick.active) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
+        this.x = touch.clientX;
+        this.y = touch.clientY;
       },
-      { passive: false },
+      { passive: true },
     );
 
     const mobileBoostBtn = document.getElementById("mobile-boost-btn");
@@ -80,8 +106,9 @@ export class InputManager {
         (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this.mobileBoost = true;
+          this.isTouchBoost = true;
           mobileBoostBtn.classList.add("active");
+          sound.resume();
         },
         { passive: false },
       );
@@ -90,35 +117,113 @@ export class InputManager {
         (e) => {
           e.preventDefault();
           e.stopPropagation();
-          this.mobileBoost = false;
+          this.isTouchBoost = false;
           mobileBoostBtn.classList.remove("active");
         },
         { passive: false },
       );
       mobileBoostBtn.addEventListener("touchcancel", () => {
-        this.mobileBoost = false;
+        this.isTouchBoost = false;
         mobileBoostBtn.classList.remove("active");
       });
     }
+  }
 
-    window.addEventListener("keydown", (e) => {
-      if (this.isTypingInInput()) return;
+  bindVirtualJoystick() {
+    const zone = document.getElementById("mobile-joystick-zone");
+    const base = document.getElementById("mobile-joystick-base");
+    const stick = document.getElementById("mobile-joystick-stick");
+    if (!zone || !base || !stick) return;
 
-      if (e.code === "Space") {
+    const maxDist = 42;
+
+    const updateStickFromTouch = (touch) => {
+      const rect = base.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const rawDx = touch.clientX - centerX;
+      const rawDy = touch.clientY - centerY;
+      const dist = Math.hypot(rawDx, rawDy);
+      const clampedDist = Math.min(maxDist, dist);
+      const angle = Math.atan2(rawDy, rawDx);
+
+      const offsetX = Math.cos(angle) * clampedDist;
+      const offsetY = Math.sin(angle) * clampedDist;
+
+      stick.style.transform = `translate(calc(-50% + ${offsetX}px), calc(-50% + ${offsetY}px))`;
+
+      if (dist > 6) {
+        this.joystick.dx = Math.cos(angle);
+        this.joystick.dy = Math.sin(angle);
+        this.joystick.force = Math.min(1, clampedDist / maxDist);
+      } else {
+        this.joystick.dx = 0;
+        this.joystick.dy = 0;
+        this.joystick.force = 0;
+      }
+    };
+
+    const resetStick = () => {
+      this.joystick.active = false;
+      this.joystick.touchId = null;
+      this.joystick.dx = 0;
+      this.joystick.dy = 0;
+      this.joystick.force = 0;
+      stick.style.transform = "translate(-50%, -50%)";
+      base.classList.remove("active");
+    };
+
+    zone.addEventListener(
+      "touchstart",
+      (e) => {
         e.preventDefault();
-        this.isDown = true;
-      }
-      if (e.code === "KeyE") eventBus.emit("INPUT_SKILL");
-      if (e.code === "KeyR") eventBus.emit("INPUT_ULTIMATE");
-      if (e.code === "KeyP" || e.code === "Escape")
-        eventBus.emit("INPUT_PAUSE");
-      if (e.code === "Enter") {
-        eventBus.emit("FOCUS_CHAT");
-      }
-    });
+        e.stopPropagation();
+        if (this.joystick.active) return;
+        const touch = e.changedTouches[0];
+        if (!touch) return;
 
-    window.addEventListener("keyup", (e) => {
-      if (e.code === "Space") this.isDown = false;
-    });
+        this.joystick.active = true;
+        this.joystick.touchId = touch.identifier;
+        base.classList.add("active");
+        sound.resume();
+        updateStickFromTouch(touch);
+      },
+      { passive: false },
+    );
+
+    zone.addEventListener(
+      "touchmove",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!this.joystick.active) return;
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          const t = e.changedTouches[i];
+          if (t.identifier === this.joystick.touchId) {
+            updateStickFromTouch(t);
+            break;
+          }
+        }
+      },
+      { passive: false },
+    );
+
+    zone.addEventListener(
+      "touchend",
+      (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === this.joystick.touchId) {
+            resetStick();
+            break;
+          }
+        }
+      },
+      { passive: false },
+    );
+
+    zone.addEventListener("touchcancel", resetStick);
   }
 }

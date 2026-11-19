@@ -33,6 +33,41 @@
 
     <!-- HUD TRONG GAME -->
     <div id="ui-layer">
+      <!-- NÚT ICON CHAT TRÊN CHÍNH GIỮA MÀN HÌNH + BADGE ĐẾM TIN MỚI -->
+      <div class="top-center-chat-anchor">
+        <button
+          type="button"
+          id="btn-toggle-chat"
+          class="chat-floating-btn"
+          title="Mở/Đóng Chat Phòng [Enter]"
+        >
+          <span>💬</span>
+          <span id="chat-unread-badge" class="chat-unread-badge hidden">0</span>
+        </button>
+
+        <!-- KHUNG CHAT MẶC ĐỊNH ẨN (COLLAPSED) -->
+        <div class="panel-glass chat-box collapsed" id="chat-box">
+          <div class="chat-box-header">
+            <span>💬 Trò Chuyện Phòng</span>
+            <button type="button" id="btn-close-chat" class="chat-close-x">
+              ✖
+            </button>
+          </div>
+          <div class="chat-messages" id="chat-messages"></div>
+          <form class="chat-form" id="chat-form">
+            <input
+              type="text"
+              id="chat-input"
+              class="chat-input"
+              placeholder="Nhập tin nhắn..."
+              maxlength="80"
+              autocomplete="off"
+            />
+            <button type="submit" class="chat-send-btn">Gửi</button>
+          </form>
+        </div>
+      </div>
+
       <div class="hud-top">
         <div class="panel-glass player-stats">
           <div class="stat-item">
@@ -84,9 +119,6 @@
               <div class="online-dot"></div>
               <span id="hud-online-count">1 Online</span>
             </div>
-            <button class="btn-hud" id="btn-toggle-chat" title="Bật/Tắt Chat">
-              💬
-            </button>
             <button class="btn-hud" id="btn-mute">🔊</button>
             <button class="btn-hud" id="btn-pause">⏸️</button>
           </div>
@@ -117,22 +149,6 @@
 
       <div class="hud-bottom">
         <div class="hud-bottom-left">
-          <!-- Khung Chat Multiplayer Thời Gian Thực -->
-          <div class="panel-glass chat-box" id="chat-box">
-            <div class="chat-messages" id="chat-messages"></div>
-            <form class="chat-form" id="chat-form">
-              <input
-                type="text"
-                id="chat-input"
-                class="chat-input"
-                placeholder="Chat với phòng [Enter]..."
-                maxlength="80"
-                autocomplete="off"
-              />
-              <button type="submit" class="chat-send-btn">Gửi</button>
-            </form>
-          </div>
-
           <div class="hud-radar-emote-row">
             <div class="minimap-wrap">
               <canvas id="minimapCanvas" width="165" height="165"></canvas>
@@ -142,6 +158,16 @@
               <button class="emote-btn" data-emote="😂">😂</button>
               <button class="emote-btn" data-emote="😡">😡</button>
               <button class="emote-btn" data-emote="🤝">🤝</button>
+            </div>
+          </div>
+
+          <!-- CẦN GẠT ẢO (VIRTUAL JOYSTICK) CHO ĐIỆN THOẠI -->
+          <div id="mobile-joystick-zone" class="mobile-joystick-zone">
+            <div id="mobile-joystick-base" class="mobile-joystick-base">
+              <div
+                id="mobile-joystick-stick"
+                class="mobile-joystick-stick"
+              ></div>
             </div>
           </div>
         </div>
@@ -161,12 +187,13 @@
           </div>
         </div>
 
-        <!-- Cụm Nút Kỹ Năng & Tăng Tốc Góc Phải (Tối Ưu Cho Cả PC & Mobile) -->
+        <!-- Cụm Nút Kỹ Năng & Tăng Tốc Góc Phải -->
         <div class="action-cluster-right">
           <div class="skill-box" id="skill-box">
             <div class="skill-key">E</div>
             <div>
               <div
+                class="skill-title-text"
                 style="font-size: 12px; font-weight: 800; color: #fff"
                 id="hud-skill-name"
               >
@@ -185,7 +212,10 @@
           <div class="skill-box cooldown" id="ult-box">
             <div class="skill-key">R</div>
             <div>
-              <div style="font-size: 12px; font-weight: 800; color: #fff">
+              <div
+                class="skill-title-text"
+                style="font-size: 12px; font-weight: 800; color: #fff"
+              >
                 Hóa Thần
               </div>
               <div
@@ -200,7 +230,7 @@
 
           <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
           <button id="mobile-boost-btn">
-            <span style="font-size: 18px">⚡</span>
+            <span style="font-size: 16px">⚡</span>
             <span>BƠI NHANH</span>
           </button>
         </div>

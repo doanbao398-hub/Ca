@@ -15,6 +15,8 @@ import {
 export class UIManager {
   constructor() {
     this.isRegisterMode = false;
+    this.unreadChatCount = 0;
+
     this.dom = {
       authScreen: document.getElementById("auth-screen"),
       tabLogin: document.getElementById("tab-login"),
@@ -72,7 +74,9 @@ export class UIManager {
       chatForm: document.getElementById("chat-form"),
       chatInput: document.getElementById("chat-input"),
       btnToggleChat: document.getElementById("btn-toggle-chat"),
+      btnCloseChat: document.getElementById("btn-close-chat"),
       chatBox: document.getElementById("chat-box"),
+      chatUnreadBadge: document.getElementById("chat-unread-badge"),
     };
 
     this.bannerTimeout = null;
@@ -94,6 +98,38 @@ export class UIManager {
     }
   }
 
+  updateUnreadBadge() {
+    if (!this.dom.chatUnreadBadge || !this.dom.btnToggleChat) return;
+    if (this.unreadChatCount > 0) {
+      this.dom.chatUnreadBadge.innerText =
+        this.unreadChatCount > 9 ? "9+" : String(this.unreadChatCount);
+      this.dom.chatUnreadBadge.classList.remove("hidden");
+      this.dom.btnToggleChat.classList.add("has-unread");
+    } else {
+      this.dom.chatUnreadBadge.classList.add("hidden");
+      this.dom.btnToggleChat.classList.remove("has-unread");
+    }
+  }
+
+  openChatPanel(focusInput = false) {
+    if (!this.dom.chatBox) return;
+    this.dom.chatBox.classList.remove("collapsed");
+    this.unreadChatCount = 0;
+    this.updateUnreadBadge();
+    if (this.dom.chatMessages) {
+      this.dom.chatMessages.scrollTop = this.dom.chatMessages.scrollHeight;
+    }
+    if (focusInput && this.dom.chatInput) {
+      this.dom.chatInput.focus();
+    }
+  }
+
+  closeChatPanel() {
+    if (!this.dom.chatBox) return;
+    this.dom.chatBox.classList.add("collapsed");
+    this.dom.chatInput?.blur();
+  }
+
   bindChatUI() {
     if (this.dom.chatForm && this.dom.chatInput) {
       this.dom.chatForm.addEventListener("submit", (e) => {
@@ -109,24 +145,30 @@ export class UIManager {
       this.dom.chatInput.addEventListener("keydown", (e) => {
         e.stopPropagation();
         if (e.code === "Escape") {
-          this.dom.chatInput.blur();
+          this.closeChatPanel();
         }
       });
     }
 
     if (this.dom.btnToggleChat && this.dom.chatBox) {
       this.dom.btnToggleChat.addEventListener("click", () => {
-        this.dom.chatBox.classList.toggle("collapsed");
-        if (!this.dom.chatBox.classList.contains("collapsed")) {
-          this.dom.chatInput?.focus();
+        const isCollapsed = this.dom.chatBox.classList.contains("collapsed");
+        if (isCollapsed) {
+          this.openChatPanel(false);
+        } else {
+          this.closeChatPanel();
         }
       });
     }
 
+    if (this.dom.btnCloseChat) {
+      this.dom.btnCloseChat.addEventListener("click", () => {
+        this.closeChatPanel();
+      });
+    }
+
     eventBus.on("FOCUS_CHAT", () => {
-      if (!this.dom.chatBox || !this.dom.chatInput) return;
-      this.dom.chatBox.classList.remove("collapsed");
-      this.dom.chatInput.focus();
+      this.openChatPanel(true);
     });
 
     eventBus.on("CHAT_MESSAGE_RECEIVED", ({ senderName, text, isMe }) => {
@@ -135,10 +177,17 @@ export class UIManager {
       row.className = "chat-msg-row";
       row.innerHTML = `<b style="color:${isMe ? "#00f5d4" : "#fee440"};">${this.escapeHtml(senderName)}:</b> <span>${this.escapeHtml(text)}</span>`;
       this.dom.chatMessages.appendChild(row);
-      while (this.dom.chatMessages.children.length > 35) {
+      while (this.dom.chatMessages.children.length > 40) {
         this.dom.chatMessages.removeChild(this.dom.chatMessages.firstChild);
       }
       this.dom.chatMessages.scrollTop = this.dom.chatMessages.scrollHeight;
+
+      // Nếu khung chat đang đóng và tin nhắn đến từ người chơi khác -> tăng số đếm trên icon
+      const isClosed = this.dom.chatBox?.classList.contains("collapsed");
+      if (isClosed && !isMe) {
+        this.unreadChatCount++;
+        this.updateUnreadBadge();
+      }
     });
   }
 
@@ -390,9 +439,13 @@ export class UIManager {
       ? `${Math.min(100, (player.xp / player.xpNext) * 100)}%`
       : "0%";
 
+    // Reset khung chat về trạng thái ẩn gọn gàng khi bắt đầu ván
+    this.unreadChatCount = 0;
+    this.updateUnreadBadge();
+    this.closeChatPanel();
     if (this.dom.chatMessages) {
       this.dom.chatMessages.innerHTML =
-        '<div class="chat-msg-row" style="color:#64dfdf;">🌊 Chào mừng đến đại dương! Nhấn Enter để chat.</div>';
+        '<div class="chat-msg-row" style="color:#64dfdf;">🌊 Chào mừng đến đại dương!</div>';
     }
 
     this.dom.lobbyScreen.classList.add("hidden");
