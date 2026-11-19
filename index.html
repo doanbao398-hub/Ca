@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>OCEAN ODYSSEY: EVOLUTION - Online Multiplayer</title>
+    <link rel="stylesheet" href="css/base.css" />
+    <link rel="stylesheet" href="css/hud.css" />
+    <link rel="stylesheet" href="css/lobby.css" />
+    <link rel="stylesheet" href="css/modals.css" />
+  </head>
+  <body>
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD TRONG GAME -->
+    <div id="ui-layer">
+      <div class="hud-top">
+        <div class="panel-glass player-stats">
+          <div class="stat-item">
+            <span class="stat-label">Sinh Vật</span>
+            <span
+              class="stat-val"
+              id="hud-species"
+              style="font-size: 13px; color: #00f5d4"
+              >Cá Kiếm Xanh</span
+            >
+            <span class="evo-badge" id="hud-evo-stage">Dạng 1</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"
+              >HP (<span id="hud-hp-text">100</span>)</span
+            >
+            <div class="bar-wrap">
+              <div id="hp-bar"></div>
+            </div>
+          </div>
+          <div class="stat-item">
+            <span class="stat-label"
+              >Điểm (<span id="hud-level">Lv.1</span>)</span
+            >
+            <span class="stat-val" id="hud-score">0</span>
+            <div class="bar-wrap">
+              <div id="growth-bar"></div>
+            </div>
+          </div>
+          <div class="stat-item hide-mobile">
+            <span class="stat-label">Khu Vực & Phòng</span>
+            <span
+              class="stat-val"
+              id="hud-zone"
+              style="font-size: 12px; color: #fee440"
+              >Trung Tâm</span
+            >
+            <span
+              id="hud-room-tag"
+              style="font-size: 10px; color: #00f5d4; font-weight: 700"
+              >Phòng: PUBLIC</span
+            >
+          </div>
+        </div>
+
+        <div class="hud-right-col">
+          <div class="hud-actions">
+            <div class="online-pill">
+              <div class="online-dot"></div>
+              <span id="hud-online-count">1 Online</span>
+            </div>
+            <button class="btn-hud" id="btn-mute">🔊</button>
+            <button class="btn-hud" id="btn-pause">⏸️</button>
+          </div>
+
+          <!-- Bảng Xếp Hạng Online Trực Tiếp -->
+          <div class="panel-glass leaderboard-panel">
+            <div class="quest-title" style="margin-bottom: 4px; color: #00f5d4">
+              <span>🏆 Top Online</span>
+              <span id="hud-time" style="color: #fff; font-size: 10px"
+                >00:00</span
+              >
+            </div>
+            <div id="leaderboard-list"></div>
+          </div>
+
+          <!-- Bảng nhiệm vụ tiến hóa -->
+          <div class="panel-glass quest-panel">
+            <div class="quest-title">
+              <span>🧬 Nhiệm Vụ Tiến Hóa</span>
+              <span id="evo-counter" style="color: #00f5d4">1/4</span>
+            </div>
+            <div id="quest-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="event-banner">⚠️ SỰ KIỆN ĐẠI DƯƠNG!</div>
+
+      <div class="hud-bottom">
+        <div>
+          <div class="emote-bar" id="emote-bar">
+            <button class="emote-btn" data-emote="👋">👋</button>
+            <button class="emote-btn" data-emote="😂">😂</button>
+            <button class="emote-btn" data-emote="😡">😡</button>
+            <button class="emote-btn" data-emote="🤝">🤝</button>
+          </div>
+          <div class="minimap-wrap">
+            <canvas id="minimapCanvas" width="165" height="165"></canvas>
+          </div>
+        </div>
+
+        <div class="controls-center">
+          <div
+            class="panel-glass desktop-stamina-box"
+            style="text-align: center; padding: 8px 12px"
+          >
+            <div class="stat-label" id="stamina-label">Giữ Chuột / Space: Bơi Nhanh</div>
+            <div class="bar-wrap" style="width: 140px">
+              <div id="stamina-bar"></div>
+            </div>
+          </div>
+
+          <div class="skill-box" id="skill-box">
+            <div class="skill-key">E</div>
+            <div>
+              <div
+                style="font-size: 12px; font-weight: 800; color: #fff"
+                id="hud-skill-name"
+              >
+                Xung Kích
+              </div>
+              <div
+                class="skill-subtext"
+                style="font-size: 10px; color: #00f5d4"
+                id="hud-skill-status"
+              >
+                Sẵn Sàng [E]
+              </div>
+            </div>
+          </div>
+
+          <div class="skill-box cooldown" id="ult-box">
+            <div class="skill-key">R</div>
+            <div>
+              <div style="font-size: 12px; font-weight: 800; color: #fff">
+                Hóa Thần
+              </div>
+              <div
+                class="skill-subtext"
+                style="font-size: 10px; color: #adb5bd"
+                id="hud-ult-status"
+              >
+                Nộ: 0%
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
+        <button id="mobile-boost-btn">
+          <span>⚡</span>
+          <span>BƠI NHANH</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- MODAL CHỌN THẺ NÂNG CẤP -->
+    <div id="upgrade-screen" class="modal-screen hidden">
+      <div class="lobby-container" style="width: 720px; text-align: center">
+        <h2 style="font-size: 22px; color: #fee440; font-weight: 900">
+          ⬆️ ĐỘT PHÁ CẤP ĐỘ! CHỌN 1 NĂNG LỰC
+        </h2>
+        <div class="upgrade-cards-grid" id="upgrade-cards-container"></div>
+      </div>
+    </div>
+
+    <!-- MODAL TẠM DỪNG -->
+    <div id="pause-screen" class="modal-screen hidden">
+      <div class="lobby-container" style="width: 380px; text-align: center">
+        <h2 style="font-size: 26px; color: #00f5d4">⏸️ TẠM DỪNG</h2>
+        <p style="color: #caf0f8; font-size: 13px">
+          Trong chế độ Online, người chơi khác vẫn đang di chuyển!
+        </p>
+        <button class="btn-play" id="btn-resume">TIẾP TỤC CHƠI</button>
+        <button class="btn-hud" id="btn-quit-lobby" style="margin: 6px auto 0">
+          Thoát Về Sảnh Chính
+        </button>
+      </div>
+    </div>
+
+    <!-- LOBBY CHỌN LOÀI, PHÒNG ONLINE & CỬA HÀNG -->
+    <div id="lobby-screen" class="modal-screen">
+      <div class="lobby-container">
+        <div class="lobby-header">
+          <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
+          <p>
+            Đồng bộ thời gian thực qua Firebase • Săn mồi PvP • Hỗ trợ PC &
+            Mobile
+          </p>
+        </div>
+
+        <div class="meta-bar">
+          <span>💎 Ngọc: <b id="meta-gems" style="color: #fee440">0</b></span>
+          <span
+            >🏆 Kỷ Lục:
+            <b id="meta-highscore" style="color: #00f5d4">0</b></span
+          >
+          <span
+            >🐉 Boss Hạ:
+            <b id="meta-bosskills" style="color: #ff758f">0</b></span
+          >
+          <span
+            id="firebase-status-badge"
+            style="color: #fee440; font-weight: 800"
+            >🟡 Đang kiểm tra kết nối máy chủ...</span
+          >
+        </div>
+
+        <div class="input-row">
+          <input
+            type="text"
+            id="player-name-input"
+            class="lobby-input"
+            placeholder="Tên sinh vật của bạn..."
+            maxlength="16"
+            value="Thủy Quái Chúa"
+          />
+          <input
+            type="text"
+            id="room-id-input"
+            class="lobby-input"
+            style="border-color: #fee440; color: #fee440"
+            placeholder="Mã phòng (VD: VIP1)..."
+            maxlength="12"
+            value="PUBLIC"
+          />
+          <select
+            id="gamemode-select"
+            class="lobby-input"
+            style="border-color: #00bbf9; color: #00bbf9; cursor: pointer"
+          >
+            <option value="classic">🌊 Chế Độ: Sinh Tồn Tự Do</option>
+            <option value="royale">☠️ Chế Độ: Sinh Tử Vòng Bo</option>
+          </select>
+        </div>
+
+        <div>
+          <div class="section-label">1. Chọn Loài & Bộ Kỹ Năng Riêng</div>
+          <div class="grid-select" id="species-selector">
+            <div class="card-option active" data-species="fish">
+              <div class="card-icon">🗡️</div>
+              <div class="card-title">Cá Kiếm Hoàng Kim</div>
+              <div class="card-skill">Skill [E]: Xung Kích Xuyên Phá</div>
+              <div class="card-desc">
+                Lướt siêu tốc làm choáng địch. <b>+15% tốc độ</b> ở San Hô.
+              </div>
+            </div>
+            <div class="card-option" data-species="turtle">
+              <div class="card-icon">🐢</div>
+              <div class="card-title">Rùa Thần Biển Sâu</div>
+              <div class="card-skill">Skill [E]: Pháo Đài Mai Giáp</div>
+              <div class="card-desc">
+                Bất tử 3.5s & đẩy văng kẻ thù. <b>+25% HP tối đa</b>.
+              </div>
+            </div>
+            <div class="card-option" data-species="croc">
+              <div class="card-icon">🐊</div>
+              <div class="card-title">Cá Sấu Chúa Đầm Lầy</div>
+              <div class="card-skill">Skill [E]: Xoáy Nước Tử Thần</div>
+              <div class="card-desc">
+                Hút con mồi & tăng sát thương cắn đuôi. <b>+20% XP</b> ở Đầm
+                Lầy.
+              </div>
+            </div>
+            <div class="card-option" data-species="diver">
+              <div class="card-icon">🤿</div>
+              <div class="card-title">Thợ Lặn Công Nghệ</div>
+              <div class="card-skill">Skill [E]: Xung Điện Từ (EMP)</div>
+              <div class="card-desc">
+                Tê liệt toàn bộ sinh vật & hút ngọc. <b>+30% tầm nhìn</b> Vực
+                Thẳm.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">
+            2. Chọn Hệ Sinh Thái Bản Đồ (Cùng Map & Mã Phòng sẽ gặp nhau)
+          </div>
+          <div class="map-grid" id="map-selector">
+            <div class="card-option active" data-map="coral">
+              <div class="card-icon">🪸</div>
+              <div class="card-title">Rạn San Hô Ánh Dương</div>
+              <div class="card-desc">
+                Bụi tảo tàng hình, tàu đắm tạo địa hình lách góc PvP.
+              </div>
+            </div>
+            <div class="card-option" data-map="abyss">
+              <div class="card-icon">🔮</div>
+              <div class="card-title">Vực Thẳm Phát Quang</div>
+              <div class="card-desc">
+                Núi lửa phun trào hất văng cá lớn, nhiều Ngọc Trai.
+              </div>
+            </div>
+            <div class="card-option" data-map="swamp">
+              <div class="card-icon">🌿</div>
+              <div class="card-title">Rừng Ngập Mặn Huyền Bí</div>
+              <div class="card-desc">
+                Rễ đước ẩn nấp, cột đá cổ đại và hệ sinh thái giàu XP.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="section-label">3. Cửa Hàng Đột Biến Vĩnh Viễn</div>
+          <div class="shop-grid" id="meta-shop-grid"></div>
+        </div>
+
+        <button class="btn-play" id="start-btn">VÀO PHÒNG CHƠI ONLINE</button>
+      </div>
+    </div>
+
+    <!-- MODAL GAME OVER -->
+    <div id="gameover-screen" class="modal-screen hidden">
+      <div class="lobby-container" style="width: 500px; text-align: center">
+        <h1
+          style="
+            font-size: 30px;
+            background: linear-gradient(90deg, #ff4d6d, #ff758f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+          "
+        >
+          BẠN ĐÃ BỊ HẠ GỤC!
+        </h1>
+        <div
+          id="gameover-title-badge"
+          style="font-size: 15px; font-weight: 800; color: #fee440"
+        ></div>
+        <p
+          id="gameover-stats"
+          style="
+            color: #caf0f8;
+            font-size: 14px;
+            line-height: 1.7;
+            background: rgba(0, 0, 0, 0.35);
+            padding: 12px;
+            border-radius: 12px;
+          "
+        ></p>
+        <button class="btn-play" id="restart-btn">QUAY LẠI SẢNH CHÍNH</button>
+      </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>
