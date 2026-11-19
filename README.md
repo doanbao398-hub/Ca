@@ -48,6 +48,19 @@ Vì dự án sử dụng chuẩn **ES Modules** (`import`/`export`), bạn cần
 {
   "rules": {
     "ocean_odyssey": {
+      "users": {
+        "$uid": {
+          ".read": "auth != null && auth.uid === $uid",
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
+      "leaderboard": {
+        ".read": true,
+        ".indexOn": ["highScore"],
+        "$uid": {
+          ".write": "auth != null && auth.uid === $uid"
+        }
+      },
       "rooms": {
         "$roomId": {
           "players": {

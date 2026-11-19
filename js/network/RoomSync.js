@@ -19,11 +19,20 @@ export class RoomSync {
     this.syncInterval = null;
     this.unsubscribers = [];
     this.remotePlayers = {};
+    this.getPlayerFn = null;
+    this.getGameStateFn = null;
 
     this.bindBusEvents();
   }
 
   bindBusEvents() {
+    eventBus.on("FORCE_SYNC_PLAYER", () => {
+      if (this.getPlayerFn && this.getGameStateFn?.() === "PLAYING") {
+        const p = this.getPlayerFn();
+        if (p) this.pushPlayerState(p);
+      }
+    });
+
     eventBus.on("SKILL_BROADCAST", ({ x, y, maxR, color }) => {
       this.broadcastSkill(x, y, maxR, color);
     });
@@ -60,6 +69,9 @@ export class RoomSync {
 
   joinRoom(roomId, mapId, getPlayerFn, getGameStateFn) {
     this.leaveRoom();
+
+    this.getPlayerFn = getPlayerFn;
+    this.getGameStateFn = getGameStateFn;
 
     const cleanRoom =
       (roomId || "PUBLIC").toUpperCase().replace(/[^A-Z0-9_-]/g, "") ||
@@ -131,12 +143,12 @@ export class RoomSync {
     );
     this.unsubscribers.push(unsubPlayers);
 
-    // 2. Lắng nghe đòn đánh trúng mình
+    // 2. Lắng nghe đòn đánh trúng mình (không lọc joinTimestamp để tránh nuốt gói khi lệch giờ)
     const myHitsRef = ref(db, `${this.currentRoomPath}/hits/${myPlayerId}`);
     onDisconnect(myHitsRef).remove();
     const unsubHits = onChildAdded(myHitsRef, (snapshot) => {
       const hit = snapshot.val();
-      if (hit && (!hit.ts || hit.ts >= joinTimestamp - 2000)) {
+      if (hit && typeof hit.dmg === "number") {
         eventBus.emit("LOCAL_PLAYER_HIT", hit);
       }
       remove(snapshot.ref).catch(() => {});
@@ -150,7 +162,7 @@ export class RoomSync {
       if (
         !sk ||
         sk.sender === myPlayerId ||
-        (typeof sk.ts === "number" && sk.ts < joinTimestamp)
+        (typeof sk.ts === "number" && sk.ts < joinTimestamp - 3000)
       ) {
         return;
       }
@@ -169,7 +181,7 @@ export class RoomSync {
       if (
         !em ||
         em.sender === myPlayerId ||
-        (typeof em.ts === "number" && em.ts < joinTimestamp)
+        (typeof em.ts === "number" && em.ts < joinTimestamp - 3000)
       ) {
         return;
       }
@@ -257,7 +269,6 @@ export class RoomSync {
       ts: serverTimestamp(),
     }).catch(() => {});
 
-    // Phát popup sát thương để mọi người xung quanh cùng thấy
     if (typeof targetX === "number" && typeof targetY === "number") {
       const popId =
         "dp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
@@ -292,5 +303,7 @@ export class RoomSync {
       this.myPlayerRef = null;
     }
     this.remotePlayers = {};
+    this.getPlayerFn = null;
+    this.getGameStateFn = null;
   }
 }

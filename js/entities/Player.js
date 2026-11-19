@@ -24,15 +24,12 @@ export class Player extends Creature {
     this.hp = this.maxHp;
     this.hurtTimer = 0;
 
-    // FIX LỖI THANH THỂ LỰC / NỘ KHI GIỮ CHUỘT BƠI NHANH:
-    // Thêm trạng thái isExhausted: khi cạn sạch stamina (<= 0), người chơi bắt buộc
-    // phải đợi hồi tối thiểu 25% thanh thể lực mới được boost tiếp (tránh nhấp nháy 0->0.4->0 liên tục).
     this.maxStamina = cfg.maxStamina;
     this.stamina = this.maxStamina;
     this.isExhausted = false;
 
     this.skillCooldownTimer = 0;
-    this.invincibleTimer = 0;
+    this.invincibleTimer = 3.0; // 3 giây khiên bảo vệ tân thủ khi mới vào phòng
     this.dashTimer = 0;
     this.rage = 0;
     this.ultTimer = 0;
@@ -58,9 +55,10 @@ export class Player extends Creature {
       this.x,
       this.y - this.radius - 30,
       "🔥 HÓA THẦN NỘ KHÍ! 🔥",
-      "#ff006e"
+      "#ff006e",
     );
     this.recalculateRadius();
+    eventBus.emit("FORCE_SYNC_PLAYER");
   }
 
   takeDamage(dmg, sourceX, sourceY, attackerName, particleSystem, camera) {
@@ -68,20 +66,23 @@ export class Player extends Creature {
       return;
     }
     this.hp = Math.max(0, this.hp - dmg);
-    this.hurtTimer = 1.1;
+    this.hurtTimer = 0.65;
     sound.playHurt();
     camera.shake = 14;
 
     const pushAng = Math.atan2(this.y - sourceY, this.x - sourceX);
-    this.x += Math.cos(pushAng) * 80;
-    this.y += Math.sin(pushAng) * 80;
+    this.x += Math.cos(pushAng) * 65;
+    this.y += Math.sin(pushAng) * 65;
 
     particleSystem.addFloatingText(
       this.x,
       this.y - this.radius - 15,
       `-${Math.round(dmg)} HP`,
-      "#ff4d6d"
+      "#ff4d6d",
     );
+
+    // Đồng bộ ngay lập tức lượng máu mới lên Firebase
+    eventBus.emit("FORCE_SYNC_PLAYER");
 
     if (this.hp <= 0) {
       eventBus.emit("PLAYER_DIED", attackerName);
@@ -110,17 +111,18 @@ export class Player extends Creature {
         this.y,
         this.colors.primary,
         Math.random() * 7 + 2,
-        5
+        5,
       );
     }
     particleSystem.addFloatingText(
       this.x,
       this.y - this.radius - 35,
       `✨ TIẾN HÓA: ${evo.title.toUpperCase()}! ✨`,
-      "#fee440"
+      "#fee440",
     );
 
     eventBus.emit("PLAYER_EVOLVED", { stage: this.evoStage, title: evo.title });
+    eventBus.emit("FORCE_SYNC_PLAYER");
   }
 
   recalculateRadius() {
@@ -191,7 +193,6 @@ export class Player extends Creature {
       this.angle += diff * 0.14;
     }
 
-    // XỬ LÝ BƠI NHANH (BOOST) & THỂ LỰC CHUẨN XÁC THEO DT
     const canBoost = !this.isExhausted && this.stamina > 0;
     const isBoosting = input.wantsBoost && canBoost && dist > 15;
     let speedMult = 1 + this.speedBonus + (this.ultTimer > 0 ? 0.3 : 0);
@@ -213,13 +214,13 @@ export class Player extends Creature {
           "#fff",
           1,
           Math.random() * 4 + 2,
-          true
+          true,
         );
       }
     } else {
       this.stamina = Math.min(
         this.maxStamina,
-        this.stamina + this.cfg.staminaRegen * dt
+        this.stamina + this.cfg.staminaRegen * dt,
       );
       if (this.isExhausted && this.stamina >= this.maxStamina * 0.28) {
         this.isExhausted = false;
@@ -231,7 +232,6 @@ export class Player extends Creature {
     const moveSpeed =
       this.dashTimer > 0 ? maxSpeed : Math.min(dist * 0.052, maxSpeed);
 
-    // Chuẩn hóa vận tốc theo 60fps (dt * 60) để tốc độ ổn định trên mọi màn hình 60Hz/120Hz/144Hz
     const frameScale = dt * 60;
     this.x += Math.cos(this.angle) * moveSpeed * frameScale;
     this.y += Math.sin(this.angle) * moveSpeed * frameScale;
@@ -246,7 +246,7 @@ export class Player extends Creature {
     if (selectedGameMode === "royale") {
       const distFromCenter = Math.hypot(
         this.x - WORLD_SIZE / 2,
-        this.y - WORLD_SIZE / 2
+        this.y - WORLD_SIZE / 2,
       );
       if (distFromCenter > zoneRadius) {
         this.hp -= 12 * dt;

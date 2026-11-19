@@ -207,127 +207,153 @@ export class CombatSystem {
       }
     }
 
-    // 5. Va chạm PvP Người chơi Online (Hiển thị sát thương, chí mạng & thưởng truy nã)
+    // 5. Va chạm PvP Người chơi Online (Chuẩn Attacker-Authoritative + Cắn Miệng & Cắn Đuôi)
     Object.entries(remotePlayers).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed) return;
-      const dist = Math.hypot(player.x - rp.x, player.y - rp.y);
-      const hitBox = (player.radius + rp.radius) * 0.78;
 
-      if (dist < hitBox) {
-        const canAttack =
-          player.radius >= rp.radius * 0.96 ||
-          player.ultTimer > 0 ||
-          player.dashTimer > 0;
+      const dx = rp.x - player.x;
+      const dy = rp.y - player.y;
+      const dist = Math.hypot(dx, dy);
+      const hitBox =
+        (player.radius * player.cfg.eatRangeMult + rp.radius) * 0.82;
 
-        if (canAttack && !rp.invincibleTimer) {
-          if (!rp.lastHitTime || time - rp.lastHitTime > 850) {
-            rp.lastHitTime = time;
-            rp.triggerHurtFlash();
+      if (dist >= hitBox || dist === 0) return;
 
-            const isCrit = player.dashTimer > 0 || player.ultTimer > 0;
-            const rawDmg = 30 * player.bitePower * (isCrit ? 1.5 : 1.0);
-            const finalDmg = Math.round(rawDmg);
+      // Tính góc lệch giữa hướng miệng của bạn (player.angle) và hướng tới đối thủ
+      const angleToTarget = Math.atan2(dy, dx);
+      let angleDiff = angleToTarget - player.angle;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
 
-            // Dự đoán kết liễu đối thủ để cộng thưởng Bounty & PvP Kill
-            const isLethal = rp.hp - finalDmg <= 0;
-            let bonusScore = 100;
-            if (isLethal) {
-              player.bounty = (player.bounty || 0) + 1;
-              storage.data.pvpKills = (storage.data.pvpKills || 0) + 1;
-              if (rp.bounty >= 2) {
-                bonusScore += 250;
-                storage.data.gems += 30;
-                eventBus.emit(
-                  "SHOW_BANNER",
-                  `👑 HẠ GỤC KẺ TRUY NÃ ${rp.name.toUpperCase()} (+30 💎)!`,
-                );
-              }
-              storage.save();
-            }
+      // Chỉ tính là chủ động tấn công nếu hướng miệng chĩa vào đối thủ (< 65 độ) hoặc đang Dash/Ultimate
+      const isFacingTarget =
+        Math.abs(angleDiff) < 1.15 ||
+        player.dashTimer > 0 ||
+        player.ultTimer > 0;
 
-            eventBus.emit("PVP_ATTACK", {
-              targetId: id,
-              dmg: finalDmg,
-              isCrit,
-              fromX: player.x,
-              fromY: player.y,
-              attackerName: player.name,
-              targetX: rp.x,
-              targetY: rp.y,
-            });
+      // Đẩy vật lý nhẹ để 2 người chơi không dính chồng lên nhau
+      const pushAng = Math.atan2(player.y - rp.y, player.x - rp.x);
+      const overlap = hitBox - dist;
+      player.x += Math.cos(pushAng) * (overlap * 0.5 + 4);
+      player.y += Math.sin(pushAng) * (overlap * 0.5 + 4);
 
-            player.addScore(bonusScore, worldEvent, selectedMap);
-            player.heal(player.lifeSteal + 5);
-            sound.playEat(isCrit ? 4 : 3);
-            camera.shake = isCrit ? 14 : 8;
+      // Nếu đối thủ đang bật khiên bất tử hoặc mình chỉ lướt ngang qua (không hướng miệng vào địch)
+      if (rp.invincibleTimer > 0 || !isFacingTarget) return;
 
-            const dmgText = isCrit
-              ? `⚡ CHÍ MẠNG -${finalDmg}!`
-              : `💥 -${finalDmg} HP`;
-            particleSystem.addFloatingText(
-              rp.x,
-              rp.y - rp.radius - 10,
-              dmgText,
-              isCrit ? "#fee440" : "#ff4d6d",
-            );
-            particleSystem.addShockwave(
-              rp.x,
-              rp.y,
-              rp.radius * 2.2,
-              isCrit ? "#fee440" : "#ff4d6d",
-            );
+      // Cooldown giữa 2 nhát cắn lên cùng 1 mục tiêu (750ms)
+      if (rp.lastHitTime && time - rp.lastHitTime <= 750) return;
 
-            // Đẩy nhẹ ra để tránh kẹt hitbox
-            const push = Math.atan2(player.y - rp.y, player.x - rp.x);
-            player.x += Math.cos(push) * 35;
-            player.y += Math.sin(push) * 35;
-          }
-        } else if (rp.radius > player.radius * 1.05 && !rp.invincibleTimer) {
-          // Cắn đuôi người chơi lớn hơn
-          const tailX = rp.x - Math.cos(rp.angle) * rp.radius * 0.95;
-          const tailY = rp.y - Math.sin(rp.angle) * rp.radius * 0.95;
-          if (
-            Math.hypot(player.x - tailX, player.y - tailY) <
-            rp.radius * 0.72
-          ) {
-            if (!rp.lastHitTime || time - rp.lastHitTime > 850) {
-              rp.lastHitTime = time;
-              rp.triggerHurtFlash();
-              const tailDmg = Math.round(24 * player.bitePower);
+      // Tọa độ vùng đuôi của đối thủ
+      const tailX = rp.x - Math.cos(rp.angle) * rp.radius * 0.9;
+      const tailY = rp.y - Math.sin(rp.angle) * rp.radius * 0.9;
+      const hitTail =
+        Math.hypot(player.x - tailX, player.y - tailY) < rp.radius * 0.72;
 
-              eventBus.emit("PVP_ATTACK", {
-                targetId: id,
-                dmg: tailDmg,
-                isCrit: true,
-                fromX: player.x,
-                fromY: player.y,
-                attackerName: player.name,
-                targetX: rp.x,
-                targetY: rp.y,
-              });
+      const isBiggerOrEqual =
+        player.radius >= rp.radius * 0.92 ||
+        player.ultTimer > 0 ||
+        player.dashTimer > 0;
 
-              meatChunks.push(new MeatChunk(tailX, tailY, 60));
-              particleSystem.addFloatingText(
-                tailX,
-                tailY,
-                `🦷 CẮN ĐUÔI -${tailDmg}!`,
-                "#fee440",
-              );
-              const bounce = Math.atan2(player.y - rp.y, player.x - rp.x);
-              player.x += Math.cos(bounce) * 55;
-              player.y += Math.sin(bounce) * 55;
-            }
-          } else {
-            player.takeDamage(
-              28,
-              rp.x,
-              rp.y,
-              `Người chơi ${rp.name}`,
-              particleSystem,
-              camera,
+      // TRƯỜNG HỢP 1: Nhỏ hơn đối thủ nhưng lách ra sau CẮN ĐUÔI thành công
+      if (!isBiggerOrEqual && hitTail) {
+        rp.lastHitTime = time;
+        rp.triggerHurtFlash();
+
+        const tailDmg = Math.round(26 * player.bitePower);
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg: tailDmg,
+          isCrit: true,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
+
+        sound.playEat(3);
+        camera.shake = 10;
+        meatChunks.push(new MeatChunk(tailX, tailY, 55));
+        particleSystem.addFloatingText(
+          tailX,
+          tailY - 15,
+          `🦷 CẮN ĐUÔI -${tailDmg}!`,
+          "#fee440",
+        );
+
+        player.x += Math.cos(pushAng) * 45;
+        player.y += Math.sin(pushAng) * 45;
+        return;
+      }
+
+      // TRƯỜNG HỢP 2: Lớn hơn hoặc ngang cơ -> Cắn trực diện gây sát thương
+      if (isBiggerOrEqual) {
+        rp.lastHitTime = time;
+        rp.triggerHurtFlash();
+
+        const isCrit = player.dashTimer > 0 || player.ultTimer > 0;
+        const finalDmg = Math.round(
+          30 * player.bitePower * (isCrit ? 1.5 : 1.0),
+        );
+
+        const isLethal = rp.hp - finalDmg <= 0;
+        let bonusScore = 100;
+        if (isLethal) {
+          player.bounty = (player.bounty || 0) + 1;
+          storage.data.pvpKills = (storage.data.pvpKills || 0) + 1;
+          if (rp.bounty >= 2) {
+            bonusScore += 250;
+            storage.data.gems += 30;
+            eventBus.emit(
+              "SHOW_BANNER",
+              `👑 HẠ GỤC KẺ TRUY NÃ ${rp.name.toUpperCase()} (+30 💎)!`,
             );
           }
+          storage.save();
         }
+
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg: finalDmg,
+          isCrit,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
+
+        player.addScore(bonusScore, worldEvent, selectedMap);
+        player.heal(player.lifeSteal + 5);
+        sound.playEat(isCrit ? 4 : 3);
+        camera.shake = isCrit ? 14 : 8;
+
+        particleSystem.addFloatingText(
+          rp.x,
+          rp.y - rp.radius - 12,
+          isCrit ? `⚡ CHÍ MẠNG -${finalDmg}!` : `💥 -${finalDmg} HP`,
+          isCrit ? "#fee440" : "#ff4d6d",
+        );
+        particleSystem.addShockwave(
+          rp.x,
+          rp.y,
+          rp.radius * 2.1,
+          isCrit ? "#fee440" : "#ff4d6d",
+        );
+
+        player.x += Math.cos(pushAng) * 30;
+        player.y += Math.sin(pushAng) * 30;
+      } else {
+        // TRƯỜNG HỢP 3: Nhỏ hơn đối thủ và đâm thẳng vào đầu đối thủ -> Chỉ bật lùi lại, không mất máu vô lý
+        rp.lastHitTime = time;
+        player.x += Math.cos(pushAng) * 55;
+        player.y += Math.sin(pushAng) * 55;
+        particleSystem.addFloatingText(
+          player.x,
+          player.y - player.radius - 10,
+          "🛡️ QUÁ LỚN! HÃY CẮN ĐUÔI!",
+          "#90e0ef",
+        );
       }
     });
   }
