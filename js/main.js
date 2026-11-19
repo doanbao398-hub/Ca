@@ -40,7 +40,7 @@ const combatSystem = new CombatSystem();
 const roomSync = new RoomSync();
 const ui = new UIManager();
 
-let gameState = "LOBBY";
+let gameState = "AUTH";
 let selectedSpecies = "fish";
 let selectedMap = "coral";
 let selectedGameMode = "classic";
@@ -104,6 +104,11 @@ function triggerRandomWorldEvent() {
 }
 
 function startGame() {
+  if (!storage.currentUser) {
+    alert("Vui lòng đăng nhập tài khoản trước khi vào chơi!");
+    return;
+  }
+
   sound.resume();
   const inputName = document.getElementById("player-name-input").value.trim();
   const inputRoom = document
@@ -121,7 +126,7 @@ function startGame() {
     playerName,
     selectedSpecies,
     storage.data.upgrades,
-    selectedMap
+    selectedMap,
   );
   camera.reset(player.x, player.y);
 
@@ -156,7 +161,7 @@ function startGame() {
     selectedRoomId,
     selectedMap,
     () => player,
-    () => gameState
+    () => gameState,
   );
 }
 
@@ -165,8 +170,7 @@ function triggerGameOver(killerName = "") {
   gameState = "GAMEOVER";
   roomSync.leaveRoom();
 
-  const earnedGems =
-    Math.floor(player.score / 25) + player.evoStage * 15;
+  const earnedGems = Math.floor(player.score / 25) + player.evoStage * 15;
   storage.data.gems += earnedGems;
   if (player.score > storage.data.highScore) {
     storage.data.highScore = player.score;
@@ -178,7 +182,7 @@ function triggerGameOver(killerName = "") {
     killerName,
     combatSystem.fishEatenCount,
     survivalTime,
-    earnedGems
+    earnedGems,
   );
 }
 
@@ -191,6 +195,17 @@ function togglePause() {
     ui.dom.pauseScreen.classList.add("hidden");
   }
 }
+
+// Lắng nghe trạng thái Auth
+eventBus.on("AUTH_STATE_CHANGED", (user) => {
+  if (user) {
+    if (gameState === "AUTH") gameState = "LOBBY";
+  } else {
+    roomSync.leaveRoom();
+    player = null;
+    gameState = "AUTH";
+  }
+});
 
 // Lắng nghe các sự kiện từ EventBus
 eventBus.on("HIT_STOP", (duration) => {
@@ -260,7 +275,7 @@ eventBus.on("LOCAL_PLAYER_HIT", (hit) => {
       hit.fromY,
       hit.attackerName || "Người Chơi Khác",
       particleSystem,
-      camera
+      camera,
     );
   }
 });
@@ -270,7 +285,17 @@ eventBus.on("REMOTE_SKILL_EFFECT", (sk) => {
     sk.x,
     sk.y,
     sk.maxR || 150,
-    sk.color || "#00f5d4"
+    sk.color || "#00f5d4",
+  );
+});
+
+eventBus.on("REMOTE_DMG_POPUP", (sk) => {
+  const txt = sk.isCrit ? `⚡ -${sk.dmg}!` : `💥 -${sk.dmg}`;
+  particleSystem.addFloatingText(
+    sk.x,
+    sk.y - 25,
+    txt,
+    sk.isCrit ? "#fee440" : "#ff4d6d",
   );
 });
 
@@ -404,7 +429,7 @@ function gameLoop(time) {
       particleSystem,
     },
     time,
-    dt
+    dt,
   );
 
   if (Math.random() < 0.25) {
@@ -414,7 +439,7 @@ function gameLoop(time) {
       "#fff",
       0,
       Math.random() * 4 + 2,
-      true
+      true,
     );
   }
 
@@ -438,7 +463,7 @@ function gameLoop(time) {
       player || { x: -9999, y: -9999, radius: 21 },
       dt,
       gameState,
-      worldEvent
+      worldEvent,
     );
 
     if (
@@ -446,9 +471,7 @@ function gameLoop(time) {
       Math.abs(e.y - camera.y) < (height / camera.zoom) * 0.72
     ) {
       const isDanger =
-        player &&
-        e.radius > player.radius * 1.05 &&
-        player.ultTimer <= 0;
+        player && e.radius > player.radius * 1.05 && player.ultTimer <= 0;
       e.draw(ctx, time, isDanger);
     }
   }
@@ -456,9 +479,7 @@ function gameLoop(time) {
   Object.values(roomSync.remotePlayers).forEach((rp) => {
     rp.update(dt);
     const isDanger =
-      player &&
-      rp.radius > player.radius * 1.08 &&
-      player.ultTimer <= 0;
+      player && rp.radius > player.radius * 1.08 && player.ultTimer <= 0;
     rp.draw(ctx, time, isDanger);
   });
 
@@ -503,12 +524,7 @@ function gameLoop(time) {
 
     lbUpdateTimer += dt;
     if (lbUpdateTimer >= 0.5) {
-      ui.updateLeaderboard(
-        player,
-        roomSync.remotePlayers,
-        boss,
-        survivalTime
-      );
+      ui.updateLeaderboard(player, roomSync.remotePlayers, boss, survivalTime);
       lbUpdateTimer = 0;
     }
   }

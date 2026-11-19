@@ -23,6 +23,7 @@ export class Creature {
     this.invincibleTimer = 0;
     this.ultTimer = 0;
     this.hurtTimer = 0;
+    this.bounty = 0;
     this.emote = "";
     this.emoteTimer = 0;
 
@@ -57,12 +58,8 @@ export class Creature {
 
     renderCreatureEffects(ctx, this, time, isDangerous, this.isRemoteHuman);
 
-    if (
-      this.isPlayer &&
-      this.hurtTimer > 0 &&
-      Math.floor(time / 80) % 2 === 0
-    ) {
-      ctx.globalAlpha = 0.4;
+    if (this.hurtTimer > 0 && Math.floor(time / 70) % 2 === 0) {
+      ctx.globalAlpha = 0.45;
     }
 
     ctx.rotate(this.angle);

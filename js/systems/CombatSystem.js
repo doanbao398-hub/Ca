@@ -94,7 +94,7 @@ export class CombatSystem {
             boss.x,
             boss.y - boss.radius,
             `💥 -${Math.round(dmg)}!`,
-            "#fee440"
+            "#fee440",
           );
           const bounce = Math.atan2(player.y - boss.y, player.x - boss.x);
           player.x += Math.cos(bounce) * 60;
@@ -109,7 +109,7 @@ export class CombatSystem {
             particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
             eventBus.emit(
               "SHOW_BANNER",
-              "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN (+1500 XP)!"
+              "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN (+1500 XP)!",
             );
             eventBus.emit("BOSS_KILLED");
           }
@@ -120,7 +120,7 @@ export class CombatSystem {
             boss.y,
             "Leviathan Chúa Tể",
             particleSystem,
-            camera
+            camera,
           );
         }
       }
@@ -130,18 +130,12 @@ export class CombatSystem {
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       const dist = Math.hypot(player.x - e.x, player.y - e.y);
-      const hitBox = (player.radius * player.cfg.eatRangeMult + e.radius) * 0.76;
+      const hitBox =
+        (player.radius * player.cfg.eatRangeMult + e.radius) * 0.76;
 
       if (dist < hitBox) {
         if (e.species === "puffer" && e.puffed && player.ultTimer <= 0) {
-          player.takeDamage(
-            18,
-            e.x,
-            e.y,
-            "Cá Nóc Gai",
-            particleSystem,
-            camera
-          );
+          player.takeDamage(18, e.x, e.y, "Cá Nóc Gai", particleSystem, camera);
           continue;
         }
 
@@ -167,7 +161,7 @@ export class CombatSystem {
               e.y,
               e.colors.primary,
               Math.random() * 4 + 1,
-              3.5
+              3.5,
             );
           }
           const label =
@@ -176,7 +170,7 @@ export class CombatSystem {
             e.x,
             e.y,
             label,
-            this.comboCount > 1 ? "#fee440" : "#00f5d4"
+            this.comboCount > 1 ? "#fee440" : "#00f5d4",
           );
           enemies.splice(i, 1);
         } else {
@@ -194,7 +188,7 @@ export class CombatSystem {
               tailX,
               tailY,
               "🦷 CẮN ĐUÔI!",
-              "#fee440"
+              "#fee440",
             );
             const bounce = Math.atan2(player.y - e.y, player.x - e.x);
             player.x += Math.cos(bounce) * 55;
@@ -206,59 +200,122 @@ export class CombatSystem {
               e.y,
               e.name || "Quái Vật Biển",
               particleSystem,
-              camera
+              camera,
             );
           }
         }
       }
     }
 
-    // 5. Va chạm PvP Người chơi Online
+    // 5. Va chạm PvP Người chơi Online (Hiển thị sát thương, chí mạng & thưởng truy nã)
     Object.entries(remotePlayers).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed) return;
       const dist = Math.hypot(player.x - rp.x, player.y - rp.y);
-      const hitBox = (player.radius + rp.radius) * 0.75;
+      const hitBox = (player.radius + rp.radius) * 0.78;
 
       if (dist < hitBox) {
-        if (player.radius > rp.radius * 1.12 || player.ultTimer > 0) {
-          if (!rp.lastHitTime || time - rp.lastHitTime > 1100) {
+        const canAttack =
+          player.radius >= rp.radius * 0.96 ||
+          player.ultTimer > 0 ||
+          player.dashTimer > 0;
+
+        if (canAttack && !rp.invincibleTimer) {
+          if (!rp.lastHitTime || time - rp.lastHitTime > 850) {
             rp.lastHitTime = time;
+            rp.triggerHurtFlash();
+
+            const isCrit = player.dashTimer > 0 || player.ultTimer > 0;
+            const rawDmg = 30 * player.bitePower * (isCrit ? 1.5 : 1.0);
+            const finalDmg = Math.round(rawDmg);
+
+            // Dự đoán kết liễu đối thủ để cộng thưởng Bounty & PvP Kill
+            const isLethal = rp.hp - finalDmg <= 0;
+            let bonusScore = 100;
+            if (isLethal) {
+              player.bounty = (player.bounty || 0) + 1;
+              storage.data.pvpKills = (storage.data.pvpKills || 0) + 1;
+              if (rp.bounty >= 2) {
+                bonusScore += 250;
+                storage.data.gems += 30;
+                eventBus.emit(
+                  "SHOW_BANNER",
+                  `👑 HẠ GỤC KẺ TRUY NÃ ${rp.name.toUpperCase()} (+30 💎)!`,
+                );
+              }
+              storage.save();
+            }
+
             eventBus.emit("PVP_ATTACK", {
               targetId: id,
-              dmg: 30,
+              dmg: finalDmg,
+              isCrit,
               fromX: player.x,
               fromY: player.y,
               attackerName: player.name,
+              targetX: rp.x,
+              targetY: rp.y,
             });
-            player.addScore(120, worldEvent, selectedMap);
-            sound.playEat(3);
+
+            player.addScore(bonusScore, worldEvent, selectedMap);
+            player.heal(player.lifeSteal + 5);
+            sound.playEat(isCrit ? 4 : 3);
+            camera.shake = isCrit ? 14 : 8;
+
+            const dmgText = isCrit
+              ? `⚡ CHÍ MẠNG -${finalDmg}!`
+              : `💥 -${finalDmg} HP`;
             particleSystem.addFloatingText(
               rp.x,
-              rp.y,
-              `⚔️ CẮN ${rp.name} (+120)`,
-              "#fee440"
+              rp.y - rp.radius - 10,
+              dmgText,
+              isCrit ? "#fee440" : "#ff4d6d",
             );
+            particleSystem.addShockwave(
+              rp.x,
+              rp.y,
+              rp.radius * 2.2,
+              isCrit ? "#fee440" : "#ff4d6d",
+            );
+
+            // Đẩy nhẹ ra để tránh kẹt hitbox
+            const push = Math.atan2(player.y - rp.y, player.x - rp.x);
+            player.x += Math.cos(push) * 35;
+            player.y += Math.sin(push) * 35;
           }
-        } else if (rp.radius > player.radius * 1.12 && !rp.invincibleTimer) {
+        } else if (rp.radius > player.radius * 1.05 && !rp.invincibleTimer) {
+          // Cắn đuôi người chơi lớn hơn
           const tailX = rp.x - Math.cos(rp.angle) * rp.radius * 0.95;
           const tailY = rp.y - Math.sin(rp.angle) * rp.radius * 0.95;
-          if (Math.hypot(player.x - tailX, player.y - tailY) < rp.radius * 0.7) {
-            if (!rp.lastHitTime || time - rp.lastHitTime > 1100) {
+          if (
+            Math.hypot(player.x - tailX, player.y - tailY) <
+            rp.radius * 0.72
+          ) {
+            if (!rp.lastHitTime || time - rp.lastHitTime > 850) {
               rp.lastHitTime = time;
+              rp.triggerHurtFlash();
+              const tailDmg = Math.round(24 * player.bitePower);
+
               eventBus.emit("PVP_ATTACK", {
                 targetId: id,
-                dmg: 22,
+                dmg: tailDmg,
+                isCrit: true,
                 fromX: player.x,
                 fromY: player.y,
                 attackerName: player.name,
+                targetX: rp.x,
+                targetY: rp.y,
               });
+
               meatChunks.push(new MeatChunk(tailX, tailY, 60));
               particleSystem.addFloatingText(
                 tailX,
                 tailY,
-                `🦷 CẮN ĐUÔI ${rp.name}!`,
-                "#fee440"
+                `🦷 CẮN ĐUÔI -${tailDmg}!`,
+                "#fee440",
               );
+              const bounce = Math.atan2(player.y - rp.y, player.x - rp.x);
+              player.x += Math.cos(bounce) * 55;
+              player.y += Math.sin(bounce) * 55;
             }
           } else {
             player.takeDamage(
@@ -267,7 +324,7 @@ export class CombatSystem {
               rp.y,
               `Người chơi ${rp.name}`,
               particleSystem,
-              camera
+              camera,
             );
           }
         }

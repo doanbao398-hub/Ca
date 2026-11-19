@@ -32,16 +32,38 @@ export class RoomSync {
       this.broadcastEmote(emoji);
     });
 
-    eventBus.on("PVP_ATTACK", ({ targetId, dmg, fromX, fromY, attackerName }) => {
-      this.attackRemotePlayer(targetId, dmg, fromX, fromY, attackerName);
-    });
+    eventBus.on(
+      "PVP_ATTACK",
+      ({
+        targetId,
+        dmg,
+        isCrit,
+        fromX,
+        fromY,
+        attackerName,
+        targetX,
+        targetY,
+      }) => {
+        this.attackRemotePlayer(
+          targetId,
+          dmg,
+          isCrit,
+          fromX,
+          fromY,
+          attackerName,
+          targetX,
+          targetY,
+        );
+      },
+    );
   }
 
   joinRoom(roomId, mapId, getPlayerFn, getGameStateFn) {
     this.leaveRoom();
 
     const cleanRoom =
-      (roomId || "PUBLIC").toUpperCase().replace(/[^A-Z0-9_-]/g, "") || "PUBLIC";
+      (roomId || "PUBLIC").toUpperCase().replace(/[^A-Z0-9_-]/g, "") ||
+      "PUBLIC";
     this.currentRoomPath = `ocean_odyssey/rooms/${cleanRoom}_${mapId}`;
     this.myPlayerRef = ref(db, `${this.currentRoomPath}/players/${myPlayerId}`);
 
@@ -105,11 +127,11 @@ export class RoomSync {
 
         eventBus.emit("ONLINE_COUNT_UPDATED", Math.max(1, onlineCount));
       },
-      (error) => console.error("Lỗi đồng bộ Firebase:", error)
+      (error) => console.error("Lỗi đồng bộ Firebase:", error),
     );
     this.unsubscribers.push(unsubPlayers);
 
-    // 2. Lắng nghe đòn đánh trúng mình (kèm kiểm tra timestamp chống hit cũ)
+    // 2. Lắng nghe đòn đánh trúng mình
     const myHitsRef = ref(db, `${this.currentRoomPath}/hits/${myPlayerId}`);
     onDisconnect(myHitsRef).remove();
     const unsubHits = onChildAdded(myHitsRef, (snapshot) => {
@@ -121,7 +143,7 @@ export class RoomSync {
     });
     this.unsubscribers.push(unsubHits);
 
-    // 3. Lắng nghe sóng kỹ năng [E]
+    // 3. Lắng nghe sóng kỹ năng & hiệu ứng sát thương
     const skillsRef = ref(db, `${this.currentRoomPath}/skills`);
     const unsubSkills = onChildAdded(skillsRef, (snapshot) => {
       const sk = snapshot.val();
@@ -132,11 +154,15 @@ export class RoomSync {
       ) {
         return;
       }
-      eventBus.emit("REMOTE_SKILL_EFFECT", sk);
+      if (sk.type === "dmg_popup") {
+        eventBus.emit("REMOTE_DMG_POPUP", sk);
+      } else {
+        eventBus.emit("REMOTE_SKILL_EFFECT", sk);
+      }
     });
     this.unsubscribers.push(unsubSkills);
 
-    // 4. Lắng nghe Emote (đã fix lỗi phát lại emote cũ trước khi vào phòng)
+    // 4. Lắng nghe Emote
     const emotesRef = ref(db, `${this.currentRoomPath}/emotes`);
     const unsubEmotes = onChildAdded(emotesRef, (snapshot) => {
       const em = snapshot.val();
@@ -158,7 +184,6 @@ export class RoomSync {
 
   pushPlayerState(p) {
     if (!this.myPlayerRef || !p) return;
-    // Chuẩn hóa và giới hạn giá trị hợp lệ trước khi gửi lên server
     const safeRadius = Math.min(160, Math.max(10, Math.round(p.radius)));
     update(this.myPlayerRef, {
       name: String(p.name || "Người Chơi").slice(0, 16),
@@ -169,6 +194,9 @@ export class RoomSync {
       species: p.species,
       evoStage: Math.min(4, Math.max(1, p.evoStage)),
       score: Math.max(0, Math.round(p.score)),
+      hp: Math.max(0, Math.ceil(p.hp)),
+      maxHp: Math.max(1, Math.round(p.maxHp)),
+      bounty: p.bounty || 0,
       isStealthed: !!p.isStealthed,
       invincible: p.invincibleTimer > 0,
       ult: p.ultTimer > 0,
@@ -178,9 +206,11 @@ export class RoomSync {
 
   broadcastSkill(x, y, maxR, color) {
     if (!this.currentRoomPath) return;
-    const id = "sk_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+    const id =
+      "sk_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const skRef = ref(db, `${this.currentRoomPath}/skills/${id}`);
     set(skRef, {
+      type: "wave",
       sender: myPlayerId,
       x: Math.round(x),
       y: Math.round(y),
@@ -193,7 +223,8 @@ export class RoomSync {
 
   broadcastEmote(emoji) {
     if (!this.currentRoomPath) return;
-    const id = "em_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+    const id =
+      "em_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const emRef = ref(db, `${this.currentRoomPath}/emotes/${id}`);
     set(emRef, {
       sender: myPlayerId,
@@ -203,17 +234,45 @@ export class RoomSync {
     setTimeout(() => remove(emRef).catch(() => {}), 2500);
   }
 
-  attackRemotePlayer(targetId, dmg, fromX, fromY, attackerName) {
+  attackRemotePlayer(
+    targetId,
+    dmg,
+    isCrit,
+    fromX,
+    fromY,
+    attackerName,
+    targetX,
+    targetY,
+  ) {
     if (!this.currentRoomPath) return;
-    const id = "h_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+    const id =
+      "h_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const hitRef = ref(db, `${this.currentRoomPath}/hits/${targetId}/${id}`);
     set(hitRef, {
-      dmg: Math.min(50, Math.max(1, dmg)),
+      dmg: Math.min(80, Math.max(1, Math.round(dmg))),
+      isCrit: !!isCrit,
       fromX: Math.round(fromX),
       fromY: Math.round(fromY),
       attackerName: String(attackerName || "").slice(0, 16),
       ts: serverTimestamp(),
     }).catch(() => {});
+
+    // Phát popup sát thương để mọi người xung quanh cùng thấy
+    if (typeof targetX === "number" && typeof targetY === "number") {
+      const popId =
+        "dp_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+      const popRef = ref(db, `${this.currentRoomPath}/skills/${popId}`);
+      set(popRef, {
+        type: "dmg_popup",
+        sender: myPlayerId,
+        x: Math.round(targetX),
+        y: Math.round(targetY),
+        dmg: Math.round(dmg),
+        isCrit: !!isCrit,
+        ts: serverTimestamp(),
+      }).catch(() => {});
+      setTimeout(() => remove(popRef).catch(() => {}), 1500);
+    }
   }
 
   leaveRoom() {

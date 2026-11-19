@@ -5,10 +5,32 @@ import { META_SHOP_ITEMS, ROGUELIKE_CARDS } from "../data/upgradesData.js";
 import { storage } from "../core/StorageManager.js";
 import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
+import {
+  loginWithGoogle,
+  loginWithEmail,
+  registerWithEmail,
+  logoutUser,
+} from "../network/FirebaseClient.js";
 
 export class UIManager {
   constructor() {
+    this.isRegisterMode = false;
     this.dom = {
+      authScreen: document.getElementById("auth-screen"),
+      tabLogin: document.getElementById("tab-login"),
+      tabRegister: document.getElementById("tab-register"),
+      registerNameWrap: document.getElementById("register-name-wrap"),
+      authDisplayName: document.getElementById("auth-display-name"),
+      authEmail: document.getElementById("auth-email"),
+      authPassword: document.getElementById("auth-password"),
+      authErrorMsg: document.getElementById("auth-error-msg"),
+      authForm: document.getElementById("auth-form"),
+      btnAuthSubmit: document.getElementById("btn-auth-submit"),
+      btnGoogleLogin: document.getElementById("btn-google-login"),
+      btnLogout: document.getElementById("btn-logout"),
+      userAccountBadge: document.getElementById("user-account-badge"),
+      globalLeaderboardList: document.getElementById("global-leaderboard-list"),
+
       metaGems: document.getElementById("meta-gems"),
       metaHighscore: document.getElementById("meta-highscore"),
       metaBosskills: document.getElementById("meta-bosskills"),
@@ -47,21 +69,144 @@ export class UIManager {
     };
 
     this.bannerTimeout = null;
+    this.bindAuthUI();
     this.bindEvents();
     this.updateLobbyMetaUI();
   }
 
+  bindAuthUI() {
+    this.dom.tabLogin.addEventListener("click", () => {
+      this.isRegisterMode = false;
+      this.dom.tabLogin.classList.add("active");
+      this.dom.tabRegister.classList.remove("active");
+      this.dom.registerNameWrap.classList.add("hidden");
+      this.dom.btnAuthSubmit.innerText = "ĐĂNG NHẬP VÀO GAME";
+      this.dom.authErrorMsg.innerText = "";
+    });
+
+    this.dom.tabRegister.addEventListener("click", () => {
+      this.isRegisterMode = true;
+      this.dom.tabRegister.classList.add("active");
+      this.dom.tabLogin.classList.remove("active");
+      this.dom.registerNameWrap.classList.remove("hidden");
+      this.dom.btnAuthSubmit.innerText = "TẠO TÀI KHOẢN & CHƠI";
+      this.dom.authErrorMsg.innerText = "";
+    });
+
+    this.dom.authForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = this.dom.authEmail.value.trim();
+      const pass = this.dom.authPassword.value;
+      const displayName = this.dom.authDisplayName.value.trim();
+
+      this.dom.authErrorMsg.innerText = "";
+      this.dom.btnAuthSubmit.disabled = true;
+      this.dom.btnAuthSubmit.innerText = "⏳ Đang xử lý...";
+
+      try {
+        if (this.isRegisterMode) {
+          await registerWithEmail(email, pass, displayName);
+        } else {
+          await loginWithEmail(email, pass);
+        }
+      } catch (err) {
+        this.dom.authErrorMsg.innerText = this.formatAuthError(err.code);
+      } finally {
+        this.dom.btnAuthSubmit.disabled = false;
+        this.dom.btnAuthSubmit.innerText = this.isRegisterMode
+          ? "TẠO TÀI KHOẢN & CHƠI"
+          : "ĐĂNG NHẬP VÀO GAME";
+      }
+    });
+
+    this.dom.btnGoogleLogin.addEventListener("click", async () => {
+      this.dom.authErrorMsg.innerText = "";
+      try {
+        await loginWithGoogle();
+      } catch (err) {
+        this.dom.authErrorMsg.innerText = this.formatAuthError(err.code);
+      }
+    });
+
+    this.dom.btnLogout.addEventListener("click", async () => {
+      if (confirm("Bạn muốn đăng xuất khỏi tài khoản hiện tại?")) {
+        await logoutUser();
+      }
+    });
+  }
+
+  formatAuthError(code) {
+    switch (code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        return "❌ Email hoặc mật khẩu không chính xác!";
+      case "auth/email-already-in-use":
+        return "❌ Email này đã được đăng ký tài khoản khác!";
+      case "auth/weak-password":
+        return "❌ Mật khẩu phải có ít nhất 6 ký tự!";
+      case "auth/popup-closed-by-user":
+        return "⚠️ Bạn đã đóng cửa sổ đăng nhập Google.";
+      default:
+        return `❌ Lỗi xác thực (${code || "Không xác định"}).`;
+    }
+  }
+
   bindEvents() {
+    eventBus.on("AUTH_STATE_CHANGED", (user) => {
+      if (user) {
+        // Đã đăng nhập -> Ẩn Auth Screen, mở Lobby Screen
+        this.dom.authScreen.classList.add("hidden");
+        this.dom.lobbyScreen.classList.remove("hidden");
+
+        const accName =
+          user.displayName ||
+          (user.email ? user.email.split("@")[0] : "Thủy Quái");
+        this.dom.userAccountBadge.innerText = `👤 ${accName}`;
+
+        const nameInput = document.getElementById("player-name-input");
+        if (nameInput && nameInput.value === "Thủy Quái Chúa") {
+          nameInput.value = accName.slice(0, 16);
+        }
+      } else {
+        // Chưa đăng nhập -> Bắt buộc hiện Auth Screen, ẩn Lobby
+        this.dom.authScreen.classList.remove("hidden");
+        this.dom.lobbyScreen.classList.add("hidden");
+        this.dom.gameoverScreen.classList.add("hidden");
+        this.dom.pauseScreen.classList.add("hidden");
+      }
+    });
+
     eventBus.on("SAVE_UPDATED", () => this.updateLobbyMetaUI());
+
+    eventBus.on("GLOBAL_LB_UPDATED", (list) => {
+      if (!this.dom.globalLeaderboardList) return;
+      if (!list.length) {
+        this.dom.globalLeaderboardList.innerHTML =
+          '<div style="font-size:11px; color:#90e0ef;">Chưa có kỷ lục nào.</div>';
+        return;
+      }
+      this.dom.globalLeaderboardList.innerHTML = list
+        .map(
+          (item, i) => `
+          <div class="global-lb-row">
+            <span style="color:${i === 0 ? "#fee440" : "#fff"}; font-weight:700;">
+              ${i === 0 ? "👑" : `#${i + 1}`} ${item.name}
+            </span>
+            <span style="color:#00f5d4; font-weight:800;">${item.highScore} XP</span>
+          </div>
+        `,
+        )
+        .join("");
+    });
 
     eventBus.on("FIREBASE_CONNECTION_CHANGED", (isConnected) => {
       if (!this.dom.firebaseBadge) return;
       if (isConnected) {
-        this.dom.firebaseBadge.innerText = "🟢 Đã kết nối máy chủ Online";
+        this.dom.firebaseBadge.innerText = "🟢 Máy chủ Online";
         this.dom.firebaseBadge.style.color = "#06d6a0";
       } else {
-        this.dom.firebaseBadge.innerText =
-          "🔴 Mất kết nối máy chủ (Kiểm tra mạng/Rules)";
+        this.dom.firebaseBadge.innerText = "🔴 Mất kết nối";
         this.dom.firebaseBadge.style.color = "#ff4d6d";
       }
     });
@@ -116,7 +261,9 @@ export class UIManager {
         if (res.ok) {
           sound.playEvolution();
         } else if (res.reason === "NO_GEMS") {
-          alert("Bạn chưa đủ Ngọc Huyền Bí! Hãy chơi và săn mồi để tích lũy thêm.");
+          alert(
+            "Bạn chưa đủ Ngọc Huyền Bí! Hãy chơi và săn mồi để tích lũy thêm.",
+          );
         }
       });
     });
@@ -142,7 +289,7 @@ export class UIManager {
     this.dom.hudScore.innerText = player.score;
     this.dom.growthBar.style.width = `${Math.min(
       100,
-      (player.xp / player.xpNext) * 100
+      (player.xp / player.xpNext) * 100,
     )}%`;
 
     this.dom.hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
@@ -265,7 +412,7 @@ export class UIManager {
         <span>#${idx + 1} ${item.name}</span>
         <span>${item.score}</span>
       </div>
-    `
+    `,
       )
       .join("");
   }
@@ -283,7 +430,7 @@ export class UIManager {
         <div style="font-size: 15px; font-weight: 800; color: #fee440; margin-bottom: 4px;">${card.title}</div>
         <div style="font-size: 12px; color: #caf0f8; line-height: 1.35;">${card.desc}</div>
       </div>
-    `
+    `,
       )
       .join("");
 
@@ -299,7 +446,7 @@ export class UIManager {
               player.x,
               player.y - player.radius - 25,
               `✨ ${card.title.toUpperCase()}!`,
-              "#fee440"
+              "#fee440",
             );
           }
           this.dom.upgradeScreen.classList.add("hidden");

@@ -8,13 +8,16 @@ export class RemotePlayer extends Creature {
       data.radius || 22,
       data.species || "fish",
       data.name || "Người Chơi",
-      false
+      false,
     );
     this.id = id;
     this.isRemoteHuman = true;
     this.targetX = this.x;
     this.targetY = this.y;
     this.score = data.score || 0;
+    this.hp = data.hp ?? 100;
+    this.maxHp = data.maxHp ?? 100;
+    this.bounty = data.bounty || 0;
     this.lastHitTime = 0;
     this.syncFromNetwork(data);
   }
@@ -27,16 +30,26 @@ export class RemotePlayer extends Creature {
     this.radius = data.radius || this.radius;
     this.species = data.species || this.species;
     this.score = data.score ?? this.score;
+    if (typeof data.hp === "number") this.hp = data.hp;
+    if (typeof data.maxHp === "number") this.maxHp = data.maxHp;
+    this.bounty = data.bounty || 0;
     this.isStealthed = !!data.isStealthed;
     this.invincibleTimer = data.invincible ? 1 : 0;
     this.ultTimer = data.ult ? 1 : 0;
     this.applyEvoAppearance(data.evoStage || 1);
   }
 
+  triggerHurtFlash() {
+    this.hurtTimer = 0.35;
+  }
+
   update(dt) {
     this.x += (this.targetX - this.x) * 0.22;
     this.y += (this.targetY - this.y) * 0.22;
     this.animPhase += 0.18;
+    if (this.hurtTimer > 0) {
+      this.hurtTimer = Math.max(0, this.hurtTimer - dt);
+    }
     if (this.emoteTimer > 0) {
       this.emoteTimer = Math.max(0, this.emoteTimer - dt);
     }

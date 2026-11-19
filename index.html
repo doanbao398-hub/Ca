@@ -75,7 +75,7 @@
           <!-- Bảng Xếp Hạng Online Trực Tiếp -->
           <div class="panel-glass leaderboard-panel">
             <div class="quest-title" style="margin-bottom: 4px; color: #00f5d4">
-              <span>🏆 Top Online</span>
+              <span>🏆 Top Phòng</span>
               <span id="hud-time" style="color: #fff; font-size: 10px"
                 >00:00</span
               >
@@ -114,7 +114,9 @@
             class="panel-glass desktop-stamina-box"
             style="text-align: center; padding: 8px 12px"
           >
-            <div class="stat-label" id="stamina-label">Giữ Chuột / Space: Bơi Nhanh</div>
+            <div class="stat-label" id="stamina-label">
+              Giữ Chuột / Space: Bơi Nhanh
+            </div>
             <div class="bar-wrap" style="width: 140px">
               <div id="stamina-bar"></div>
             </div>
@@ -164,6 +166,64 @@
       </div>
     </div>
 
+    <!-- MÀN HÌNH ĐĂNG NHẬP / ĐĂNG KÝ BẮT BUỘC -->
+    <div id="auth-screen" class="modal-screen">
+      <div class="lobby-container auth-box">
+        <div class="lobby-header">
+          <h1>🌊 OCEAN ODYSSEY ONLINE</h1>
+          <p>
+            Đăng nhập tài khoản để đồng bộ tiến trình, ngọc và bảng xếp hạng
+          </p>
+        </div>
+
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="tab-login">ĐĂNG NHẬP</button>
+          <button class="auth-tab" id="tab-register">ĐĂNG KÝ MỚI</button>
+        </div>
+
+        <form id="auth-form" class="auth-form">
+          <div id="register-name-wrap" class="hidden">
+            <input
+              type="text"
+              id="auth-display-name"
+              class="lobby-input auth-input"
+              placeholder="Tên nhân vật của bạn (VD: Thủy Quái)..."
+              maxlength="16"
+            />
+          </div>
+          <input
+            type="email"
+            id="auth-email"
+            class="lobby-input auth-input"
+            placeholder="Nhập địa chỉ Email..."
+            required
+          />
+          <input
+            type="password"
+            id="auth-password"
+            class="lobby-input auth-input"
+            placeholder="Nhập mật khẩu (tối thiểu 6 ký tự)..."
+            minlength="6"
+            required
+          />
+          <div id="auth-error-msg" class="auth-error"></div>
+          <button
+            type="submit"
+            class="btn-play auth-submit-btn"
+            id="btn-auth-submit"
+          >
+            ĐĂNG NHẬP VÀO GAME
+          </button>
+        </form>
+
+        <div class="auth-divider"><span>HOẶC</span></div>
+
+        <button type="button" class="btn-google" id="btn-google-login">
+          <span>🌐</span> Tiếp tục nhanh với Tài Khoản Google
+        </button>
+      </div>
+    </div>
+
     <!-- MODAL CHỌN THẺ NÂNG CẤP -->
     <div id="upgrade-screen" class="modal-screen hidden">
       <div class="lobby-container" style="width: 720px; text-align: center">
@@ -189,7 +249,7 @@
     </div>
 
     <!-- LOBBY CHỌN LOÀI, PHÒNG ONLINE & CỬA HÀNG -->
-    <div id="lobby-screen" class="modal-screen">
+    <div id="lobby-screen" class="modal-screen hidden">
       <div class="lobby-container">
         <div class="lobby-header">
           <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
@@ -200,6 +260,12 @@
         </div>
 
         <div class="meta-bar">
+          <span
+            id="user-account-badge"
+            style="color: #00f5d4; font-weight: 800"
+          >
+            👤 Đang tải tài khoản...
+          </span>
           <span>💎 Ngọc: <b id="meta-gems" style="color: #fee440">0</b></span>
           <span
             >🏆 Kỷ Lục:
@@ -212,8 +278,15 @@
           <span
             id="firebase-status-badge"
             style="color: #fee440; font-weight: 800"
-            >🟡 Đang kiểm tra kết nối máy chủ...</span
+            >🟡 Đang kiểm tra kết nối...</span
           >
+          <button
+            class="btn-hud"
+            id="btn-logout"
+            style="border-color: #ff4d6d; color: #ff758f"
+          >
+            🚪 Đăng Xuất
+          </button>
         </div>
 
         <div class="input-row">
@@ -313,9 +386,21 @@
           </div>
         </div>
 
-        <div>
-          <div class="section-label">3. Cửa Hàng Đột Biến Vĩnh Viễn</div>
-          <div class="shop-grid" id="meta-shop-grid"></div>
+        <div class="lobby-bottom-split">
+          <div>
+            <div class="section-label">3. Cửa Hàng Đột Biến Vĩnh Viễn</div>
+            <div class="shop-grid" id="meta-shop-grid"></div>
+          </div>
+          <div>
+            <div class="section-label">
+              👑 Bảng Vàng Đại Dương (Toàn Server)
+            </div>
+            <div class="global-lb-box" id="global-leaderboard-list">
+              <div style="font-size: 11px; color: #90e0ef">
+                Đang tải dữ liệu...
+              </div>
+            </div>
+          </div>
         </div>
 
         <button class="btn-play" id="start-btn">VÀO PHÒNG CHƠI ONLINE</button>
