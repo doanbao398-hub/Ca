@@ -3,6 +3,7 @@ import { createInitialQuests } from "./data/questsData.js";
 import { eventBus } from "./core/EventBus.js";
 import { storage } from "./core/StorageManager.js";
 import { sound } from "./core/SoundSystem.js";
+import { settings } from "./core/SettingsManager.js";
 import { Camera } from "./core/Camera.js";
 import { InputManager } from "./core/InputManager.js";
 import { WorldRenderer } from "./graphics/WorldRenderer.js";
@@ -17,6 +18,7 @@ import { BossLeviathan } from "./entities/BossLeviathan.js";
 import { Pearl } from "./entities/Pickups.js";
 import { triggerPlayerSkill } from "./systems/SkillSystem.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
+import { PassiveAndAugmentSystem } from "./systems/PassiveAndAugmentSystem.js";
 import { RoomSync } from "./network/RoomSync.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AdminPanel } from "./ui/AdminPanel.js";
@@ -38,9 +40,12 @@ const input = new InputManager(canvas);
 const worldRenderer = new WorldRenderer();
 const particleSystem = new ParticleSystem();
 const combatSystem = new CombatSystem();
+const passiveAndAugmentSystem = new PassiveAndAugmentSystem();
 const roomSync = new RoomSync();
 const ui = new UIManager();
 const adminPanel = new AdminPanel(() => player, particleSystem, camera);
+
+settings.applyToDOM();
 
 let gameState = "AUTH";
 let selectedSpecies = "fish";
@@ -177,6 +182,7 @@ function startGame() {
   meatChunks = [];
   particleSystem.clear();
   combatSystem.reset();
+  passiveAndAugmentSystem.clear();
 
   quests = createInitialQuests();
   if (savedRun && Array.isArray(savedRun.quests)) {
@@ -225,7 +231,10 @@ function triggerGameOver(killerName = "") {
 function togglePause() {
   if (gameState === "PLAYING") {
     gameState = "PAUSED";
-    if (player) storage.saveSpeciesRun(player, quests);
+    if (player) {
+      storage.saveSpeciesRun(player, quests);
+      ui.renderPauseBuildDetails(player);
+    }
     ui.dom.pauseScreen.classList.remove("hidden");
   } else if (gameState === "PAUSED") {
     gameState = "PLAYING";
@@ -251,8 +260,21 @@ eventBus.on("PLAYER_DIED", (killerName) => {
   triggerGameOver(killerName);
 });
 
+// TIẾN HÓA MỖI DẠNG: Kích hoạt Nội Tại ở Dạng 2, 4, 6, 8 + Mở chọn Lõi Siêu Cấp
 eventBus.on("PLAYER_EVOLVED", ({ stage }) => {
-  if (player) storage.saveSpeciesRun(player, quests);
+  if (player) {
+    storage.saveSpeciesRun(player, quests);
+    ui.renderAugmentAndPassiveHUD(player);
+
+    if ([2, 4, 6, 8].includes(stage) && gameState === "PLAYING") {
+      gameState = "UPGRADE";
+      ui.enqueueAugment("super", player, particleSystem, () => {
+        if (player) storage.saveSpeciesRun(player, quests);
+        if (gameState === "UPGRADE") gameState = "PLAYING";
+      });
+    }
+  }
+
   if (stage >= 3 && !bossSpawned) {
     bossSpawned = true;
     boss = new BossLeviathan(player ? player.radius : 60);
@@ -271,14 +293,14 @@ eventBus.on("ADMIN_SPAWN_BOSS", () => {
   camera.shake = 22;
 });
 
+// MỖI 2 CẤP ĐỘ: Mở chọn 1 Lõi Thường cộng dồn chỉ số
 eventBus.on("PLAYER_LEVEL_UP", (level) => {
   if (player) storage.saveSpeciesRun(player, quests);
-  // Mở thẻ nâng cấp mỗi 2 cấp (hoặc 10 cấp đầu tiên) để nhịp chơi mượt và kịch tính
-  if (level <= 10 || level % 2 === 0) {
+  if (level % 2 === 0 && player && gameState !== "GAMEOVER") {
     gameState = "UPGRADE";
-    ui.openUpgradeModal(player, particleSystem, () => {
+    ui.enqueueAugment("common", player, particleSystem, () => {
       if (player) storage.saveSpeciesRun(player, quests);
-      gameState = "PLAYING";
+      if (gameState === "UPGRADE") gameState = "PLAYING";
     });
   }
 });
@@ -495,6 +517,16 @@ function gameLoop(time) {
       zoneRadius,
       particleSystem,
     });
+    passiveAndAugmentSystem.update(dt, {
+      player,
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      boss,
+      pearls,
+      particleSystem,
+      camera,
+      input,
+    });
     camera.follow(player, width, height, selectedMap);
     ui.updateHUD(player, survivalTime);
   }
@@ -518,6 +550,8 @@ function gameLoop(time) {
     time,
     dt,
   );
+
+  passiveAndAugmentSystem.drawWorldEffects(ctx);
 
   if (Math.random() < 0.25) {
     particleSystem.addParticle(

@@ -1,5 +1,6 @@
 import { eventBus } from "./EventBus.js";
 import { sound } from "./SoundSystem.js";
+import { settings } from "./SettingsManager.js";
 
 export class InputManager {
   constructor(canvas) {
@@ -10,7 +11,6 @@ export class InputManager {
     this.isSpaceDown = false;
     this.isTouchBoost = false;
 
-    // Trạng thái cần gạt cảm ứng Mobile
     this.joystick = {
       active: false,
       touchId: null,
@@ -26,7 +26,22 @@ export class InputManager {
     return this.isMouseDown || this.isSpaceDown || this.isTouchBoost;
   }
 
+  get isClickMoveMode() {
+    return (
+      !settings.isMobileDevice || settings.data.mobileControlMode === "click"
+    );
+  }
+
   bindEvents() {
+    this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+    this.canvas.addEventListener("dragstart", (e) => e.preventDefault());
+
+    window.addEventListener("blur", () => {
+      this.isMouseDown = false;
+      this.isSpaceDown = false;
+      this.isTouchBoost = false;
+    });
+
     window.addEventListener("mousemove", (e) => {
       if (this.joystick.active) return;
       this.x = e.clientX;
@@ -35,6 +50,7 @@ export class InputManager {
 
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
+        e.preventDefault();
         this.isMouseDown = true;
         sound.resume();
       }
@@ -70,14 +86,13 @@ export class InputManager {
       if (e.code === "Space") this.isSpaceDown = false;
     });
 
-    // Thiết lập Cần Gạt Ảo (Virtual Joystick) cho thiết bị cảm ứng
     this.bindVirtualJoystick();
 
-    // Vẫn hỗ trợ chạm trực tiếp vào Canvas nếu người dùng không dùng Joystick
+    // Chỉ nhận chạm trên Canvas để điều hướng khi Mobile đang ở chế độ "click"
     this.canvas.addEventListener(
       "touchstart",
       (e) => {
-        if (this.joystick.active) return;
+        if (!this.isClickMoveMode || this.joystick.active) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
         this.x = touch.clientX;
@@ -90,7 +105,7 @@ export class InputManager {
     this.canvas.addEventListener(
       "touchmove",
       (e) => {
-        if (this.joystick.active) return;
+        if (!this.isClickMoveMode || this.joystick.active) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
         this.x = touch.clientX;

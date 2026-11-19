@@ -1,548 +1,808 @@
-import { WORLD_SIZE } from "../data/mapsConfig.js";
-import { EVOLUTION_FORMS, MAX_PLAYER_LEVEL } from "../data/evolutionTrees.js";
-import { SPECIES_CONFIG } from "../data/speciesConfig.js";
-import { META_SHOP_ITEMS, ROGUELIKE_CARDS } from "../data/upgradesData.js";
+import { eventBus } from "../core/EventBus.js";
 import { storage } from "../core/StorageManager.js";
 import { sound } from "../core/SoundSystem.js";
-import { eventBus } from "../core/EventBus.js";
+import { settings } from "../core/SettingsManager.js";
+import { SPECIES_CONFIG } from "../data/speciesConfig.js";
+import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
+import { META_SHOP_ITEMS } from "../data/upgradesData.js";
+import {
+  COMMON_AUGMENTS,
+  SUPER_AUGMENTS,
+  MAX_SUPER_AUGMENTS,
+  SYNERGY_TIERS,
+} from "../data/augmentsData.js";
+import {
+  SPECIES_EVOLUTION_PASSIVES,
+  getUnlockedPassives,
+} from "../data/speciesPassivesData.js";
 import {
   loginWithGoogle,
   loginWithEmail,
   registerWithEmail,
   logoutUser,
+  myPlayerId,
 } from "../network/FirebaseClient.js";
 
 export class UIManager {
   constructor() {
-    this.isRegisterMode = false;
-    this.unreadChatCount = 0;
-
     this.dom = {
       authScreen: document.getElementById("auth-screen"),
-      tabLogin: document.getElementById("tab-login"),
-      tabRegister: document.getElementById("tab-register"),
-      registerNameWrap: document.getElementById("register-name-wrap"),
-      authDisplayName: document.getElementById("auth-display-name"),
-      authEmail: document.getElementById("auth-email"),
-      authPassword: document.getElementById("auth-password"),
-      authErrorMsg: document.getElementById("auth-error-msg"),
-      authForm: document.getElementById("auth-form"),
-      btnAuthSubmit: document.getElementById("btn-auth-submit"),
-      btnGoogleLogin: document.getElementById("btn-google-login"),
-      btnLogout: document.getElementById("btn-logout"),
-      userAccountBadge: document.getElementById("user-account-badge"),
-      globalLeaderboardList: document.getElementById("global-leaderboard-list"),
-
-      metaGems: document.getElementById("meta-gems"),
-      metaHighscore: document.getElementById("meta-highscore"),
-      metaBosskills: document.getElementById("meta-bosskills"),
-      metaShopGrid: document.getElementById("meta-shop-grid"),
-      firebaseBadge: document.getElementById("firebase-status-badge"),
-      hudOnlineCount: document.getElementById("hud-online-count"),
-      hudSpecies: document.getElementById("hud-species"),
-      hudSkillName: document.getElementById("hud-skill-name"),
-      hudEvoStage: document.getElementById("hud-evo-stage"),
-      hudRoomTag: document.getElementById("hud-room-tag"),
-      evoCounter: document.getElementById("evo-counter"),
-      hudScore: document.getElementById("hud-score"),
-      hudLevel: document.getElementById("hud-level"),
-      growthBar: document.getElementById("growth-bar"),
-      hpBar: document.getElementById("hp-bar"),
-      hudHpText: document.getElementById("hud-hp-text"),
-      staminaBar: document.getElementById("stamina-bar"),
-      staminaLabel: document.getElementById("stamina-label"),
-      mobileBoostBtn: document.getElementById("mobile-boost-btn"),
-      hudZone: document.getElementById("hud-zone"),
-      hudTime: document.getElementById("hud-time"),
-      skillBox: document.getElementById("skill-box"),
-      hudSkillStatus: document.getElementById("hud-skill-status"),
-      ultBox: document.getElementById("ult-box"),
-      hudUltStatus: document.getElementById("hud-ult-status"),
-      questList: document.getElementById("quest-list"),
-      leaderboardList: document.getElementById("leaderboard-list"),
-      eventBanner: document.getElementById("event-banner"),
       lobbyScreen: document.getElementById("lobby-screen"),
-      gameoverScreen: document.getElementById("gameover-screen"),
-      pauseScreen: document.getElementById("pause-screen"),
       upgradeScreen: document.getElementById("upgrade-screen"),
-      upgradeCardsContainer: document.getElementById("upgrade-cards-container"),
-      gameoverTitleBadge: document.getElementById("gameover-title-badge"),
-      gameoverStats: document.getElementById("gameover-stats"),
-
-      // Chat DOM
-      chatMessages: document.getElementById("chat-messages"),
-      chatForm: document.getElementById("chat-form"),
-      chatInput: document.getElementById("chat-input"),
-      btnToggleChat: document.getElementById("btn-toggle-chat"),
-      btnCloseChat: document.getElementById("btn-close-chat"),
-      chatBox: document.getElementById("chat-box"),
-      chatUnreadBadge: document.getElementById("chat-unread-badge"),
+      pauseScreen: document.getElementById("pause-screen"),
+      gameoverScreen: document.getElementById("gameover-screen"),
+      settingsScreen: document.getElementById("settings-screen"),
     };
 
-    this.bannerTimeout = null;
-    this.bindAuthUI();
-    this.bindChatUI();
-    this.bindOrientationUI();
-    this.bindEvents();
-    this.updateLobbyMetaUI();
-  }
-
-  bindOrientationUI() {
-    const dismissBtn = document.getElementById("btn-dismiss-rotate");
-    const overlay = document.getElementById("rotate-device-overlay");
-    if (dismissBtn && overlay) {
-      dismissBtn.addEventListener("click", () => {
-        overlay.dataset.dismissed = "true";
-        overlay.style.display = "none";
-      });
-    }
-  }
-
-  updateUnreadBadge() {
-    if (!this.dom.chatUnreadBadge || !this.dom.btnToggleChat) return;
-    if (this.unreadChatCount > 0) {
-      this.dom.chatUnreadBadge.innerText =
-        this.unreadChatCount > 9 ? "9+" : String(this.unreadChatCount);
-      this.dom.chatUnreadBadge.classList.remove("hidden");
-      this.dom.btnToggleChat.classList.add("has-unread");
-    } else {
-      this.dom.chatUnreadBadge.classList.add("hidden");
-      this.dom.btnToggleChat.classList.remove("has-unread");
-    }
-  }
-
-  openChatPanel(focusInput = false) {
-    if (!this.dom.chatBox) return;
-    this.dom.chatBox.classList.remove("collapsed");
+    this.isRegisterMode = false;
     this.unreadChatCount = 0;
-    this.updateUnreadBadge();
-    if (this.dom.chatMessages) {
-      this.dom.chatMessages.scrollTop = this.dom.chatMessages.scrollHeight;
-    }
-    if (focusInput && this.dom.chatInput) {
-      this.dom.chatInput.focus();
-    }
+    this.currentSettingsTab = "general";
+
+    this.augmentQueue = [];
+    this.isAugmentChoosing = false;
+    this.currentAugmentType = null;
+    this.currentAugmentPlayer = null;
+    this.superRerollLeft = 0;
+    this.onAllAugmentsDone = null;
+
+    this.bindAuthEvents();
+    this.bindChatAndMobileEvents();
+    this.bindSettingsEvents();
+    this.bindBusEvents();
+    this.renderMetaShop();
   }
 
-  closeChatPanel() {
-    if (!this.dom.chatBox) return;
-    this.dom.chatBox.classList.add("collapsed");
-    this.dom.chatInput?.blur();
-  }
+  bindAuthEvents() {
+    const tabLogin = document.getElementById("tab-login");
+    const tabRegister = document.getElementById("tab-register");
+    const nameWrap = document.getElementById("register-name-wrap");
+    const submitBtn = document.getElementById("btn-auth-submit");
+    const errorEl = document.getElementById("auth-error-msg");
 
-  bindChatUI() {
-    if (this.dom.chatForm && this.dom.chatInput) {
-      this.dom.chatForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const text = this.dom.chatInput.value.trim();
-        if (text) {
-          eventBus.emit("SEND_CHAT_MESSAGE", text);
-          this.dom.chatInput.value = "";
-        }
-        this.dom.chatInput.blur();
-      });
-
-      this.dom.chatInput.addEventListener("keydown", (e) => {
-        e.stopPropagation();
-        if (e.code === "Escape") {
-          this.closeChatPanel();
-        }
-      });
-    }
-
-    if (this.dom.btnToggleChat && this.dom.chatBox) {
-      this.dom.btnToggleChat.addEventListener("click", () => {
-        const isCollapsed = this.dom.chatBox.classList.contains("collapsed");
-        if (isCollapsed) {
-          this.openChatPanel(false);
-        } else {
-          this.closeChatPanel();
-        }
-      });
-    }
-
-    if (this.dom.btnCloseChat) {
-      this.dom.btnCloseChat.addEventListener("click", () => {
-        this.closeChatPanel();
-      });
-    }
-
-    eventBus.on("FOCUS_CHAT", () => {
-      this.openChatPanel(true);
-    });
-
-    eventBus.on("CHAT_MESSAGE_RECEIVED", ({ senderName, text, isMe }) => {
-      if (!this.dom.chatMessages) return;
-      const row = document.createElement("div");
-      row.className = "chat-msg-row";
-      row.innerHTML = `<b style="color:${isMe ? "#00f5d4" : "#fee440"};">${this.escapeHtml(senderName)}:</b> <span>${this.escapeHtml(text)}</span>`;
-      this.dom.chatMessages.appendChild(row);
-      while (this.dom.chatMessages.children.length > 40) {
-        this.dom.chatMessages.removeChild(this.dom.chatMessages.firstChild);
-      }
-      this.dom.chatMessages.scrollTop = this.dom.chatMessages.scrollHeight;
-
-      // Nếu khung chat đang đóng và tin nhắn đến từ người chơi khác -> tăng số đếm trên icon
-      const isClosed = this.dom.chatBox?.classList.contains("collapsed");
-      if (isClosed && !isMe) {
-        this.unreadChatCount++;
-        this.updateUnreadBadge();
-      }
-    });
-  }
-
-  escapeHtml(str) {
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  }
-
-  bindAuthUI() {
-    this.dom.tabLogin.addEventListener("click", () => {
+    tabLogin?.addEventListener("click", () => {
       this.isRegisterMode = false;
-      this.dom.tabLogin.classList.add("active");
-      this.dom.tabRegister.classList.remove("active");
-      this.dom.registerNameWrap.classList.add("hidden");
-      this.dom.btnAuthSubmit.innerText = "ĐĂNG NHẬP VÀO GAME";
-      this.dom.authErrorMsg.innerText = "";
+      tabLogin.classList.add("active");
+      tabRegister?.classList.remove("active");
+      nameWrap?.classList.add("hidden");
+      if (submitBtn) submitBtn.textContent = "ĐĂNG NHẬP VÀO GAME";
+      if (errorEl) errorEl.textContent = "";
     });
 
-    this.dom.tabRegister.addEventListener("click", () => {
+    tabRegister?.addEventListener("click", () => {
       this.isRegisterMode = true;
-      this.dom.tabRegister.classList.add("active");
-      this.dom.tabLogin.classList.remove("active");
-      this.dom.registerNameWrap.classList.remove("hidden");
-      this.dom.btnAuthSubmit.innerText = "TẠO TÀI KHOẢN & CHƠI";
-      this.dom.authErrorMsg.innerText = "";
+      tabRegister.classList.add("active");
+      tabLogin?.classList.remove("active");
+      nameWrap?.classList.remove("hidden");
+      if (submitBtn) submitBtn.textContent = "TẠO TÀI KHOẢN MỚI";
+      if (errorEl) errorEl.textContent = "";
     });
 
-    this.dom.authForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const email = this.dom.authEmail.value.trim();
-      const pass = this.dom.authPassword.value;
-      const displayName = this.dom.authDisplayName.value.trim();
+    document
+      .getElementById("auth-form")
+      ?.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (errorEl) errorEl.textContent = "";
+        const email = document.getElementById("auth-email").value.trim();
+        const pass = document.getElementById("auth-password").value;
+        const dispName = document
+          .getElementById("auth-display-name")
+          .value.trim();
 
-      this.dom.authErrorMsg.innerText = "";
-      this.dom.btnAuthSubmit.disabled = true;
-      this.dom.btnAuthSubmit.innerText = "⏳ Đang xử lý...";
-
-      try {
-        if (this.isRegisterMode) {
-          await registerWithEmail(email, pass, displayName);
-        } else {
-          await loginWithEmail(email, pass);
+        try {
+          if (this.isRegisterMode) {
+            await registerWithEmail(email, pass, dispName);
+          } else {
+            await loginWithEmail(email, pass);
+          }
+        } catch (err) {
+          if (errorEl)
+            errorEl.textContent = "❌ " + (err.message || "Lỗi xác thực!");
         }
-      } catch (err) {
-        this.dom.authErrorMsg.innerText = this.formatAuthError(err.code);
-      } finally {
-        this.dom.btnAuthSubmit.disabled = false;
-        this.dom.btnAuthSubmit.innerText = this.isRegisterMode
-          ? "TẠO TÀI KHOẢN & CHƠI"
-          : "ĐĂNG NHẬP VÀO GAME";
-      }
-    });
+      });
 
-    this.dom.btnGoogleLogin.addEventListener("click", async () => {
-      this.dom.authErrorMsg.innerText = "";
-      try {
-        await loginWithGoogle();
-      } catch (err) {
-        this.dom.authErrorMsg.innerText = this.formatAuthError(err.code);
-      }
-    });
+    document
+      .getElementById("btn-google-login")
+      ?.addEventListener("click", async () => {
+        if (errorEl) errorEl.textContent = "";
+        try {
+          await loginWithGoogle();
+        } catch (err) {
+          if (errorEl)
+            errorEl.textContent =
+              "❌ " + (err.message || "Không thể đăng nhập Google!");
+        }
+      });
 
-    this.dom.btnLogout.addEventListener("click", async () => {
-      if (confirm("Bạn muốn đăng xuất khỏi tài khoản hiện tại?")) {
-        await logoutUser();
-      }
+    document.getElementById("btn-logout")?.addEventListener("click", () => {
+      logoutUser().catch(() => {});
     });
   }
 
-  formatAuthError(code) {
-    switch (code) {
-      case "auth/invalid-credential":
-      case "auth/wrong-password":
-      case "auth/user-not-found":
-        return "❌ Email hoặc mật khẩu không chính xác!";
-      case "auth/email-already-in-use":
-        return "❌ Email này đã được đăng ký tài khoản khác!";
-      case "auth/weak-password":
-        return "❌ Mật khẩu phải có ít nhất 6 ký tự!";
-      case "auth/popup-closed-by-user":
-        return "⚠️ Bạn đã đóng cửa sổ đăng nhập Google.";
-      default:
-        return `❌ Lỗi xác thực (${code || "Không xác định"}).`;
+  bindChatAndMobileEvents() {
+    document
+      .getElementById("btn-dismiss-rotate")
+      ?.addEventListener("click", () => {
+        document
+          .getElementById("rotate-device-overlay")
+          ?.setAttribute("data-dismissed", "true");
+      });
+
+    const chatBox = document.getElementById("chat-box");
+    const toggleBtn = document.getElementById("btn-toggle-chat");
+    const badge = document.getElementById("chat-unread-badge");
+
+    const openChat = () => {
+      chatBox?.classList.remove("collapsed");
+      this.unreadChatCount = 0;
+      badge?.classList.add("hidden");
+      toggleBtn?.classList.remove("has-unread");
+      document.getElementById("chat-input")?.focus();
+    };
+
+    toggleBtn?.addEventListener("click", () => {
+      if (chatBox?.classList.contains("collapsed")) openChat();
+      else chatBox?.classList.add("collapsed");
+    });
+
+    document
+      .getElementById("btn-close-chat")
+      ?.addEventListener("click", () => chatBox?.classList.add("collapsed"));
+
+    document.getElementById("chat-form")?.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const inp = document.getElementById("chat-input");
+      const txt = inp?.value.trim();
+      if (txt) {
+        eventBus.emit("SEND_CHAT_MESSAGE", txt);
+        inp.value = "";
+      }
+      inp?.blur();
+    });
+
+    document
+      .getElementById("btn-reroll-augment")
+      ?.addEventListener("click", () => {
+        if (this.currentAugmentType === "super" && this.superRerollLeft > 0) {
+          this.superRerollLeft--;
+          sound.playSkill();
+          this.renderCurrentAugmentChoices();
+        }
+      });
+  }
+
+  bindSettingsEvents() {
+    const openBtns = [
+      "btn-settings",
+      "btn-lobby-settings",
+      "btn-pause-settings",
+    ];
+    openBtns.forEach((id) => {
+      document
+        .getElementById(id)
+        ?.addEventListener("click", () => this.openSettingsModal());
+    });
+
+    const closeModal = () => this.dom.settingsScreen?.classList.add("hidden");
+    document
+      .getElementById("btn-close-settings")
+      ?.addEventListener("click", closeModal);
+    document
+      .getElementById("btn-save-close-settings")
+      ?.addEventListener("click", closeModal);
+
+    document
+      .getElementById("btn-reset-settings")
+      ?.addEventListener("click", () => {
+        settings.reset();
+        this.renderSettingsModal();
+      });
+
+    document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.currentSettingsTab = btn.dataset.tab;
+        this.renderSettingsModal();
+      });
+    });
+
+    document
+      .getElementById("set-sfx-volume")
+      ?.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        settings.set("sfxVolume", val);
+        const lbl = document.getElementById("set-sfx-val");
+        if (lbl) lbl.textContent = `${Math.round(val * 100)}%`;
+      });
+
+    document.getElementById("set-sfx-mute")?.addEventListener("change", (e) => {
+      settings.set("muted", e.target.checked);
+      const muteBtn = document.getElementById("btn-mute");
+      if (muteBtn) muteBtn.innerText = e.target.checked ? "🔇" : "🔊";
+    });
+
+    document
+      .getElementById("set-particle-quality")
+      ?.addEventListener("change", (e) => {
+        settings.set("particleQuality", e.target.value);
+      });
+
+    document
+      .getElementById("set-screen-shake")
+      ?.addEventListener("change", (e) => {
+        settings.set("screenShake", e.target.checked);
+      });
+
+    document
+      .getElementById("set-floating-text")
+      ?.addEventListener("change", (e) => {
+        settings.set("showFloatingText", e.target.checked);
+      });
+
+    document
+      .getElementById("set-mouse-sens")
+      ?.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        settings.set("mouseSensitivity", val);
+        const lbl = document.getElementById("set-sens-val");
+        if (lbl) lbl.textContent = `${val.toFixed(1)}x`;
+      });
+
+    document
+      .querySelectorAll('input[name="mobile-ctrl-mode"]')
+      .forEach((radio) => {
+        radio.addEventListener("change", (e) => {
+          if (e.target.checked)
+            settings.set("mobileControlMode", e.target.value);
+        });
+      });
+
+    document
+      .getElementById("set-mobile-btn-scale")
+      ?.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        settings.set("mobileButtonScale", val);
+        const lbl = document.getElementById("set-btn-scale-val");
+        if (lbl) lbl.textContent = `${Math.round(val * 100)}%`;
+      });
+
+    document
+      .getElementById("set-hud-opacity")
+      ?.addEventListener("input", (e) => {
+        const val = parseFloat(e.target.value);
+        settings.set("hudOpacity", val);
+        const lbl = document.getElementById("set-hud-opacity-val");
+        if (lbl) lbl.textContent = `${Math.round(val * 100)}%`;
+      });
+  }
+
+  openSettingsModal() {
+    this.renderSettingsModal();
+    this.dom.settingsScreen?.classList.remove("hidden");
+  }
+
+  renderSettingsModal() {
+    const isMobile = settings.isMobileDevice;
+    const d = settings.data;
+
+    document.querySelectorAll(".settings-tab-btn").forEach((b) => {
+      b.classList.toggle("active", b.dataset.tab === this.currentSettingsTab);
+    });
+
+    document
+      .getElementById("settings-tab-general")
+      ?.classList.toggle("hidden", this.currentSettingsTab !== "general");
+    document
+      .getElementById("settings-tab-controls")
+      ?.classList.toggle("hidden", this.currentSettingsTab !== "controls");
+
+    const badge = document.getElementById("settings-device-badge");
+    if (badge) {
+      badge.textContent = isMobile
+        ? "📱 Thiết bị phát hiện: Điện Thoại / Cảm Ứng"
+        : "💻 Thiết bị phát hiện: Máy Tính (PC / Laptop)";
     }
+
+    document
+      .getElementById("settings-pc-section")
+      ?.classList.toggle("hidden", isMobile);
+    document
+      .getElementById("settings-mobile-section")
+      ?.classList.toggle("hidden", !isMobile);
+
+    const sfxEl = document.getElementById("set-sfx-volume");
+    if (sfxEl) sfxEl.value = d.sfxVolume;
+    const sfxVal = document.getElementById("set-sfx-val");
+    if (sfxVal) sfxVal.textContent = `${Math.round(d.sfxVolume * 100)}%`;
+
+    const muteEl = document.getElementById("set-sfx-mute");
+    if (muteEl) muteEl.checked = !!d.muted;
+
+    const partEl = document.getElementById("set-particle-quality");
+    if (partEl) partEl.value = d.particleQuality;
+
+    const shakeEl = document.getElementById("set-screen-shake");
+    if (shakeEl) shakeEl.checked = d.screenShake !== false;
+
+    const floatEl = document.getElementById("set-floating-text");
+    if (floatEl) floatEl.checked = d.showFloatingText !== false;
+
+    const sensEl = document.getElementById("set-mouse-sens");
+    if (sensEl) sensEl.value = d.mouseSensitivity || 1.0;
+    const sensVal = document.getElementById("set-sens-val");
+    if (sensVal)
+      sensVal.textContent = `${(d.mouseSensitivity || 1.0).toFixed(1)}x`;
+
+    document.querySelectorAll('input[name="mobile-ctrl-mode"]').forEach((r) => {
+      r.checked = r.value === (d.mobileControlMode || "joystick");
+    });
+
+    const scaleEl = document.getElementById("set-mobile-btn-scale");
+    if (scaleEl) scaleEl.value = d.mobileButtonScale || 1.0;
+    const scaleVal = document.getElementById("set-btn-scale-val");
+    if (scaleVal)
+      scaleVal.textContent = `${Math.round((d.mobileButtonScale || 1.0) * 100)}%`;
+
+    const opEl = document.getElementById("set-hud-opacity");
+    if (opEl) opEl.value = d.hudOpacity ?? 0.95;
+    const opVal = document.getElementById("set-hud-opacity-val");
+    if (opVal)
+      opVal.textContent = `${Math.round((d.hudOpacity ?? 0.95) * 100)}%`;
   }
 
-  bindEvents() {
+  bindBusEvents() {
     eventBus.on("AUTH_STATE_CHANGED", (user) => {
       if (user) {
-        this.dom.authScreen.classList.add("hidden");
-        this.dom.lobbyScreen.classList.remove("hidden");
-
-        const accName =
+        this.dom.authScreen?.classList.add("hidden");
+        this.dom.lobbyScreen?.classList.remove("hidden");
+        const disp =
           user.displayName ||
           (user.email ? user.email.split("@")[0] : "Thủy Quái");
-        this.dom.userAccountBadge.innerText = `👤 ${accName}`;
-
+        const badge = document.getElementById("user-account-badge");
+        if (badge) badge.textContent = `👤 ${disp}`;
         const nameInput = document.getElementById("player-name-input");
-        if (nameInput && nameInput.value === "Thủy Quái Chúa") {
-          nameInput.value = accName.slice(0, 16);
-        }
+        if (nameInput && disp) nameInput.value = disp.slice(0, 16);
       } else {
-        this.dom.authScreen.classList.remove("hidden");
-        this.dom.lobbyScreen.classList.add("hidden");
-        this.dom.gameoverScreen.classList.add("hidden");
-        this.dom.pauseScreen.classList.add("hidden");
+        this.dom.lobbyScreen?.classList.add("hidden");
+        this.dom.gameoverScreen?.classList.add("hidden");
+        this.dom.pauseScreen?.classList.add("hidden");
+        this.dom.authScreen?.classList.remove("hidden");
       }
     });
 
-    eventBus.on("SAVE_UPDATED", () => this.updateLobbyMetaUI());
+    eventBus.on("FIREBASE_CONNECTION_CHANGED", (connected) => {
+      const badge = document.getElementById("firebase-status-badge");
+      if (badge) {
+        badge.textContent = connected
+          ? "🟢 Máy chủ Online"
+          : "🔴 Mất kết nối Server";
+        badge.style.color = connected ? "#06d6a0" : "#ff4d6d";
+      }
+    });
+
+    eventBus.on("SAVE_UPDATED", (data) => {
+      const g = document.getElementById("meta-gems");
+      if (g) g.textContent = data.gems ?? 0;
+      const hs = document.getElementById("meta-highscore");
+      if (hs) hs.textContent = (data.highScore ?? 0).toLocaleString();
+      const bk = document.getElementById("meta-bosskills");
+      if (bk) bk.textContent = data.bossKills ?? 0;
+      this.renderMetaShop();
+    });
 
     eventBus.on("GLOBAL_LB_UPDATED", (list) => {
-      if (!this.dom.globalLeaderboardList) return;
+      const box = document.getElementById("global-leaderboard-list");
+      if (!box) return;
       if (!list.length) {
-        this.dom.globalLeaderboardList.innerHTML =
-          '<div style="font-size:11px; color:#90e0ef;">Chưa có kỷ lục nào.</div>';
+        box.innerHTML = `<div style="font-size:11px;color:#90e0ef;">Chưa có dữ liệu bảng vàng</div>`;
         return;
       }
-      this.dom.globalLeaderboardList.innerHTML = list
+      box.innerHTML = list
         .map(
           (item, i) => `
-          <div class="global-lb-row">
-            <span style="color:${i === 0 ? "#fee440" : "#fff"}; font-weight:700;">
-              ${i === 0 ? "👑" : `#${i + 1}`} ${item.name}
-            </span>
-            <span style="color:#00f5d4; font-weight:800;">${item.highScore} XP</span>
-          </div>
-        `,
+        <div class="global-lb-row">
+          <span>#${i + 1} <b>${item.name}</b></span>
+          <span style="color:#fee440;">${(item.highScore || 0).toLocaleString()}</span>
+        </div>
+      `,
         )
         .join("");
     });
 
-    eventBus.on("FIREBASE_CONNECTION_CHANGED", (isConnected) => {
-      if (!this.dom.firebaseBadge) return;
-      if (isConnected) {
-        this.dom.firebaseBadge.innerText = "🟢 Máy chủ Online";
-        this.dom.firebaseBadge.style.color = "#06d6a0";
-      } else {
-        this.dom.firebaseBadge.innerText = "🔴 Mất kết nối";
-        this.dom.firebaseBadge.style.color = "#ff4d6d";
-      }
-    });
-
     eventBus.on("ONLINE_COUNT_UPDATED", (count) => {
-      if (this.dom.hudOnlineCount) {
-        this.dom.hudOnlineCount.innerText = `${count} Online`;
+      const el = document.getElementById("hud-online-count");
+      if (el) el.textContent = `${count} Online`;
+    });
+
+    eventBus.on("SHOW_BANNER", (text) => this.showEventBanner(text, 4500));
+
+    eventBus.on("FOCUS_CHAT", () => {
+      const chatBox = document.getElementById("chat-box");
+      chatBox?.classList.remove("collapsed");
+      this.unreadChatCount = 0;
+      document.getElementById("chat-unread-badge")?.classList.add("hidden");
+      document
+        .getElementById("btn-toggle-chat")
+        ?.classList.remove("has-unread");
+      document.getElementById("chat-input")?.focus();
+    });
+
+    eventBus.on("CHAT_MESSAGE_RECEIVED", ({ senderName, text, isMe }) => {
+      const list = document.getElementById("chat-messages");
+      if (!list) return;
+      const row = document.createElement("div");
+      row.className = "chat-msg-row";
+      const safeName = String(senderName).replace(/</g, "&lt;");
+      const safeText = String(text).replace(/</g, "&lt;");
+      row.innerHTML = `<b style="color:${isMe ? "#00f5d4" : "#fee440"}">[${safeName}]:</b> ${safeText}`;
+      list.appendChild(row);
+      list.scrollTop = list.scrollHeight;
+
+      const chatBox = document.getElementById("chat-box");
+      if (!isMe && chatBox?.classList.contains("collapsed")) {
+        this.unreadChatCount++;
+        const badge = document.getElementById("chat-unread-badge");
+        if (badge) {
+          badge.textContent = String(this.unreadChatCount);
+          badge.classList.remove("hidden");
+        }
+        document.getElementById("btn-toggle-chat")?.classList.add("has-unread");
       }
     });
-
-    eventBus.on("SHOW_BANNER", (text) => this.showEventBanner(text, 5000));
-
-    eventBus.on("PLAYER_EVOLVED", ({ stage, title }) => {
-      this.dom.hudEvoStage.innerText = title;
-      this.dom.evoCounter.innerText = `${stage}/${EVOLUTION_FORMS.length}`;
-    });
-
-    eventBus.on("PLAYER_LEVEL_UP", (level) => {
-      this.dom.hudLevel.innerText =
-        level >= MAX_PLAYER_LEVEL ? `Lv.${level} (MAX)` : `Lv.${level}`;
-    });
-
-    eventBus.on("PLAYER_LEVEL_UP_HUD_ONLY", (level) => {
-      this.dom.hudLevel.innerText =
-        level >= MAX_PLAYER_LEVEL ? `Lv.${level} (MAX)` : `Lv.${level}`;
-    });
   }
 
-  updateLobbyMetaUI() {
-    const saveData = storage.data;
-    this.dom.metaGems.innerText = saveData.gems;
-    this.dom.metaHighscore.innerText = saveData.highScore;
-    this.dom.metaBosskills.innerText = saveData.bossKills;
-
-    document
-      .querySelectorAll("#species-selector .card-option")
-      .forEach((card) => {
-        const spKey = card.dataset.species;
-        const savedRun = saveData.speciesProgress?.[spKey];
-        let badge = card.querySelector(".saved-run-badge");
-        if (!badge) {
-          badge = document.createElement("div");
-          badge.className = "saved-run-badge";
-          badge.style.cssText =
-            "margin-top:5px; font-size:10px; font-weight:800; padding:2px 6px; border-radius:6px;";
-          card.appendChild(badge);
-        }
-        if (savedRun && savedRun.score > 0) {
-          badge.style.background = "rgba(0, 245, 212, 0.2)";
-          badge.style.color = "#00f5d4";
-          badge.innerText = `💾 Lv.${savedRun.level || 1} • Dạng ${savedRun.evoStage}/${EVOLUTION_FORMS.length} • ${savedRun.score} XP`;
-        } else {
-          badge.style.background = "rgba(255, 255, 255, 0.06)";
-          badge.style.color = "#90e0ef";
-          badge.innerText = "🆕 Chưa có bản lưu";
-        }
-      });
-
-    this.dom.metaShopGrid.innerHTML = META_SHOP_ITEMS.map((item) => {
-      const lvl = saveData.upgrades[item.key] || 0;
-      const cost = item.baseCost * (lvl + 1);
-      const isMax = lvl >= item.maxLevel;
-      return `
-        <button class="shop-btn" data-upgrade-key="${item.key}" data-base-cost="${item.baseCost}">
-          <div style="display:flex; justify-content:space-between; font-weight:800; font-size:13px; color:#fee440;">
-            <span>${item.name}</span>
-            <span>Lv.${lvl}/${item.maxLevel}</span>
-          </div>
-          <div style="font-size:11px; color:#caf0f8; margin: 4px 0;">${item.desc}</div>
-          <div style="font-size:11px; font-weight:800; color:${isMax ? "#00f5d4" : "#ffbe0b"};">
-            ${isMax ? "✅ ĐÃ ĐẠT TỐI ĐA" : `Nâng Cấp: 💎 ${cost} Ngọc`}
-          </div>
-        </button>
+  renderMetaShop() {
+    const grid = document.getElementById("meta-shop-grid");
+    if (!grid) return;
+    grid.innerHTML = "";
+    META_SHOP_ITEMS.forEach((item) => {
+      const lv = storage.data.upgrades[item.key] || 0;
+      const cost = item.baseCost * (lv + 1);
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "shop-btn";
+      btn.innerHTML = `
+        <div style="font-weight:800;font-size:12px;color:#fee440;">${item.name} (Lv.${lv}/${item.maxLevel})</div>
+        <div style="font-size:10.5px;color:#caf0f8;margin:2px 0;">${item.desc}</div>
+        <div style="font-size:11px;font-weight:900;color:#00f5d4;">${lv >= item.maxLevel ? "✅ ĐÃ TỐI ĐA" : `Nâng cấp: 💎 ${cost}`}</div>
       `;
-    }).join("");
-
-    this.dom.metaShopGrid.querySelectorAll(".shop-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
-        const key = btn.dataset.upgradeKey;
-        const baseCost = Number(btn.dataset.baseCost);
-        const res = storage.buyUpgrade(key, baseCost);
-        if (res.ok) {
-          sound.playEvolution();
-        } else if (res.reason === "NO_GEMS") {
-          alert(
-            "Bạn chưa đủ Ngọc Huyền Bí! Hãy chơi và săn mồi để tích lũy thêm.",
-          );
-        }
+        const res = storage.buyUpgrade(item.key, item.baseCost, item.maxLevel);
+        if (res.ok) sound.playEat(3);
       });
+      grid.appendChild(btn);
     });
   }
 
-  initMatchHUD(speciesKey, roomId, player = null) {
-    const spCfg = SPECIES_CONFIG[speciesKey];
-    const stage = player ? player.evoStage : 1;
-    const evoTitle =
-      EVOLUTION_FORMS[stage - 1]?.title || EVOLUTION_FORMS[0].title;
+  initMatchHUD(selectedSpecies, roomId, player) {
+    this.dom.lobbyScreen?.classList.add("hidden");
+    this.dom.gameoverScreen?.classList.add("hidden");
+    this.dom.pauseScreen?.classList.add("hidden");
 
-    this.dom.hudSpecies.innerText = spCfg.name;
-    this.dom.hudSkillName.innerText = spCfg.skillName;
-    this.dom.hudEvoStage.innerText = evoTitle;
-    this.dom.hudRoomTag.innerText = `Phòng: ${roomId}`;
-    this.dom.evoCounter.innerText = `${stage}/${EVOLUTION_FORMS.length}`;
-    this.dom.hudScore.innerText = player ? player.score : "0";
-    this.dom.hudLevel.innerText = `Lv.${player ? player.level : 1}`;
-    this.dom.growthBar.style.width = player
-      ? `${Math.min(100, (player.xp / player.xpNext) * 100)}%`
-      : "0%";
+    const spEl = document.getElementById("hud-species");
+    if (spEl)
+      spEl.textContent = SPECIES_CONFIG[selectedSpecies]?.name || "Sinh Vật";
+    const roomEl = document.getElementById("hud-room-tag");
+    if (roomEl) roomEl.textContent = `Phòng: ${roomId}`;
+    const skEl = document.getElementById("hud-skill-name");
+    if (skEl) skEl.textContent = player.cfg.skillName;
 
-    // Reset khung chat về trạng thái ẩn gọn gàng khi bắt đầu ván
-    this.unreadChatCount = 0;
-    this.updateUnreadBadge();
-    this.closeChatPanel();
-    if (this.dom.chatMessages) {
-      this.dom.chatMessages.innerHTML =
-        '<div class="chat-msg-row" style="color:#64dfdf;">🌊 Chào mừng đến đại dương!</div>';
+    settings.applyToDOM();
+    this.renderAugmentAndPassiveHUD(player);
+  }
+
+  // ========================================================
+  // HÀNG ĐỢI LÕI SIÊU CẤP (DẠNG 2,4,6,8) & LÕI THƯỜNG (MỖI 2 CẤP)
+  // ========================================================
+  enqueueAugment(type, player, particleSystem, onAllDoneCallback) {
+    if (type === "super" && player.superAugments.length >= MAX_SUPER_AUGMENTS) {
+      return;
+    }
+    if (onAllDoneCallback) this.onAllAugmentsDone = onAllDoneCallback;
+    this.augmentQueue.push({ type, player, particleSystem });
+    if (!this.isAugmentChoosing) {
+      this.processNextAugment();
+    }
+  }
+
+  processNextAugment() {
+    if (this.augmentQueue.length === 0) {
+      this.isAugmentChoosing = false;
+      this.currentAugmentType = null;
+      this.dom.upgradeScreen?.classList.add("hidden");
+      if (this.onAllAugmentsDone) {
+        const cb = this.onAllAugmentsDone;
+        this.onAllAugmentsDone = null;
+        cb();
+      }
+      return;
     }
 
-    this.dom.lobbyScreen.classList.add("hidden");
-    this.dom.gameoverScreen.classList.add("hidden");
+    const next = this.augmentQueue.shift();
+    if (
+      next.type === "super" &&
+      next.player.superAugments.length >= MAX_SUPER_AUGMENTS
+    ) {
+      this.processNextAugment();
+      return;
+    }
+
+    this.isAugmentChoosing = true;
+    this.currentAugmentType = next.type;
+    this.currentAugmentPlayer = next.player;
+    this.currentParticleSystem = next.particleSystem;
+    this.superRerollLeft = next.type === "super" ? 1 : 0;
+
+    const titleEl = document.getElementById("augment-modal-title");
+    const subEl = document.getElementById("augment-modal-sub");
+
+    if (next.type === "super") {
+      if (titleEl)
+        titleEl.textContent = `🌟 ĐỘT PHÁ TIẾN HÓA! CHỌN LÕI SIÊU CẤP (${next.player.superAugments.length + 1}/${MAX_SUPER_AUGMENTS}) 🌟`;
+      if (subEl)
+        subEl.textContent =
+          "Chọn 1 Lõi Siêu Cấp (Hệ Cường Hóa / Hệ Nguyên Tố) để kích hoạt cộng hưởng!";
+    } else {
+      if (titleEl)
+        titleEl.textContent = `⚡ LÕI CƯỜNG HÓA THƯỜNG (CẤP ${next.player.level}) ⚡`;
+      if (subEl)
+        subEl.textContent =
+          "Tích lũy chỉ số vi mô vĩnh viễn suốt ván đấu (Không giới hạn số lượng)";
+    }
+
+    this.renderCurrentAugmentChoices();
+    this.dom.upgradeScreen?.classList.remove("hidden");
+  }
+
+  renderCurrentAugmentChoices() {
+    const container = document.getElementById("upgrade-cards-container");
+    const rerollBtn = document.getElementById("btn-reroll-augment");
+    if (!container || !this.currentAugmentPlayer) return;
+
+    container.innerHTML = "";
+    const player = this.currentAugmentPlayer;
+
+    if (rerollBtn) {
+      if (this.currentAugmentType === "super") {
+        rerollBtn.classList.remove("hidden");
+        rerollBtn.disabled = this.superRerollLeft <= 0;
+        rerollBtn.textContent =
+          this.superRerollLeft > 0
+            ? "🎲 Đổi Lại Bộ Lõi (1/1)"
+            : "🎲 Đã Hết Lượt Đổi";
+      } else {
+        rerollBtn.classList.add("hidden");
+      }
+    }
+
+    if (this.currentAugmentType === "super") {
+      const available = SUPER_AUGMENTS.filter(
+        (a) => !player.superAugments.includes(a.id),
+      );
+      const choices = [...available]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+      const syn = player.getSynergies();
+
+      choices.forEach((aug) => {
+        const isEmp = aug.system === "empowerment";
+        const nextCount = (isEmp ? syn.empowerment : syn.elemental) + 1;
+        const card = document.createElement("div");
+        card.className = `upgrade-card super-card system-${aug.system}`;
+        card.innerHTML = `
+          <div class="aug-system-tag">${aug.systemName} (${nextCount}/4)</div>
+          <div style="font-size:38px;margin:4px 0;">${aug.icon}</div>
+          <div style="font-weight:900;color:#fee440;font-size:15px;">${aug.name}</div>
+          <div style="font-size:12px;color:#e0fbfc;margin-top:6px;line-height:1.4;">${aug.desc}</div>
+        `;
+        card.addEventListener("click", () => {
+          player.equipSuperAugment(aug.id, this.currentParticleSystem);
+          this.renderAugmentAndPassiveHUD(player);
+          this.processNextAugment();
+        });
+        container.appendChild(card);
+      });
+    } else {
+      const choices = [...COMMON_AUGMENTS]
+        .sort(() => 0.5 - Math.random())
+        .slice(0, 3);
+      choices.forEach((aug) => {
+        const card = document.createElement("div");
+        card.className = "upgrade-card common-card";
+        card.innerHTML = `
+          <div class="aug-common-tag">Lõi Thường • Tích Lũy</div>
+          <div style="font-size:34px;margin:4px 0;">${aug.icon}</div>
+          <div style="font-weight:800;color:#00f5d4;font-size:14px;">${aug.name}</div>
+          <div style="font-size:12px;color:#cdeae5;margin-top:6px;">${aug.desc}</div>
+        `;
+        card.addEventListener("click", () => {
+          player.equipCommonAugment(aug, this.currentParticleSystem);
+          this.renderAugmentAndPassiveHUD(player);
+          this.processNextAugment();
+        });
+        container.appendChild(card);
+      });
+    }
+  }
+
+  renderAugmentAndPassiveHUD(player) {
+    if (!player) return;
+
+    const slotsEl = document.getElementById("hud-super-augments");
+    if (slotsEl) {
+      let html = "";
+      for (let i = 0; i < MAX_SUPER_AUGMENTS; i++) {
+        const augId = player.superAugments[i];
+        const aug = augId ? SUPER_AUGMENTS.find((a) => a.id === augId) : null;
+        if (aug) {
+          html += `<div class="super-slot filled system-${aug.system}" title="${aug.name}: ${aug.desc}">${aug.icon}</div>`;
+        } else {
+          html += `<div class="super-slot empty" title="Ô Lõi Siêu Cấp (Mở khóa ở Tiến Hóa Dạng 2, 4, 6, 8)">+</div>`;
+        }
+      }
+
+      const syn = player.getSynergies();
+      if (syn.empowerment >= 2) {
+        html += `<div class="synergy-pill emp" title="Cộng hưởng Hệ Cường Hóa">⚔️ ${syn.empowerment}/4</div>`;
+      }
+      if (syn.elemental >= 2) {
+        html += `<div class="synergy-pill ele" title="Cộng hưởng Hệ Nguyên Tố">🔮 ${syn.elemental}/4</div>`;
+      }
+      if (player.commonAugments.length > 0) {
+        html += `<div class="common-count-pill" title="Lõi Thường đã tích lũy">✨ x${player.commonAugments.length}</div>`;
+      }
+      slotsEl.innerHTML = html;
+    }
+
+    const passiveBar = document.getElementById("hud-species-passives");
+    if (passiveBar) {
+      const unlocked = getUnlockedPassives(player.species, player.evoStage);
+      passiveBar.innerHTML = unlocked
+        .map(
+          (p) =>
+            `<div class="passive-badge" title="[Dạng ${p.stage}] ${p.name}: ${p.desc}">${p.icon} ${p.name}</div>`,
+        )
+        .join("");
+    }
+  }
+
+  renderPauseBuildDetails(player) {
+    const box = document.getElementById("pause-build-summary");
+    if (!box || !player) return;
+
+    const syn = player.getSynergies();
+    const superHtml =
+      player.superAugments.length > 0
+        ? player.superAugments
+            .map((id) => {
+              const a = SUPER_AUGMENTS.find((x) => x.id === id);
+              return a
+                ? `<div class="build-item"><b>${a.icon} ${a.name}</b> (${a.systemName}): ${a.desc}</div>`
+                : "";
+            })
+            .join("")
+        : `<div class="build-item locked">Chưa có Lõi Siêu Cấp (Nhận khi Tiến hóa Dạng 2, 4, 6, 8)</div>`;
+
+    let synHtml = "";
+    if (syn.empowerment >= 2) {
+      const t = SYNERGY_TIERS.empowerment.tiers.find(
+        (x) => x.count === syn.empowerment,
+      );
+      if (t)
+        synHtml += `<div class="syn-active">⚔️ <b>${t.title}:</b> ${t.desc}</div>`;
+    }
+    if (syn.elemental >= 2) {
+      const t = SYNERGY_TIERS.elemental.tiers.find(
+        (x) => x.count === syn.elemental,
+      );
+      if (t)
+        synHtml += `<div class="syn-active">🔮 <b>${t.title}:</b> ${t.desc}</div>`;
+    }
+
+    const allPassives = SPECIES_EVOLUTION_PASSIVES[player.species] || [];
+    const passivesHtml = allPassives
+      .map((p) => {
+        const active = player.evoStage >= p.stage;
+        return `<div class="build-item ${active ? "unlocked" : "locked"}">
+          <b>${p.icon} [Dạng ${p.stage}] ${p.name}:</b> ${p.desc}
+        </div>`;
+      })
+      .join("");
+
+    box.innerHTML = `
+      <div class="build-section-title">🌟 Lõi Siêu Cấp (${player.superAugments.length}/4) & Lõi Thường (x${player.commonAugments.length})</div>
+      ${synHtml}
+      ${superHtml}
+      <div class="build-section-title" style="margin-top:8px;">🧬 Nội Tại Tiến Hóa Đặc Thù</div>
+      ${passivesHtml}
+    `;
   }
 
   updateHUD(player, survivalTime) {
     if (!player) return;
 
-    this.dom.hudScore.innerText = player.score;
-    this.dom.hudLevel.innerText =
-      player.level >= MAX_PLAYER_LEVEL
-        ? `Lv.${player.level} (MAX)`
-        : `Lv.${player.level}`;
-    this.dom.growthBar.style.width = `${Math.min(
-      100,
-      (player.xp / player.xpNext) * 100,
-    )}%`;
+    const evoForm =
+      EVOLUTION_FORMS[player.evoStage - 1] ||
+      EVOLUTION_FORMS[EVOLUTION_FORMS.length - 1];
+    const evoStageEl = document.getElementById("hud-evo-stage");
+    if (evoStageEl) evoStageEl.textContent = evoForm.shortTitle;
 
-    this.dom.hpBar.style.width = `${(player.hp / player.maxHp) * 100}%`;
-    this.dom.hudHpText.innerText = `${Math.ceil(player.hp)}/${player.maxHp}`;
+    const hpText = document.getElementById("hud-hp-text");
+    if (hpText)
+      hpText.textContent = `${Math.ceil(player.hp)}/${Math.ceil(player.maxHp)}`;
+    const hpBar = document.getElementById("hp-bar");
+    if (hpBar)
+      hpBar.style.width = `${Math.max(0, (player.hp / player.maxHp) * 100)}%`;
 
-    if (this.dom.staminaBar) {
-      this.dom.staminaBar.style.width = `${
-        (player.stamina / player.maxStamina) * 100
-      }%`;
-      this.dom.staminaBar.classList.toggle("exhausted", player.isExhausted);
-    }
-    if (this.dom.staminaLabel) {
-      this.dom.staminaLabel.innerText = player.isExhausted
-        ? "⚠️ Đang hồi thể lực..."
-        : "Giữ Chuột / Space: Bơi Nhanh";
-      this.dom.staminaLabel.style.color = player.isExhausted
-        ? "#ff4d6d"
-        : "#64dfdf";
-    }
-    if (this.dom.mobileBoostBtn) {
-      this.dom.mobileBoostBtn.classList.toggle("exhausted", player.isExhausted);
+    const lvEl = document.getElementById("hud-level");
+    if (lvEl) lvEl.textContent = `Lv.${player.level}`;
+    const scEl = document.getElementById("hud-score");
+    if (scEl) scEl.textContent = player.score.toLocaleString();
+    const grBar = document.getElementById("growth-bar");
+    if (grBar)
+      grBar.style.width = `${Math.min(100, (player.xp / player.xpNext) * 100)}%`;
+
+    const stamBar = document.getElementById("stamina-bar");
+    if (stamBar) {
+      stamBar.style.width = `${(player.stamina / player.maxStamina) * 100}%`;
+      stamBar.classList.toggle("exhausted", player.isExhausted);
     }
 
-    if (player.skillCooldownTimer > 0) {
-      this.dom.skillBox.classList.add("cooldown");
-      this.dom.hudSkillStatus.innerText = `${player.skillCooldownTimer.toFixed(1)}s`;
-      this.dom.hudSkillStatus.style.color = "#adb5bd";
-    } else {
-      this.dom.skillBox.classList.remove("cooldown");
-      this.dom.hudSkillStatus.innerText = "Sẵn Sàng [E]";
-      this.dom.hudSkillStatus.style.color = "#00f5d4";
+    const mobileBoostBtn = document.getElementById("mobile-boost-btn");
+    if (mobileBoostBtn) {
+      mobileBoostBtn.classList.toggle("exhausted", player.isExhausted);
     }
 
-    if (player.ultTimer > 0) {
-      this.dom.ultBox.classList.remove("cooldown");
-      this.dom.ultBox.classList.add("ult-ready");
-      this.dom.hudUltStatus.innerText = `${player.ultTimer.toFixed(1)}s`;
-      this.dom.hudUltStatus.style.color = "#ff758f";
-    } else if (player.rage >= 100) {
-      this.dom.ultBox.classList.remove("cooldown");
-      this.dom.ultBox.classList.add("ult-ready");
-      this.dom.hudUltStatus.innerText = "BẤM [R]!";
-      this.dom.hudUltStatus.style.color = "#fee440";
-    } else {
-      this.dom.ultBox.classList.add("cooldown");
-      this.dom.ultBox.classList.remove("ult-ready");
-      this.dom.hudUltStatus.innerText = `${Math.floor(player.rage)}%`;
-      this.dom.hudUltStatus.style.color = "#adb5bd";
+    const skillBox = document.getElementById("skill-box");
+    const skillSub = document.getElementById("hud-skill-status");
+    if (skillBox && skillSub) {
+      if (player.skillCooldownTimer > 0) {
+        skillBox.classList.add("cooldown");
+        skillSub.textContent = `${player.skillCooldownTimer.toFixed(1)}s`;
+      } else {
+        skillBox.classList.remove("cooldown");
+        skillSub.textContent = "Sẵn Sàng [E]";
+      }
     }
 
-    let zoneName = "Trung Tâm";
-    if (player.y > WORLD_SIZE * 0.72) zoneName = "Vực Sâu Nam";
-    else if (player.y < WORLD_SIZE * 0.28) zoneName = "Nước Cạn Bắc";
-    else if (player.x < WORLD_SIZE * 0.28) zoneName = "Rừng Tảo Tây";
-    else if (player.x > WORLD_SIZE * 0.72) zoneName = "Hẻm Núi Đông";
-    this.dom.hudZone.innerText = zoneName;
+    const ultBox = document.getElementById("ult-box");
+    const ultSub = document.getElementById("hud-ult-status");
+    if (ultBox && ultSub) {
+      if (player.ultTimer > 0) {
+        ultBox.classList.remove("cooldown");
+        ultBox.classList.add("ult-ready");
+        ultSub.textContent = `${player.ultTimer.toFixed(1)}s`;
+      } else if (player.rage >= 100) {
+        ultBox.classList.remove("cooldown");
+        ultBox.classList.add("ult-ready");
+        ultSub.textContent = "SẴN SÀNG [R]!";
+      } else {
+        ultBox.classList.add("cooldown");
+        ultBox.classList.remove("ult-ready");
+        ultSub.textContent = `Nộ: ${Math.floor(player.rage)}%`;
+      }
+    }
 
     const mins = String(Math.floor(survivalTime / 60)).padStart(2, "0");
     const secs = String(Math.floor(survivalTime % 60)).padStart(2, "0");
-    this.dom.hudTime.innerText = `${mins}:${secs}`;
+    const timeEl = document.getElementById("hud-time");
+    if (timeEl) timeEl.textContent = `${mins}:${secs}`;
+
+    const evoCounter = document.getElementById("evo-counter");
+    if (evoCounter)
+      evoCounter.textContent = `${player.evoStage}/${EVOLUTION_FORMS.length}`;
+
+    this.renderAugmentAndPassiveHUD(player);
   }
 
   renderQuests(quests) {
-    const activeQuests = quests.filter((q) => !q.done).slice(0, 3);
-    if (activeQuests.length === 0) {
-      this.dom.questList.innerHTML =
-        '<div class="quest-item done">👑 Đã hoàn thành toàn bộ Nhiệm Vụ Tiến Hóa!</div>';
-      return;
-    }
-
-    this.dom.questList.innerHTML = activeQuests
+    const list = document.getElementById("quest-list");
+    if (!list) return;
+    list.innerHTML = quests
       .map((q) => {
         const pct = Math.min(100, (q.current / q.target) * 100);
         return `
-        <div class="quest-item">
-          <div style="display:flex; justify-content:space-between; font-weight:600;">
-            <span>🧬 ${q.title}</span>
-            <span>${q.current}/${q.target}</span>
-          </div>
-          <div class="quest-reward-tag">Thưởng: ${q.rewardText}</div>
+        <div class="quest-item ${q.done ? "done" : ""}">
+          <div>${q.done ? "✅" : "🔹"} ${q.title} (${q.current}/${q.target})</div>
+          <div class="quest-reward-tag">${q.rewardText}</div>
           <div class="quest-progress-bg"><div class="quest-progress-fill" style="width:${pct}%"></div></div>
         </div>
       `;
@@ -550,121 +810,71 @@ export class UIManager {
       .join("");
   }
 
-  updateLeaderboard(player, remotePlayers, boss, survivalTime) {
-    if (!player) return;
-    const entries = [
+  updateLeaderboard(player, remotePlayers, boss) {
+    const list = document.getElementById("leaderboard-list");
+    if (!list || !player) return;
+
+    const rows = [
       {
-        name: `${player.name} (Bạn)`,
+        name: `${player.name} (Lv.${player.level})`,
         score: player.score,
-        type: "me",
+        cls: "me",
       },
+      ...Object.entries(remotePlayers).map(([id, rp]) => ({
+        name: `🌐 ${rp.name} (Lv.${rp.level || 1})`,
+        score: rp.score || 0,
+        cls: id === myPlayerId ? "me" : "real-player",
+      })),
     ];
 
-    Object.values(remotePlayers).forEach((rp) => {
-      if (!rp) return;
-      entries.push({
-        name: `🌐 ${rp.name}`,
-        score: rp.score || 0,
-        type: "real-player",
-      });
-    });
-
-    if (entries.length < 4) {
-      entries.push({
-        name: "👑 Leviathan",
-        score: boss ? 12000 : 6500,
-        type: "bot",
-      });
-      entries.push({
-        name: "🦈 Megalodon AI",
-        score: 2800 + Math.floor(survivalTime * 12),
-        type: "bot",
+    if (boss) {
+      rows.push({
+        name: "🐉 LEVIATHAN",
+        score: Math.max(0, Math.round(boss.hp * 3)),
+        cls: "",
       });
     }
 
-    entries.sort((a, b) => b.score - a.score);
-
-    this.dom.leaderboardList.innerHTML = entries
-      .slice(0, 4)
+    rows.sort((a, b) => b.score - a.score);
+    list.innerHTML = rows
+      .slice(0, 5)
       .map(
-        (item, idx) => `
-      <div class="lb-row ${item.type}">
-        <span>#${idx + 1} ${item.name}</span>
-        <span>${item.score}</span>
+        (r, idx) => `
+      <div class="lb-row ${r.cls}">
+        <span>#${idx + 1} ${r.name}</span>
+        <span>${r.score.toLocaleString()}</span>
       </div>
     `,
       )
       .join("");
   }
 
-  openUpgradeModal(player, particleSystem, onSelected) {
-    const shuffled = [...ROGUELIKE_CARDS]
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3);
-
-    this.dom.upgradeCardsContainer.innerHTML = shuffled
-      .map(
-        (card) => `
-      <div class="upgrade-card" data-card-id="${card.id}">
-        <div style="font-size: 34px; margin-bottom: 6px;">${card.icon}</div>
-        <div style="font-size: 15px; font-weight: 800; color: #fee440; margin-bottom: 4px;">${card.title}</div>
-        <div style="font-size: 12px; color: #caf0f8; line-height: 1.35;">${card.desc}</div>
-      </div>
-    `,
-      )
-      .join("");
-
-    this.dom.upgradeCardsContainer
-      .querySelectorAll(".upgrade-card")
-      .forEach((el) => {
-        el.addEventListener("click", () => {
-          const card = ROGUELIKE_CARDS.find((c) => c.id === el.dataset.cardId);
-          if (card && player) {
-            card.apply(player);
-            sound.playEvolution();
-            particleSystem.addFloatingText(
-              player.x,
-              player.y - player.radius - 25,
-              `✨ ${card.title.toUpperCase()}!`,
-              "#fee440",
-            );
-          }
-          this.dom.upgradeScreen.classList.add("hidden");
-          onSelected();
-        });
-      });
-
-    this.dom.upgradeScreen.classList.remove("hidden");
+  showEventBanner(text, duration = 4000) {
+    const banner = document.getElementById("event-banner");
+    if (!banner) return;
+    banner.textContent = text;
+    banner.style.display = "block";
+    clearTimeout(this.bannerTimer);
+    this.bannerTimer = setTimeout(() => {
+      banner.style.display = "none";
+    }, duration);
   }
 
-  showEventBanner(text, durationMs = 4000) {
-    if (this.bannerTimeout) clearTimeout(this.bannerTimeout);
-    this.dom.eventBanner.innerText = text;
-    this.dom.eventBanner.style.display = "block";
-    this.bannerTimeout = setTimeout(() => {
-      this.dom.eventBanner.style.display = "none";
-    }, durationMs);
-  }
-
-  showGameOver(player, killerName, fishEatenCount, survivalTime, earnedGems) {
-    let playTitle = "Thợ Săn Tập Sự";
-    if (player.evoStage >= EVOLUTION_FORMS.length)
-      playTitle = "👑 TỐI THƯỢNG HẢI THẦN";
-    else if (player.evoStage >= 6) playTitle = "🌌 CỔ THẦN BIỂN SÂU";
-    else if (player.evoStage >= 4) playTitle = "🔱 HẢI VƯƠNG ĐẠI DƯƠNG";
-    else if (fishEatenCount >= 45) playTitle = "🦈 ÁC MỘNG ĐÁY SÂU";
-    else if (survivalTime >= 180) playTitle = "🐢 BẬC THẦY SINH TỒN";
-
-    const evoTitle =
-      EVOLUTION_FORMS[player.evoStage - 1]?.title || EVOLUTION_FORMS[0].title;
-    this.dom.gameoverTitleBadge.innerText = `Danh hiệu: ${playTitle}`;
-    this.dom.gameoverStats.innerHTML = `
-      ${killerName ? `Bị hạ gục bởi: <b style="color:#ff4d6d;">${killerName}</b><br>` : ""}
-      Sinh vật: <b>${player.name}</b> (${player.cfg.name})<br>
-      Tiến hóa: <b style="color:#fee440;">${evoTitle}</b><br>
-      Điểm: <b>${player.score} XP</b> • Cấp: <b>Lv.${player.level}/${MAX_PLAYER_LEVEL}</b><br>
-      Phần thưởng: <b style="color:#00f5d4;">+${earnedGems} 💎 Ngọc</b>
-    `;
-    this.dom.gameoverScreen.classList.remove("hidden");
+  showGameOver(player, killerName, fishEaten, survivalTime, earnedGems) {
+    const badge = document.getElementById("gameover-title-badge");
+    if (badge) {
+      badge.textContent = killerName
+        ? `⚔️ Bị hạ gục bởi: ${killerName}`
+        : "🌊 Kết thúc hành trình đại dương";
+    }
+    const stats = document.getElementById("gameover-stats");
+    if (stats) {
+      stats.innerHTML = `
+        Sinh vật: <b>${player.cfg.name}</b> • Đạt <b>Cấp ${player.level}</b> (Dạng ${player.evoStage})<br/>
+        Tổng Điểm: <b style="color:#00f5d4">${player.score.toLocaleString()} XP</b> • Con mồi đã săn: <b>${fishEaten}</b><br/>
+        Thời gian sinh tồn: <b>${Math.floor(survivalTime)}s</b> • Ngọc thưởng: <b style="color:#fee440">+${earnedGems} 💎</b>
+      `;
+    }
+    this.dom.gameoverScreen?.classList.remove("hidden");
   }
 }

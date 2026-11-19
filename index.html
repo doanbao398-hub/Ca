@@ -69,47 +69,55 @@
       </div>
 
       <div class="hud-top">
-        <div class="panel-glass player-stats">
-          <div class="stat-item">
-            <span class="stat-label">Sinh Vật</span>
-            <span
-              class="stat-val"
-              id="hud-species"
-              style="font-size: 13px; color: #00f5d4"
-              >Cá Kiếm Xanh</span
-            >
-            <span class="evo-badge" id="hud-evo-stage">Dạng 1</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-label"
-              >HP (<span id="hud-hp-text">100</span>)</span
-            >
-            <div class="bar-wrap">
-              <div id="hp-bar"></div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <div class="panel-glass player-stats">
+            <div class="stat-item">
+              <span class="stat-label">Sinh Vật</span>
+              <span
+                class="stat-val"
+                id="hud-species"
+                style="font-size: 13px; color: #00f5d4"
+                >Cá Kiếm Xanh</span
+              >
+              <span class="evo-badge" id="hud-evo-stage">Dạng 1</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label"
+                >HP (<span id="hud-hp-text">100</span>)</span
+              >
+              <div class="bar-wrap">
+                <div id="hp-bar"></div>
+              </div>
+            </div>
+            <div class="stat-item">
+              <span class="stat-label"
+                >Điểm (<span id="hud-level">Lv.1</span>)</span
+              >
+              <span class="stat-val" id="hud-score">0</span>
+              <div class="bar-wrap">
+                <div id="growth-bar"></div>
+              </div>
+            </div>
+            <div class="stat-item hide-mobile">
+              <span class="stat-label">Khu Vực & Phòng</span>
+              <span
+                class="stat-val"
+                id="hud-zone"
+                style="font-size: 12px; color: #fee440"
+                >Trung Tâm</span
+              >
+              <span
+                id="hud-room-tag"
+                style="font-size: 10px; color: #00f5d4; font-weight: 700"
+                >Phòng: PUBLIC</span
+              >
             </div>
           </div>
-          <div class="stat-item">
-            <span class="stat-label"
-              >Điểm (<span id="hud-level">Lv.1</span>)</span
-            >
-            <span class="stat-val" id="hud-score">0</span>
-            <div class="bar-wrap">
-              <div id="growth-bar"></div>
-            </div>
-          </div>
-          <div class="stat-item hide-mobile">
-            <span class="stat-label">Khu Vực & Phòng</span>
-            <span
-              class="stat-val"
-              id="hud-zone"
-              style="font-size: 12px; color: #fee440"
-              >Trung Tâm</span
-            >
-            <span
-              id="hud-room-tag"
-              style="font-size: 10px; color: #00f5d4; font-weight: 700"
-              >Phòng: PUBLIC</span
-            >
+
+          <!-- THANH HIỂN THỊ 4 LÕI SIÊU CẤP, CỘNG HƯỞNG HỆ & NỘI TẠI TIẾN HÓA -->
+          <div class="hud-augments-strip">
+            <div id="hud-super-augments" class="super-slots-row"></div>
+            <div id="hud-species-passives" class="passives-row"></div>
           </div>
         </div>
 
@@ -119,8 +127,15 @@
               <div class="online-dot"></div>
               <span id="hud-online-count">1 Online</span>
             </div>
-            <button class="btn-hud" id="btn-mute">🔊</button>
-            <button class="btn-hud" id="btn-pause">⏸️</button>
+            <button class="btn-hud" id="btn-mute" title="Bật/Tắt Âm Thanh">
+              🔊
+            </button>
+            <button class="btn-hud" id="btn-settings" title="Cài Đặt Hệ Thống">
+              ⚙️
+            </button>
+            <button class="btn-hud" id="btn-pause" title="Tạm Dừng & Xem Build">
+              ⏸️
+            </button>
           </div>
 
           <!-- Bảng Xếp Hạng Online Trực Tiếp -->
@@ -295,27 +310,251 @@
       </div>
     </div>
 
-    <!-- MODAL CHỌN THẺ NÂNG CẤP -->
+    <!-- MODAL CHỌN LÕI SIÊU CẤP & LÕI THƯỜNG -->
     <div id="upgrade-screen" class="modal-screen hidden">
-      <div class="lobby-container" style="width: 720px; text-align: center">
-        <h2 style="font-size: 22px; color: #fee440; font-weight: 900">
-          ⬆️ ĐỘT PHÁ CẤP ĐỘ! CHỌN 1 NĂNG LỰC
+      <div class="lobby-container" style="width: 780px; text-align: center">
+        <h2
+          id="augment-modal-title"
+          style="font-size: 22px; color: #fee440; font-weight: 900"
+        >
+          ⬆️ ĐỘT PHÁ CẤP ĐỘ! CHỌN 1 LÕI NÂNG CẤP
         </h2>
+        <p
+          id="augment-modal-sub"
+          style="font-size: 12.5px; color: #caf0f8; margin-top: -6px"
+        >
+          Tích lũy sức mạnh vĩnh viễn suốt ván đấu
+        </p>
         <div class="upgrade-cards-grid" id="upgrade-cards-container"></div>
+        <button
+          type="button"
+          id="btn-reroll-augment"
+          class="btn-hud hidden"
+          style="
+            margin: 6px auto 0;
+            border-color: #fee440;
+            color: #fee440;
+            padding: 8px 18px;
+          "
+        >
+          🎲 Đổi Lại Bộ Lõi (1/1)
+        </button>
       </div>
     </div>
 
-    <!-- MODAL TẠM DỪNG -->
+    <!-- MODAL CÀI ĐẶT PC & MOBILE -->
+    <div id="settings-screen" class="modal-screen hidden">
+      <div class="lobby-container" style="width: 540px">
+        <div
+          style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          "
+        >
+          <h2 style="font-size: 20px; color: #00f5d4; font-weight: 900">
+            ⚙️ CÀI ĐẶT TRÒ CHƠI
+          </h2>
+          <button
+            type="button"
+            id="btn-close-settings"
+            class="btn-hud"
+            style="border-color: #ff4d6d; color: #ff758f"
+          >
+            ✖ Đóng
+          </button>
+        </div>
+
+        <div id="settings-device-badge" class="device-detect-pill">
+          💻 Thiết bị: Máy Tính (PC / Laptop)
+        </div>
+
+        <div class="settings-tabs">
+          <button
+            type="button"
+            class="settings-tab-btn active"
+            data-tab="general"
+          >
+            🔊 Âm Thanh & Đồ Họa
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="controls">
+            🎮 Điều Khiển & Giao Diện
+          </button>
+        </div>
+
+        <!-- TAB 1: ÂM THANH & ĐỒ HỌA -->
+        <div id="settings-tab-general" class="settings-body">
+          <div class="setting-row">
+            <span>🔊 Âm lượng hiệu ứng (SFX): <b id="set-sfx-val">80%</b></span>
+            <input
+              type="range"
+              id="set-sfx-volume"
+              min="0"
+              max="1"
+              step="0.05"
+              value="0.8"
+            />
+          </div>
+
+          <div class="setting-row">
+            <span>🔇 Tắt toàn bộ âm thanh</span>
+            <input type="checkbox" id="set-sfx-mute" />
+          </div>
+
+          <div class="setting-row">
+            <span>✨ Chất lượng hiệu ứng hạt & bong bóng</span>
+            <select
+              id="set-particle-quality"
+              class="lobby-input"
+              style="width: 150px; padding: 6px"
+            >
+              <option value="high">Cao (Mượt đẹp)</option>
+              <option value="medium">Trung bình</option>
+              <option value="low">Thấp (Tiết kiệm pin)</option>
+            </select>
+          </div>
+
+          <div class="setting-row">
+            <span>📳 Rung màn hình khi va chạm mạnh</span>
+            <input type="checkbox" id="set-screen-shake" checked />
+          </div>
+
+          <div class="setting-row">
+            <span>💬 Hiển thị chữ sát thương & điểm bay</span>
+            <input type="checkbox" id="set-floating-text" checked />
+          </div>
+        </div>
+
+        <!-- TAB 2: ĐIỀU KHIỂN PC / MOBILE (TỰ ĐỘNG THEO THIẾT BỊ) -->
+        <div id="settings-tab-controls" class="settings-body hidden">
+          <!-- DÀNH RIÊNG CHO PC -->
+          <div id="settings-pc-section">
+            <div class="setting-row">
+              <span
+                >🖱️ Độ nhạy xoay hướng chuột:
+                <b id="set-sens-val">1.0x</b></span
+              >
+              <input
+                type="range"
+                id="set-mouse-sens"
+                min="0.5"
+                max="2.0"
+                step="0.1"
+                value="1.0"
+              />
+            </div>
+            <div class="pc-keybind-guide">
+              <div><b>Di chuyển:</b> Rê chuột trên màn hình</div>
+              <div>
+                <b>Bơi nhanh:</b> Giữ Chuột Trái hoặc phím <code>Space</code>
+              </div>
+              <div>
+                <b>Kỹ năng loài:</b> Phím <code>E</code> | <b>Hóa Thần:</b> Phím
+                <code>R</code>
+              </div>
+              <div>
+                <b>Chat nhanh:</b> Phím <code>Enter</code> | <b>Tạm dừng:</b>
+                <code>Esc</code>
+              </div>
+            </div>
+          </div>
+
+          <!-- DÀNH RIÊNG CHO MOBILE -->
+          <div id="settings-mobile-section" class="hidden">
+            <div class="setting-col">
+              <span style="font-weight: 800; color: #fee440"
+                >🕹️ Chế độ điều hướng cảm ứng:</span
+              >
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="mobile-ctrl-mode"
+                  value="joystick"
+                  checked
+                />
+                <span>Cần gạt ảo (Joystick góc trái - Khuyên dùng)</span>
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="mobile-ctrl-mode" value="click" />
+                <span>Chạm / Vuốt trực tiếp lên màn hình để bơi tới</span>
+              </label>
+            </div>
+
+            <div class="setting-row">
+              <span
+                >🔘 Kích cỡ nút bấm & Joystick:
+                <b id="set-btn-scale-val">100%</b></span
+              >
+              <input
+                type="range"
+                id="set-mobile-btn-scale"
+                min="0.75"
+                max="1.35"
+                step="0.05"
+                value="1.0"
+              />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <span
+              >👁️ Độ rõ giao diện HUD: <b id="set-hud-opacity-val">95%</b></span
+            >
+            <input
+              type="range"
+              id="set-hud-opacity"
+              min="0.45"
+              max="1.0"
+              step="0.05"
+              value="0.95"
+            />
+          </div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; gap: 10px">
+          <button type="button" id="btn-reset-settings" class="btn-hud">
+            🔄 Khôi Phục Mặc Định
+          </button>
+          <button
+            type="button"
+            id="btn-save-close-settings"
+            class="btn-play"
+            style="padding: 9px 26px; font-size: 13px; margin: 0"
+          >
+            XONG
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL TẠM DỪNG & XEM BUILD LÕI / NỘI TẠI -->
     <div id="pause-screen" class="modal-screen hidden">
-      <div class="lobby-container" style="width: 380px; text-align: center">
-        <h2 style="font-size: 26px; color: #00f5d4">⏸️ TẠM DỪNG</h2>
-        <p style="color: #caf0f8; font-size: 13px">
+      <div class="lobby-container" style="width: 520px; text-align: center">
+        <h2 style="font-size: 24px; color: #00f5d4">
+          ⏸️ TẠM DỪNG & BẢNG SỨC MẠNH
+        </h2>
+        <p style="color: #caf0f8; font-size: 12px">
           Trong chế độ Online, người chơi khác vẫn đang di chuyển!
         </p>
-        <button class="btn-play" id="btn-resume">TIẾP TỤC CHƠI</button>
-        <button class="btn-hud" id="btn-quit-lobby" style="margin: 6px auto 0">
-          Thoát Về Sảnh Chính
-        </button>
+
+        <div id="pause-build-summary" class="pause-build-box"></div>
+
+        <div
+          style="
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+          "
+        >
+          <button class="btn-play" id="btn-resume" style="margin: 0">
+            TIẾP TỤC CHƠI
+          </button>
+          <button class="btn-hud" id="btn-pause-settings">⚙️ Cài Đặt</button>
+          <button class="btn-hud" id="btn-quit-lobby">
+            Thoát Về Sảnh Chính
+          </button>
+        </div>
       </div>
     </div>
 
@@ -325,7 +564,7 @@
         <div class="lobby-header">
           <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
           <p>
-            100 Cấp Độ • 8 Chuẩn Tiến Hóa • Chat Thời Gian Thực • PC & Mobile
+            100 Cấp Độ • 8 Chuẩn Tiến Hóa • Lõi Siêu Cấp & Nội Tại • PC & Mobile
           </p>
         </div>
 
@@ -350,6 +589,7 @@
             style="color: #fee440; font-weight: 800"
             >🟡 Đang kiểm tra kết nối...</span
           >
+          <button class="btn-hud" id="btn-lobby-settings">⚙️ Cài Đặt</button>
           <button
             class="btn-hud"
             id="btn-logout"

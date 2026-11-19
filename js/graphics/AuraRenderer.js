@@ -26,6 +26,82 @@ export function renderCreatureEffects(
     ctx.fill();
   }
 
+  // Hiệu ứng Lõi Siêu Cấp & Cộng Hưởng Hệ (Dành cho Player)
+  if (creature.isPlayer && typeof creature.getSynergies === "function") {
+    const syn = creature.getSynergies();
+
+    // Vòng hào quang băng giá (Lõi Hàn Băng Vực Thẳm)
+    if (creature.hasSuperAugment("s_abyss_frost")) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(144, 224, 239, 0.35)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath();
+      ctx.arc(0, 0, creature.radius + 180, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Cộng hưởng Hệ Nguyên Tố (2+ lõi): Vòng tròn ma pháp xoay dưới đáy
+    if (syn.elemental >= 2) {
+      ctx.save();
+      ctx.rotate(-time * 0.0025);
+      ctx.strokeStyle =
+        syn.elemental >= 4 ? "#00f5d4" : "rgba(0, 245, 212, 0.65)";
+      ctx.lineWidth = syn.elemental >= 4 ? 3 : 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, creature.radius * 1.38, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Cộng hưởng Hệ Cường Hóa (2+ lõi): Viền rực lửa chiến thần
+    if (syn.empowerment >= 2) {
+      ctx.save();
+      ctx.rotate(time * 0.003);
+      ctx.strokeStyle =
+        syn.empowerment >= 4 ? "#ff5400" : "rgba(255, 84, 0, 0.7)";
+      ctx.lineWidth = syn.empowerment >= 4 ? 3.5 : 2;
+      ctx.setLineDash([16, 6]);
+      ctx.beginPath();
+      ctx.arc(0, 0, creature.radius * 1.32, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Khiên Mai Giáp Hấp Thụ (Rùa Dạng 2) hoặc Trường Lực Nano (Thợ Lặn Dạng 6)
+    if (
+      creature.passiveState?.turtleShieldReady ||
+      creature.passiveState?.diverNanoShield
+    ) {
+      ctx.save();
+      ctx.strokeStyle = "#00bbf9";
+      ctx.fillStyle = "rgba(0, 187, 249, 0.14)";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(0, 0, creature.radius * 1.24, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Drone Hộ Vệ (Thợ Lặn Dạng 4+)
+    if (creature.species === "diver" && creature.evoStage >= 4) {
+      ctx.save();
+      const droneAng = time * 0.0035;
+      const dx = Math.cos(droneAng) * (creature.radius + 32);
+      const dy = Math.sin(droneAng) * (creature.radius + 32);
+      ctx.fillStyle = "#00f5d4";
+      ctx.beginPath();
+      ctx.arc(dx, dy, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
   // Vệ tinh năng lượng xoay quanh nhân vật từ Dạng 4 đến Dạng 8
   if ((creature.isPlayer || isRemoteHuman) && creature.evoStage >= 4) {
     ctx.save();
@@ -109,7 +185,6 @@ export function renderCreatureEffects(
     ctx.restore();
   }
 
-  // VẼ BONG BÓNG CHAT TRÊN ĐẦU NGƯỜI CHƠI
   if (creature.chatBubble && creature.chatBubbleTimer > 0) {
     ctx.save();
     ctx.font = "bold 12px Segoe UI";
@@ -128,7 +203,6 @@ export function renderCreatureEffects(
     ctx.restore();
   }
 
-  // VẼ TÊN & THANH MÁU CỦA PLAYER
   if (creature.name && (!creature.isStealthed || creature.isPlayer)) {
     ctx.save();
     ctx.font =

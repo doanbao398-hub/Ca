@@ -25,6 +25,36 @@ export class CombatSystem {
     this.killStreak = 0;
   }
 
+  getEffectiveBitePower(player, targetMaxHp = 100) {
+    const syn = player.getSynergies();
+    let mult = player.bitePower * (syn.empowerment >= 2 ? 1.15 : 1.0);
+
+    // Cá Kiếm Dạng 2: Mũi Kiếm Xuyên Giáp (+40%)
+    if (player.species === "fish" && player.passiveState.fishPiercingReady) {
+      mult *= 1.4;
+      player.passiveState.fishPiercingReady = false;
+      player.passiveState.highSpeedTime = 0;
+    }
+
+    // Cá Sấu Dạng 2: Đòn phục kích từ bụi tảo (x1.8)
+    if (player.species === "croc" && player.passiveState.crocAmbushReady) {
+      mult *= 1.8;
+      player.passiveState.crocAmbushReady = false;
+    }
+
+    // Cá Sấu Dạng 6: Cuồng Nộ Đầm Lầy (+35%)
+    if (player.species === "croc" && player.crocFrenzyActive) {
+      mult *= 1.35;
+    }
+
+    // Lõi Siêu Cấp: Nanh Vuốt Hủy Diệt (+8% máu tối đa mục tiêu)
+    const extraTrueDmg = player.hasSuperAugment("s_void_fangs")
+      ? targetMaxHp * 0.08
+      : 0;
+
+    return { mult, extraTrueDmg };
+  }
+
   update(dt, state) {
     if (this.comboTimer > 0) {
       this.comboTimer -= dt;
@@ -47,7 +77,8 @@ export class CombatSystem {
 
     if (!player) return;
 
-    // 1. Nhặt Ngọc Trai
+    // 1. Nhặt Ngọc Trai (Lõi Thủy Triều Hấp Tinh nhân đôi điểm ngọc)
+    const pearlMult = player.hasSuperAugment("s_astral_tide") ? 2 : 1;
     for (let i = pearls.length - 1; i >= 0; i--) {
       const p = pearls[i];
       const d = Math.hypot(player.x - p.x, player.y - p.y);
@@ -57,7 +88,7 @@ export class CombatSystem {
       }
       if (d < player.radius + p.radius + 8) {
         sound.playEat(1);
-        const pearlPts = 75 + player.level * 4;
+        const pearlPts = (75 + player.level * 4) * pearlMult;
         player.addScore(
           pearlPts,
           worldEvent,
@@ -111,7 +142,11 @@ export class CombatSystem {
           player.dashTimer > 0 ||
           player.radius >= boss.radius * 1.1
         ) {
-          const dmg = 32 * player.bitePower;
+          const { mult, extraTrueDmg } = this.getEffectiveBitePower(
+            player,
+            boss.maxHp,
+          );
+          const dmg = 32 * mult + extraTrueDmg * 0.25;
           boss.hp -= dmg;
           sound.playEat(3);
           camera.shake = 12;
@@ -183,9 +218,25 @@ export class CombatSystem {
           const pts = Math.ceil(e.radius * 1.6) + comboBonus;
 
           player.addScore(pts, worldEvent, selectedMap, particleSystem, camera);
-          player.heal(player.lifeSteal);
+          const healAmt =
+            player.lifeSteal * (player.crocFrenzyActive ? 1.25 : 1.0);
+          player.heal(healAmt);
+          if (player.hasSuperAugment("s_bloodlust")) {
+            player.heal(player.maxHp * 0.05);
+          }
+
           sound.playEat(this.comboCount);
           eventBus.emit("ENEMY_EATEN");
+
+          // Cá Kiếm Dạng 6: Vũ Điệu Kiếm Ảnh sau khi hạ gục
+          if (player.species === "fish" && player.evoStage >= 6) {
+            particleSystem.addShockwave(
+              player.x,
+              player.y,
+              player.radius + 140,
+              "#00f5d4",
+            );
+          }
 
           for (let k = 0; k < 10; k++) {
             particleSystem.addParticle(
@@ -213,7 +264,8 @@ export class CombatSystem {
 
           if (hitTail && e.radius <= player.radius * 1.75) {
             e.radius *= 0.82;
-            e.stunTimer = 1.5;
+            e.stunTimer =
+              player.species === "croc" && player.evoStage >= 4 ? 2.5 : 1.5;
             sound.playEat(2);
             meatChunks.push(new MeatChunk(tailX, tailY, 65));
             particleSystem.addFloatingText(
@@ -279,11 +331,20 @@ export class CombatSystem {
         player.ultTimer > 0 ||
         player.dashTimer > 0;
 
+      const { mult, extraTrueDmg } = this.getEffectiveBitePower(
+        player,
+        rp.maxHp || 100,
+      );
+
       if (!isBiggerOrEqual && hitTail) {
         rp.lastHitTime = time;
         rp.triggerHurtFlash();
 
-        const tailDmg = Math.round(28 * player.bitePower);
+        const tailDmg = Math.round(28 * mult + extraTrueDmg);
+        if (player.hasSuperAugment("s_bloodlust")) {
+          player.heal(player.maxHp * 0.15);
+        }
+
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg: tailDmg,
@@ -316,7 +377,7 @@ export class CombatSystem {
 
         const isCrit = player.dashTimer > 0 || player.ultTimer > 0;
         const finalDmg = Math.round(
-          32 * player.bitePower * (isCrit ? 1.5 : 1.0),
+          (32 * mult + extraTrueDmg) * (isCrit ? 1.5 : 1.0),
         );
 
         const isLethal = rp.hp - finalDmg <= 0;
@@ -325,6 +386,10 @@ export class CombatSystem {
           this.killStreak++;
           player.bounty = (player.bounty || 0) + 1;
           storage.data.pvpKills = (storage.data.pvpKills || 0) + 1;
+
+          if (player.hasSuperAugment("s_bloodlust")) {
+            player.heal(player.maxHp * 0.15);
+          }
 
           if (STREAK_LABELS[this.killStreak]) {
             eventBus.emit(

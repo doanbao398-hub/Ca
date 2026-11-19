@@ -1,4 +1,5 @@
 import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { settings } from "./SettingsManager.js";
 
 export class Camera {
   constructor() {
@@ -11,38 +12,38 @@ export class Camera {
   reset(x, y) {
     this.x = x;
     this.y = y;
+    this.zoom = 1;
     this.shake = 0;
   }
 
   follow(player, width, height, selectedMap) {
-    if (!player) return;
     this.x += (player.x - this.x) * 0.08;
     this.y += (player.y - this.y) * 0.08;
 
-    const isMobile = width <= 920;
-    const mobileZoomAdjust = isMobile ? -0.14 : 0;
     const visionBonus =
-      selectedMap === "abyss" && player.species === "diver" ? 0.12 : 0;
+      selectedMap === "abyss" && player.species === "diver" ? 0.14 : 0;
+    const minScreenDim = Math.min(width, height);
+    const mobileScale = minScreenDim < 650 ? 0.72 : 1.0;
 
-    // Tự động thu phóng mượt mà theo kích thước khổng lồ của nhân vật
-    const sizeZoomPenalty = Math.max(0, (player.radius - 22) * 0.0028);
-    const targetZoom = Math.max(
-      0.26,
-      1.05 + mobileZoomAdjust + visionBonus - sizeZoomPenalty,
-    );
-    this.zoom += (targetZoom - this.zoom) * 0.05;
+    const baseZoom =
+      Math.max(0.32, 1.08 - (player.radius - 20) * 0.0032 - visionBonus) *
+      mobileScale;
+    this.zoom += (baseZoom - this.zoom) * 0.05;
+
+    if (this.shake > 0) {
+      this.shake *= 0.88;
+      if (this.shake < 0.3) this.shake = 0;
+    }
   }
 
   applyTransform(ctx, width, height) {
-    if (this.shake > 0) {
-      ctx.translate(
-        (Math.random() - 0.5) * this.shake,
-        (Math.random() - 0.5) * this.shake,
-      );
-      this.shake *= 0.85;
-      if (this.shake < 0.5) this.shake = 0;
-    }
-    ctx.translate(width / 2, height / 2);
+    const canShake = settings.data.screenShake !== false;
+    const shakeX =
+      canShake && this.shake > 0 ? (Math.random() - 0.5) * this.shake : 0;
+    const shakeY =
+      canShake && this.shake > 0 ? (Math.random() - 0.5) * this.shake : 0;
+
+    ctx.translate(width / 2 + shakeX, height / 2 + shakeY);
     ctx.scale(this.zoom, this.zoom);
     ctx.translate(-this.x, -this.y);
   }
