@@ -15,6 +15,7 @@ export class RemotePlayer extends Creature {
     this.targetX = this.x;
     this.targetY = this.y;
     this.score = data.score || 0;
+    this.level = data.level || 1;
     this.hp = data.hp ?? 100;
     this.maxHp = data.maxHp ?? 100;
     this.bounty = data.bounty || 0;
@@ -30,6 +31,7 @@ export class RemotePlayer extends Creature {
     this.radius = data.radius || this.radius;
     this.species = data.species || this.species;
     this.score = data.score ?? this.score;
+    this.level = data.level || this.level;
     if (typeof data.hp === "number") this.hp = data.hp;
     if (typeof data.maxHp === "number") this.maxHp = data.maxHp;
     this.bounty = data.bounty || 0;
@@ -52,6 +54,9 @@ export class RemotePlayer extends Creature {
     }
     if (this.emoteTimer > 0) {
       this.emoteTimer = Math.max(0, this.emoteTimer - dt);
+    }
+    if (this.chatBubbleTimer > 0) {
+      this.chatBubbleTimer = Math.max(0, this.chatBubbleTimer - dt);
     }
   }
 }

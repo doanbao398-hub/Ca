@@ -10,11 +10,11 @@ const PALETTES = [
 ];
 
 const DANGER_NAMES = [
-  "Cá Mập Trắng",
-  "Thủy Quái",
+  "Cá Mập Megalodon",
+  "Thủy Quái Kraken",
   "Sấu Khổng Lồ",
   "Rùa Cổ Đại",
-  "Cá Kiếm Đen",
+  "Cá Kiếm Hắc Ám",
 ];
 
 export class EnemyBot extends Creature {
@@ -23,18 +23,18 @@ export class EnemyBot extends Creature {
     const y = Math.random() * (WORLD_SIZE - 250) + 125;
     const roll = Math.random();
     let radius;
-    if (roll < 0.62) {
-      radius = Math.max(10, playerRadius * (0.4 + Math.random() * 0.48));
+    if (roll < 0.64) {
+      radius = Math.max(12, playerRadius * (0.35 + Math.random() * 0.52));
     } else if (roll < 0.88) {
-      radius = playerRadius * (1.15 + Math.random() * 0.5);
+      radius = playerRadius * (1.12 + Math.random() * 0.45);
     } else {
-      radius = playerRadius * (1.75 + Math.random() * 0.65);
+      radius = playerRadius * (1.65 + Math.random() * 0.6);
     }
-    radius = Math.min(radius, 130);
+    radius = Math.min(radius, 260);
 
     const types = ["fish", "turtle", "croc", "puffer"];
     const type = types[Math.floor(Math.random() * types.length)];
-    if (type === "puffer") radius = Math.min(26, radius);
+    if (type === "puffer") radius = Math.min(34, radius);
 
     const label =
       radius > playerRadius * 1.05
@@ -43,7 +43,7 @@ export class EnemyBot extends Creature {
 
     super(x, y, radius, type, label, false);
     this.colors = PALETTES[Math.floor(Math.random() * PALETTES.length)];
-    this.baseSpeed = Math.max(1.1, 2.7 - radius / 68) + Math.random() * 0.5;
+    this.baseSpeed = Math.max(1.2, 2.8 - radius / 120) + Math.random() * 0.5;
     this.angle = Math.random() * Math.PI * 2;
     this.wanderOffset = Math.random() * 100;
     this.puffed = false;
@@ -55,9 +55,9 @@ export class EnemyBot extends Creature {
       return;
     }
     const dist = Math.hypot(player.x - this.x, player.y - this.y);
-    if (this.species === "puffer") this.puffed = dist < 130;
+    if (this.species === "puffer") this.puffed = dist < 130 + this.radius;
 
-    const aggroRange = 240 + this.radius;
+    const aggroRange = 260 + this.radius + player.radius * 0.5;
     const rageSpeedMult =
       worldEvent && worldEvent.type === "bloodmoon" ? 1.3 : 1.0;
     let speed = this.baseSpeed * rageSpeedMult;
@@ -77,10 +77,10 @@ export class EnemyBot extends Creature {
       targetAngle += Math.sin(this.wanderOffset) * 0.015;
     }
 
-    if (this.x < 160) targetAngle = 0;
-    if (this.x > WORLD_SIZE - 160) targetAngle = Math.PI;
-    if (this.y < 160) targetAngle = Math.PI / 2;
-    if (this.y > WORLD_SIZE - 160) targetAngle = -Math.PI / 2;
+    if (this.x < 180) targetAngle = 0;
+    if (this.x > WORLD_SIZE - 180) targetAngle = Math.PI;
+    if (this.y < 180) targetAngle = Math.PI / 2;
+    if (this.y > WORLD_SIZE - 180) targetAngle = -Math.PI / 2;
 
     let diff = targetAngle - this.angle;
     while (diff < -Math.PI) diff += Math.PI * 2;

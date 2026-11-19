@@ -19,6 +19,7 @@ import { triggerPlayerSkill } from "./systems/SkillSystem.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { RoomSync } from "./network/RoomSync.js";
 import { UIManager } from "./ui/UIManager.js";
+import { AdminPanel } from "./ui/AdminPanel.js";
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -39,6 +40,7 @@ const particleSystem = new ParticleSystem();
 const combatSystem = new CombatSystem();
 const roomSync = new RoomSync();
 const ui = new UIManager();
+const adminPanel = new AdminPanel(() => player, particleSystem, camera);
 
 let gameState = "AUTH";
 let selectedSpecies = "fish";
@@ -60,6 +62,7 @@ let zoneRadius = WORLD_SIZE * 0.75;
 let worldEvent = null;
 let nextEventTimer = 45;
 let lbUpdateTimer = 0;
+let autoSaveTimer = 0;
 let lastTime = 0;
 
 function updateQuestProgress(id, amount = 1) {
@@ -69,7 +72,18 @@ function updateQuestProgress(id, amount = 1) {
       q.current = Math.min(q.target, q.current + amount);
       if (q.current >= q.target) {
         q.done = true;
-        if (player) player.evolveNextStage(particleSystem, camera);
+        if (player) {
+          player.evolveNextStage(particleSystem, camera);
+          if (q.xpBonus) {
+            player.addScore(
+              q.xpBonus,
+              worldEvent,
+              selectedMap,
+              particleSystem,
+              camera,
+            );
+          }
+        }
       }
       changed = true;
     }
@@ -81,7 +95,7 @@ function triggerRandomWorldEvent() {
   const events = [
     {
       type: "pearl_rain",
-      name: "🌠 MƯA SAO BĂNG NGỌC TRAI! (+15 Ngọc Trai)",
+      name: "🌠 MƯA SAO BĂNG NGỌC TRAI! (+18 Ngọc Trai)",
       duration: 25,
     },
     {
@@ -99,7 +113,7 @@ function triggerRandomWorldEvent() {
   worldEvent = { ...ev, timer: ev.duration };
   ui.showEventBanner(ev.name, 5000);
   if (ev.type === "pearl_rain") {
-    for (let i = 0; i < 15; i++) pearls.push(new Pearl());
+    for (let i = 0; i < 18; i++) pearls.push(new Pearl());
   }
 }
 
@@ -119,7 +133,8 @@ function startGame() {
   selectedRoomId = inputRoom || "PUBLIC";
   selectedGameMode = document.getElementById("gamemode-select").value;
 
-  ui.initMatchHUD(selectedSpecies, selectedRoomId);
+  const savedRun = storage.getSpeciesRun(selectedSpecies);
+
   worldRenderer.build(selectedMap);
 
   player = new Player(
@@ -127,8 +142,18 @@ function startGame() {
     selectedSpecies,
     storage.data.upgrades,
     selectedMap,
+    savedRun,
   );
   camera.reset(player.x, player.y);
+
+  ui.initMatchHUD(selectedSpecies, selectedRoomId, player);
+
+  if (savedRun && savedRun.score > 0) {
+    ui.showEventBanner(
+      `💾 KHÔI PHỤC ${player.cfg.name.toUpperCase()} (Lv.${player.level} • ${player.score} XP)!`,
+      4000,
+    );
+  }
 
   boss = null;
   bossSpawned = false;
@@ -137,6 +162,7 @@ function startGame() {
   nextEventTimer = 35;
   survivalTime = 0;
   lbUpdateTimer = 0;
+  autoSaveTimer = 0;
 
   enemies = [];
   const totalEnemies = MAP_CONFIG[selectedMap].enemyCount;
@@ -147,12 +173,21 @@ function startGame() {
   }
 
   pearls = [];
-  for (let i = 0; i < 20; i++) pearls.push(new Pearl());
+  for (let i = 0; i < 22; i++) pearls.push(new Pearl());
   meatChunks = [];
   particleSystem.clear();
   combatSystem.reset();
 
   quests = createInitialQuests();
+  if (savedRun && Array.isArray(savedRun.quests)) {
+    savedRun.quests.forEach((sq) => {
+      const targetQ = quests.find((q) => q.id === sq.id);
+      if (targetQ) {
+        targetQ.current = sq.current || 0;
+        targetQ.done = !!sq.done;
+      }
+    });
+  }
   ui.renderQuests(quests);
 
   gameState = "PLAYING";
@@ -170,12 +205,13 @@ function triggerGameOver(killerName = "") {
   gameState = "GAMEOVER";
   roomSync.leaveRoom();
 
-  const earnedGems = Math.floor(player.score / 25) + player.evoStage * 15;
+  const earnedGems = Math.floor(player.score / 25) + player.evoStage * 20;
   storage.data.gems += earnedGems;
   if (player.score > storage.data.highScore) {
     storage.data.highScore = player.score;
   }
-  storage.save();
+
+  storage.clearSpeciesRun(player.species);
 
   ui.showGameOver(
     player,
@@ -189,6 +225,7 @@ function triggerGameOver(killerName = "") {
 function togglePause() {
   if (gameState === "PLAYING") {
     gameState = "PAUSED";
+    if (player) storage.saveSpeciesRun(player, quests);
     ui.dom.pauseScreen.classList.remove("hidden");
   } else if (gameState === "PAUSED") {
     gameState = "PLAYING";
@@ -196,7 +233,6 @@ function togglePause() {
   }
 }
 
-// Lắng nghe trạng thái Auth
 eventBus.on("AUTH_STATE_CHANGED", (user) => {
   if (user) {
     if (gameState === "AUTH") gameState = "LOBBY";
@@ -207,7 +243,6 @@ eventBus.on("AUTH_STATE_CHANGED", (user) => {
   }
 });
 
-// Lắng nghe các sự kiện từ EventBus
 eventBus.on("HIT_STOP", (duration) => {
   hitStopTimer = duration;
 });
@@ -217,45 +252,83 @@ eventBus.on("PLAYER_DIED", (killerName) => {
 });
 
 eventBus.on("PLAYER_EVOLVED", ({ stage }) => {
+  if (player) storage.saveSpeciesRun(player, quests);
   if (stage >= 3 && !bossSpawned) {
     bossSpawned = true;
-    boss = new BossLeviathan();
+    boss = new BossLeviathan(player ? player.radius : 60);
     ui.showEventBanner("⚠️ THỦY QUÁI LEVIATHAN ĐÃ THỨC TỈNH!", 5000);
     camera.shake = 20;
   }
 });
 
-eventBus.on("PLAYER_LEVEL_UP", () => {
-  gameState = "UPGRADE";
-  ui.openUpgradeModal(player, particleSystem, () => {
-    gameState = "PLAYING";
-  });
+eventBus.on("ADMIN_SPAWN_BOSS", () => {
+  if (!player) return;
+  bossSpawned = true;
+  boss = new BossLeviathan(player.radius);
+  boss.x = Math.min(WORLD_SIZE - 300, player.x + 420);
+  boss.y = player.y;
+  ui.showEventBanner("👑 ADMIN ĐÃ TRIỆU HỒI LEVIATHAN CHÚA TỂ!", 5000);
+  camera.shake = 22;
+});
+
+eventBus.on("PLAYER_LEVEL_UP", (level) => {
+  if (player) storage.saveSpeciesRun(player, quests);
+  // Mở thẻ nâng cấp mỗi 2 cấp (hoặc 10 cấp đầu tiên) để nhịp chơi mượt và kịch tính
+  if (level <= 10 || level % 2 === 0) {
+    gameState = "UPGRADE";
+    ui.openUpgradeModal(player, particleSystem, () => {
+      if (player) storage.saveSpeciesRun(player, quests);
+      gameState = "PLAYING";
+    });
+  }
 });
 
 eventBus.on("BOSS_KILLED", () => {
   boss = null;
+  bossSpawned = false;
+  if (player) storage.saveSpeciesRun(player, quests);
 });
 
 eventBus.on("QUEST_PROGRESS", ({ id, amount }) => {
   updateQuestProgress(id, amount);
+  if (id === "q2_pearls" && quests.find((q) => q.id === "q2_pearls")?.done) {
+    updateQuestProgress("q4_pearls_master", amount);
+  }
+  if (
+    id === "q2_pearls" &&
+    quests.find((q) => q.id === "q4_pearls_master")?.done
+  ) {
+    updateQuestProgress("q7_supreme", amount);
+  }
 });
 
 eventBus.on("ENEMY_EATEN", () => {
   updateQuestProgress("q1_hunt", 1);
-  if (quests[0]?.done && quests[1]?.done) {
+  if (quests.find((q) => q.id === "q1_hunt")?.done) {
     updateQuestProgress("q3_apex", 1);
+  }
+  if (quests.find((q) => q.id === "q3_apex")?.done) {
+    updateQuestProgress("q5_slayer", 1);
+  }
+  if (quests.find((q) => q.id === "q5_slayer")?.done) {
+    updateQuestProgress("q6_god_hunt", 1);
   }
 });
 
 eventBus.on("SKILL_USED_FOR_QUEST", () => {
   if (quests[0]?.done && quests[1]?.done) {
-    updateQuestProgress("q3_apex", 2);
+    updateQuestProgress("q3_apex", 1);
   }
 });
 
 eventBus.on("INPUT_SKILL", () => {
   if (gameState === "PLAYING" && player) {
-    triggerPlayerSkill(player, { enemies, particleSystem, camera });
+    triggerPlayerSkill(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+    });
   }
 });
 
@@ -299,7 +372,6 @@ eventBus.on("REMOTE_DMG_POPUP", (sk) => {
   );
 });
 
-// Gắn sự kiện UI Sảnh & HUD
 document.querySelectorAll("#species-selector .card-option").forEach((card) => {
   card.addEventListener("click", () => {
     document
@@ -338,8 +410,13 @@ document.getElementById("ult-box").addEventListener("click", () => {
 });
 document.getElementById("btn-pause").addEventListener("click", togglePause);
 document.getElementById("btn-resume").addEventListener("click", togglePause);
+
 document.getElementById("btn-quit-lobby").addEventListener("click", () => {
+  if (player && player.hp > 0) {
+    storage.saveSpeciesRun(player, quests);
+  }
   roomSync.leaveRoom();
+  player = null;
   ui.dom.pauseScreen.classList.add("hidden");
   ui.dom.lobbyScreen.classList.remove("hidden");
   gameState = "LOBBY";
@@ -357,9 +434,13 @@ document.getElementById("restart-btn").addEventListener("click", () => {
   gameState = "LOBBY";
 });
 
-window.addEventListener("beforeunload", () => roomSync.leaveRoom());
+window.addEventListener("beforeunload", () => {
+  if (player && player.hp > 0 && gameState !== "GAMEOVER") {
+    storage.saveSpeciesRun(player, quests);
+  }
+  roomSync.leaveRoom();
+});
 
-// Vòng lặp chính
 function gameLoop(time) {
   const dt = Math.min(0.05, (time - lastTime) / 1000 || 0.016);
   lastTime = time;
@@ -377,6 +458,12 @@ function gameLoop(time) {
 
   if (gameState === "PLAYING") {
     survivalTime += dt;
+
+    autoSaveTimer += dt;
+    if (autoSaveTimer >= 15 && player && player.hp > 0) {
+      storage.saveSpeciesRun(player, quests);
+      autoSaveTimer = 0;
+    }
 
     if (selectedGameMode === "royale" && zoneRadius > 550) {
       zoneRadius -= 11 * dt;
@@ -467,8 +554,8 @@ function gameLoop(time) {
     );
 
     if (
-      Math.abs(e.x - camera.x) < (width / camera.zoom) * 0.72 &&
-      Math.abs(e.y - camera.y) < (height / camera.zoom) * 0.72
+      Math.abs(e.x - camera.x) < (width / camera.zoom) * 0.78 &&
+      Math.abs(e.y - camera.y) < (height / camera.zoom) * 0.78
     ) {
       const isDanger =
         player && e.radius > player.radius * 1.05 && player.ultTimer <= 0;

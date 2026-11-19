@@ -11,6 +11,7 @@ import {
 import { db, myPlayerId, getServerNow } from "./FirebaseClient.js";
 import { RemotePlayer } from "../entities/RemotePlayer.js";
 import { eventBus } from "../core/EventBus.js";
+import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
 
 export class RoomSync {
   constructor() {
@@ -39,6 +40,10 @@ export class RoomSync {
 
     eventBus.on("EMOTE_BROADCAST", (emoji) => {
       this.broadcastEmote(emoji);
+    });
+
+    eventBus.on("SEND_CHAT_MESSAGE", (text) => {
+      this.sendChatMessage(text);
     });
 
     eventBus.on(
@@ -143,7 +148,7 @@ export class RoomSync {
     );
     this.unsubscribers.push(unsubPlayers);
 
-    // 2. Lắng nghe đòn đánh trúng mình (không lọc joinTimestamp để tránh nuốt gói khi lệch giờ)
+    // 2. Lắng nghe đòn đánh trúng mình
     const myHitsRef = ref(db, `${this.currentRoomPath}/hits/${myPlayerId}`);
     onDisconnect(myHitsRef).remove();
     const unsubHits = onChildAdded(myHitsRef, (snapshot) => {
@@ -192,11 +197,61 @@ export class RoomSync {
       }
     });
     this.unsubscribers.push(unsubEmotes);
+
+    // 5. Lắng nghe Chat Phòng Multiplayer
+    const chatRef = ref(db, `${this.currentRoomPath}/chat`);
+    const unsubChat = onChildAdded(chatRef, (snapshot) => {
+      const msg = snapshot.val();
+      if (
+        !msg ||
+        !msg.text ||
+        (typeof msg.ts === "number" && msg.ts < joinTimestamp - 5000)
+      ) {
+        return;
+      }
+      const isMe = msg.sender === myPlayerId;
+      eventBus.emit("CHAT_MESSAGE_RECEIVED", {
+        senderName: msg.senderName || "Thủy Quái",
+        text: msg.text,
+        isMe,
+      });
+
+      if (!isMe && this.remotePlayers[msg.sender]) {
+        this.remotePlayers[msg.sender].setChatBubble(msg.text, 5.0);
+      }
+    });
+    this.unsubscribers.push(unsubChat);
+  }
+
+  sendChatMessage(rawText) {
+    if (!this.currentRoomPath || !this.getPlayerFn) return;
+    const player = this.getPlayerFn();
+    if (!player) return;
+
+    const cleanText = String(rawText || "")
+      .trim()
+      .slice(0, 80);
+    if (!cleanText) return;
+
+    player.setChatBubble(cleanText, 5.0);
+
+    const id =
+      "msg_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
+    const msgRef = ref(db, `${this.currentRoomPath}/chat/${id}`);
+    set(msgRef, {
+      sender: myPlayerId,
+      senderName: String(player.name || "Người Chơi").slice(0, 16),
+      text: cleanText,
+      ts: serverTimestamp(),
+    }).catch(() => {});
+
+    setTimeout(() => remove(msgRef).catch(() => {}), 15000);
   }
 
   pushPlayerState(p) {
     if (!this.myPlayerRef || !p) return;
-    const safeRadius = Math.min(160, Math.max(10, Math.round(p.radius)));
+    const maxStage = EVOLUTION_FORMS.length;
+    const safeRadius = Math.min(350, Math.max(10, Math.round(p.radius)));
     update(this.myPlayerRef, {
       name: String(p.name || "Người Chơi").slice(0, 16),
       x: Math.round(p.x),
@@ -204,7 +259,8 @@ export class RoomSync {
       angle: Number(p.angle.toFixed(2)),
       radius: safeRadius,
       species: p.species,
-      evoStage: Math.min(4, Math.max(1, p.evoStage)),
+      evoStage: Math.min(maxStage, Math.max(1, p.evoStage)),
+      level: Math.max(1, Math.round(p.level || 1)),
       score: Math.max(0, Math.round(p.score)),
       hp: Math.max(0, Math.ceil(p.hp)),
       maxHp: Math.max(1, Math.round(p.maxHp)),
@@ -261,7 +317,7 @@ export class RoomSync {
       "h_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const hitRef = ref(db, `${this.currentRoomPath}/hits/${targetId}/${id}`);
     set(hitRef, {
-      dmg: Math.min(80, Math.max(1, Math.round(dmg))),
+      dmg: Math.min(120, Math.max(1, Math.round(dmg))),
       isCrit: !!isCrit,
       fromX: Math.round(fromX),
       fromY: Math.round(fromY),

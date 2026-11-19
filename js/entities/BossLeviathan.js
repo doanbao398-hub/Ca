@@ -2,21 +2,22 @@ import { Creature } from "./Creature.js";
 import { WORLD_SIZE } from "../data/mapsConfig.js";
 
 export class BossLeviathan extends Creature {
-  constructor() {
+  constructor(playerRadius = 60) {
+    const bossRadius = Math.min(260, Math.max(150, playerRadius * 1.45));
     super(
       WORLD_SIZE * 0.35,
       WORLD_SIZE * 0.35,
-      130,
+      bossRadius,
       "croc",
       "👑 LEVIATHAN CHÚA TỂ",
-      false
+      false,
     );
     this.colors = {
       primary: "#ff006e",
       secondary: "#240046",
       accent: "#fee440",
     };
-    this.maxHp = 600;
+    this.maxHp = 1200;
     this.hp = this.maxHp;
     this.dashCooldown = 5;
   }
@@ -27,9 +28,9 @@ export class BossLeviathan extends Creature {
       return;
     }
     this.dashCooldown -= dt;
-    let speed = 2.4;
+    let speed = 2.6;
     if (this.dashCooldown <= 0) {
-      speed = 6.2;
+      speed = 6.5;
       if (this.dashCooldown <= -0.6) this.dashCooldown = 5.5;
     }
     const targetAngle = Math.atan2(player.y - this.y, player.x - this.x);
@@ -42,15 +43,15 @@ export class BossLeviathan extends Creature {
 
   drawBossBar(ctx) {
     ctx.save();
-    const barW = 180;
+    const barW = 200;
     ctx.fillStyle = "rgba(0,0,0,0.75)";
-    ctx.fillRect(this.x - barW / 2, this.y - this.radius - 42, barW, 12);
+    ctx.fillRect(this.x - barW / 2, this.y - this.radius - 46, barW, 14);
     ctx.fillStyle = "#ff006e";
     ctx.fillRect(
       this.x - barW / 2 + 2,
-      this.y - this.radius - 40,
+      this.y - this.radius - 44,
       (barW - 4) * (this.hp / this.maxHp),
-      8
+      10,
     );
     ctx.restore();
   }

@@ -6,6 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
+    <meta name="screen-orientation" content="landscape" />
     <title>OCEAN ODYSSEY: EVOLUTION - Online Multiplayer</title>
     <link rel="stylesheet" href="css/base.css" />
     <link rel="stylesheet" href="css/hud.css" />
@@ -14,6 +15,21 @@
   </head>
   <body>
     <canvas id="gameCanvas"></canvas>
+
+    <!-- CẢNH BÁO XOAY NGANG MÀN HÌNH CHO ĐIỆN THOẠI -->
+    <div id="rotate-device-overlay">
+      <div class="rotate-card">
+        <div class="rotate-phone-icon">📱🔄</div>
+        <h2>XOAY NGANG ĐIỆN THOẠI</h2>
+        <p>
+          Trải nghiệm đại dương rộng mở và điều khiển mượt mà nhất ở chế độ màn
+          hình ngang (Landscape).
+        </p>
+        <button type="button" id="btn-dismiss-rotate" class="btn-hud">
+          Vẫn chơi màn hình dọc
+        </button>
+      </div>
+    </div>
 
     <!-- HUD TRONG GAME -->
     <div id="ui-layer">
@@ -68,6 +84,9 @@
               <div class="online-dot"></div>
               <span id="hud-online-count">1 Online</span>
             </div>
+            <button class="btn-hud" id="btn-toggle-chat" title="Bật/Tắt Chat">
+              💬
+            </button>
             <button class="btn-hud" id="btn-mute">🔊</button>
             <button class="btn-hud" id="btn-pause">⏸️</button>
           </div>
@@ -87,7 +106,7 @@
           <div class="panel-glass quest-panel">
             <div class="quest-title">
               <span>🧬 Nhiệm Vụ Tiến Hóa</span>
-              <span id="evo-counter" style="color: #00f5d4">1/4</span>
+              <span id="evo-counter" style="color: #00f5d4">1/8</span>
             </div>
             <div id="quest-list"></div>
           </div>
@@ -97,31 +116,53 @@
       <div id="event-banner">⚠️ SỰ KIỆN ĐẠI DƯƠNG!</div>
 
       <div class="hud-bottom">
-        <div>
-          <div class="emote-bar" id="emote-bar">
-            <button class="emote-btn" data-emote="👋">👋</button>
-            <button class="emote-btn" data-emote="😂">😂</button>
-            <button class="emote-btn" data-emote="😡">😡</button>
-            <button class="emote-btn" data-emote="🤝">🤝</button>
+        <div class="hud-bottom-left">
+          <!-- Khung Chat Multiplayer Thời Gian Thực -->
+          <div class="panel-glass chat-box" id="chat-box">
+            <div class="chat-messages" id="chat-messages"></div>
+            <form class="chat-form" id="chat-form">
+              <input
+                type="text"
+                id="chat-input"
+                class="chat-input"
+                placeholder="Chat với phòng [Enter]..."
+                maxlength="80"
+                autocomplete="off"
+              />
+              <button type="submit" class="chat-send-btn">Gửi</button>
+            </form>
           </div>
-          <div class="minimap-wrap">
-            <canvas id="minimapCanvas" width="165" height="165"></canvas>
+
+          <div class="hud-radar-emote-row">
+            <div class="minimap-wrap">
+              <canvas id="minimapCanvas" width="165" height="165"></canvas>
+            </div>
+            <div class="emote-bar" id="emote-bar">
+              <button class="emote-btn" data-emote="👋">👋</button>
+              <button class="emote-btn" data-emote="😂">😂</button>
+              <button class="emote-btn" data-emote="😡">😡</button>
+              <button class="emote-btn" data-emote="🤝">🤝</button>
+            </div>
           </div>
         </div>
 
+        <!-- Thanh Thể Lực PC -->
         <div class="controls-center">
           <div
             class="panel-glass desktop-stamina-box"
-            style="text-align: center; padding: 8px 12px"
+            style="text-align: center; padding: 8px 14px"
           >
             <div class="stat-label" id="stamina-label">
               Giữ Chuột / Space: Bơi Nhanh
             </div>
-            <div class="bar-wrap" style="width: 140px">
+            <div class="bar-wrap" style="width: 150px">
               <div id="stamina-bar"></div>
             </div>
           </div>
+        </div>
 
+        <!-- Cụm Nút Kỹ Năng & Tăng Tốc Góc Phải (Tối Ưu Cho Cả PC & Mobile) -->
+        <div class="action-cluster-right">
           <div class="skill-box" id="skill-box">
             <div class="skill-key">E</div>
             <div>
@@ -156,13 +197,13 @@
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
-        <button id="mobile-boost-btn">
-          <span>⚡</span>
-          <span>BƠI NHANH</span>
-        </button>
+          <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
+          <button id="mobile-boost-btn">
+            <span style="font-size: 18px">⚡</span>
+            <span>BƠI NHANH</span>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -254,8 +295,7 @@
         <div class="lobby-header">
           <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
           <p>
-            Đồng bộ thời gian thực qua Firebase • Săn mồi PvP • Hỗ trợ PC &
-            Mobile
+            100 Cấp Độ • 8 Chuẩn Tiến Hóa • Chat Thời Gian Thực • PC & Mobile
           </p>
         </div>
 

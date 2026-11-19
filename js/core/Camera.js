@@ -19,14 +19,16 @@ export class Camera {
     this.x += (player.x - this.x) * 0.08;
     this.y += (player.y - this.y) * 0.08;
 
-    const isMobile = width <= 820;
-    const mobileZoomAdjust = isMobile ? -0.18 : 0;
+    const isMobile = width <= 920;
+    const mobileZoomAdjust = isMobile ? -0.14 : 0;
     const visionBonus =
       selectedMap === "abyss" && player.species === "diver" ? 0.12 : 0;
 
+    // Tự động thu phóng mượt mà theo kích thước khổng lồ của nhân vật
+    const sizeZoomPenalty = Math.max(0, (player.radius - 22) * 0.0028);
     const targetZoom = Math.max(
-      0.42,
-      1.05 + mobileZoomAdjust + visionBonus - (player.radius - 21) * 0.0036
+      0.26,
+      1.05 + mobileZoomAdjust + visionBonus - sizeZoomPenalty,
     );
     this.zoom += (targetZoom - this.zoom) * 0.05;
   }
@@ -35,7 +37,7 @@ export class Camera {
     if (this.shake > 0) {
       ctx.translate(
         (Math.random() - 0.5) * this.shake,
-        (Math.random() - 0.5) * this.shake
+        (Math.random() - 0.5) * this.shake,
       );
       this.shake *= 0.85;
       if (this.shake < 0.5) this.shake = 0;

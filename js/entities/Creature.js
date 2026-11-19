@@ -26,6 +26,8 @@ export class Creature {
     this.bounty = 0;
     this.emote = "";
     this.emoteTimer = 0;
+    this.chatBubble = "";
+    this.chatBubbleTimer = 0;
 
     this.colors = {
       ...(SPECIES_CONFIG[speciesType]?.colors || {
@@ -37,7 +39,8 @@ export class Creature {
   }
 
   applyEvoAppearance(stage) {
-    this.evoStage = stage || 1;
+    const maxStage = EVOLUTION_FORMS.length;
+    this.evoStage = Math.min(maxStage, Math.max(1, stage || 1));
     const evo = EVOLUTION_FORMS[this.evoStage - 1];
     if (evo && evo.tint) {
       this.colors = { ...evo.tint };
@@ -46,6 +49,11 @@ export class Creature {
         ...(SPECIES_CONFIG[this.species]?.colors || this.colors),
       };
     }
+  }
+
+  setChatBubble(text, duration = 5.0) {
+    this.chatBubble = String(text || "").slice(0, 60);
+    this.chatBubbleTimer = duration;
   }
 
   draw(ctx, time, isDangerous = false) {

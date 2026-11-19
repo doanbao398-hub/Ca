@@ -40,3 +40,62 @@ body {
   pointer-events: none;
   display: none !important;
 }
+
+/* MÀN HÌNH NHẮC XOAY NGANG CHO ĐIỆN THOẠI */
+#rotate-device-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: radial-gradient(circle at center, #031d30, #01080e);
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  text-align: center;
+}
+
+.rotate-card {
+  background: rgba(6, 32, 52, 0.94);
+  border: 2px solid #00f5d4;
+  border-radius: 22px;
+  padding: 28px 22px;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 0 35px rgba(0, 245, 212, 0.35);
+}
+
+.rotate-phone-icon {
+  font-size: 52px;
+  animation: tiltPhone 1.6s ease-in-out infinite alternate;
+}
+
+@keyframes tiltPhone {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-90deg);
+  }
+}
+
+.rotate-card h2 {
+  font-size: 19px;
+  color: #fee440;
+  font-weight: 900;
+}
+
+.rotate-card p {
+  font-size: 13px;
+  color: #caf0f8;
+  line-height: 1.45;
+}
+
+/* Chỉ tự động hiện khi là thiết bị cảm ứng màn hình nhỏ và đang cầm dọc */
+@media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 768px) {
+  #rotate-device-overlay:not([data-dismissed="true"]) {
+    display: flex;
+  }
+}

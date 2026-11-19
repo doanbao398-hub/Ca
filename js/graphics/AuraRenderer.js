@@ -26,17 +26,20 @@ export function renderCreatureEffects(
     ctx.fill();
   }
 
+  // Vệ tinh năng lượng xoay quanh nhân vật từ Dạng 4 đến Dạng 8
   if ((creature.isPlayer || isRemoteHuman) && creature.evoStage >= 4) {
     ctx.save();
-    ctx.rotate(time * 0.0025);
-    for (let c = 0; c < 4; c++) {
-      const ca = (c * Math.PI) / 2;
-      ctx.fillStyle = "#00f5d4";
+    ctx.rotate(time * (0.002 + creature.evoStage * 0.0003));
+    const orbCount = Math.min(8, creature.evoStage);
+    const orbRadius = Math.max(5, creature.radius * 0.08);
+    for (let c = 0; c < orbCount; c++) {
+      const ca = (c * Math.PI * 2) / orbCount;
+      ctx.fillStyle = creature.evoStage >= 7 ? "#fee440" : "#00f5d4";
       ctx.beginPath();
       ctx.arc(
-        Math.cos(ca) * creature.radius * 1.45,
-        Math.sin(ca) * creature.radius * 1.45,
-        6,
+        Math.cos(ca) * creature.radius * 1.42,
+        Math.sin(ca) * creature.radius * 1.42,
+        orbRadius,
         0,
         Math.PI * 2,
       );
@@ -75,7 +78,7 @@ export function renderCreatureEffects(
     const tailY = -Math.sin(creature.angle) * creature.radius * 1.1;
     ctx.fillStyle = "rgba(254, 228, 64, 0.75)";
     ctx.beginPath();
-    ctx.arc(tailX, tailY, 8, 0, Math.PI * 2);
+    ctx.arc(tailX, tailY, Math.max(8, creature.radius * 0.12), 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
@@ -100,13 +103,32 @@ export function renderCreatureEffects(
 
   if (creature.emote && creature.emoteTimer > 0) {
     ctx.save();
-    ctx.font = "28px Segoe UI";
+    ctx.font = "30px Segoe UI";
     ctx.textAlign = "center";
-    ctx.fillText(creature.emote, 0, -creature.radius - 52);
+    ctx.fillText(creature.emote, 0, -creature.radius - 56);
     ctx.restore();
   }
 
-  // VẼ TÊN & THANH MÁU CỦA PLAYER KHÁC
+  // VẼ BONG BÓNG CHAT TRÊN ĐẦU NGƯỜI CHƠI
+  if (creature.chatBubble && creature.chatBubbleTimer > 0) {
+    ctx.save();
+    ctx.font = "bold 12px Segoe UI";
+    ctx.textAlign = "center";
+    const msg = creature.chatBubble;
+    const msgW = Math.min(240, ctx.measureText(msg).width + 18);
+    const bubbleY = -creature.radius - (isRemoteHuman ? 54 : 42);
+
+    ctx.fillStyle = "rgba(255, 255, 255, 0.94)";
+    ctx.beginPath();
+    ctx.roundRect(-msgW / 2, bubbleY - 14, msgW, 22, 10);
+    ctx.fill();
+
+    ctx.fillStyle = "#011627";
+    ctx.fillText(msg, 0, bubbleY + 1);
+    ctx.restore();
+  }
+
+  // VẼ TÊN & THANH MÁU CỦA PLAYER
   if (creature.name && (!creature.isStealthed || creature.isPlayer)) {
     ctx.save();
     ctx.font =
@@ -116,9 +138,13 @@ export function renderCreatureEffects(
     ctx.textAlign = "center";
 
     const crownPrefix = creature.bounty >= 2 ? "👑 " : "";
+    const lvTag =
+      (creature.isPlayer || isRemoteHuman) && creature.level
+        ? ` [Lv.${creature.level}]`
+        : "";
     const displayLabel = isRemoteHuman
-      ? `${crownPrefix}🌐 ${creature.name}`
-      : `${crownPrefix}${creature.name}`;
+      ? `${crownPrefix}🌐 ${creature.name}${lvTag}`
+      : `${crownPrefix}${creature.name}${lvTag}`;
 
     const labelY = isRemoteHuman
       ? -creature.radius - 24
@@ -141,7 +167,6 @@ export function renderCreatureEffects(
           : "#ffffff";
     ctx.fillText(displayLabel, 0, labelY);
 
-    // Thanh máu hiển thị trực tiếp dưới tên của người chơi Online khác
     if (isRemoteHuman && typeof creature.hp === "number") {
       const maxHp = Math.max(1, creature.maxHp || 100);
       const hpRatio = Math.max(0, Math.min(1, creature.hp / maxHp));

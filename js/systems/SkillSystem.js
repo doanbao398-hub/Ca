@@ -2,35 +2,60 @@ import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 
 const SKILL_HANDLERS = {
-  dash_stun: (player, { enemies, particleSystem }) => {
+  dash_stun: (player, { enemies, remotePlayers, particleSystem }) => {
     player.dashTimer = 0.45;
-    particleSystem.addShockwave(player.x, player.y, player.radius * 5, "#00f5d4");
+    particleSystem.addShockwave(
+      player.x,
+      player.y,
+      player.radius * 5,
+      "#00f5d4",
+    );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 20,
       "⚡ XUNG KÍCH!",
-      "#00f5d4"
+      "#00f5d4",
     );
     enemies.forEach((e) => {
       if (Math.hypot(e.x - player.x, e.y - player.y) < player.radius * 5) {
         e.stunTimer = 2.5;
       }
     });
+    Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+      if (
+        rp &&
+        !rp.invincibleTimer &&
+        Math.hypot(rp.x - player.x, rp.y - player.y) < player.radius * 5
+      ) {
+        const dmg = Math.round(22 * player.bitePower);
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg,
+          isCrit: true,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
+      }
+    });
   },
 
-  fortress_shield: (player, { enemies, particleSystem }) => {
+  fortress_shield: (player, { enemies, remotePlayers, particleSystem }) => {
     player.invincibleTimer = 3.5;
+    eventBus.emit("FORCE_SYNC_PLAYER");
     particleSystem.addShockwave(
       player.x,
       player.y,
       player.radius * 5.5,
-      "#2ec4b6"
+      "#2ec4b6",
     );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 20,
       "🛡️ MAI GIÁP BẤT TỬ!",
-      "#2ec4b6"
+      "#2ec4b6",
     );
     enemies.forEach((e) => {
       const d = Math.hypot(e.x - player.x, e.y - player.y);
@@ -41,20 +66,36 @@ const SKILL_HANDLERS = {
         e.stunTimer = 2.0;
       }
     });
+    Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+      const d = Math.hypot(rp.x - player.x, rp.y - player.y);
+      if (rp && !rp.invincibleTimer && d < player.radius * 5.5) {
+        const dmg = Math.round(18 * player.bitePower);
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg,
+          isCrit: false,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
+      }
+    });
   },
 
-  whirlpool_pull: (player, { enemies, particleSystem }) => {
+  whirlpool_pull: (player, { enemies, remotePlayers, particleSystem }) => {
     particleSystem.addShockwave(
       player.x,
       player.y,
       player.radius * 6.5,
-      "#52b788"
+      "#52b788",
     );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 20,
       "🌪️ XOÁY NƯỚC!",
-      "#52b788"
+      "#52b788",
     );
     enemies.forEach((e) => {
       const d = Math.hypot(e.x - player.x, e.y - player.y);
@@ -64,19 +105,56 @@ const SKILL_HANDLERS = {
         e.y += Math.sin(pullAng) * (d * 0.78);
       }
     });
+    Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+      const d = Math.hypot(rp.x - player.x, rp.y - player.y);
+      if (rp && !rp.invincibleTimer && d < player.radius * 6.5) {
+        const dmg = Math.round(24 * player.bitePower);
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg,
+          isCrit: true,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
+      }
+    });
   },
 
-  emp_pulse: (player, { enemies, particleSystem }) => {
-    particleSystem.addShockwave(player.x, player.y, player.radius * 7, "#fee440");
+  emp_pulse: (player, { enemies, remotePlayers, particleSystem }) => {
+    particleSystem.addShockwave(
+      player.x,
+      player.y,
+      player.radius * 7,
+      "#fee440",
+    );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 20,
       "⚡ XUNG EMP!",
-      "#fee440"
+      "#fee440",
     );
     enemies.forEach((e) => {
       if (Math.hypot(e.x - player.x, e.y - player.y) < player.radius * 7) {
         e.stunTimer = 3.5;
+      }
+    });
+    Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+      const d = Math.hypot(rp.x - player.x, rp.y - player.y);
+      if (rp && !rp.invincibleTimer && d < player.radius * 7) {
+        const dmg = Math.round(25 * player.bitePower);
+        eventBus.emit("PVP_ATTACK", {
+          targetId: id,
+          dmg,
+          isCrit: true,
+          fromX: player.x,
+          fromY: player.y,
+          attackerName: player.name,
+          targetX: rp.x,
+          targetY: rp.y,
+        });
       }
     });
   },

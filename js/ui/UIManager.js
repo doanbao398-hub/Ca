@@ -1,5 +1,5 @@
 import { WORLD_SIZE } from "../data/mapsConfig.js";
-import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
+import { EVOLUTION_FORMS, MAX_PLAYER_LEVEL } from "../data/evolutionTrees.js";
 import { SPECIES_CONFIG } from "../data/speciesConfig.js";
 import { META_SHOP_ITEMS, ROGUELIKE_CARDS } from "../data/upgradesData.js";
 import { storage } from "../core/StorageManager.js";
@@ -66,12 +66,88 @@ export class UIManager {
       upgradeCardsContainer: document.getElementById("upgrade-cards-container"),
       gameoverTitleBadge: document.getElementById("gameover-title-badge"),
       gameoverStats: document.getElementById("gameover-stats"),
+
+      // Chat DOM
+      chatMessages: document.getElementById("chat-messages"),
+      chatForm: document.getElementById("chat-form"),
+      chatInput: document.getElementById("chat-input"),
+      btnToggleChat: document.getElementById("btn-toggle-chat"),
+      chatBox: document.getElementById("chat-box"),
     };
 
     this.bannerTimeout = null;
     this.bindAuthUI();
+    this.bindChatUI();
+    this.bindOrientationUI();
     this.bindEvents();
     this.updateLobbyMetaUI();
+  }
+
+  bindOrientationUI() {
+    const dismissBtn = document.getElementById("btn-dismiss-rotate");
+    const overlay = document.getElementById("rotate-device-overlay");
+    if (dismissBtn && overlay) {
+      dismissBtn.addEventListener("click", () => {
+        overlay.dataset.dismissed = "true";
+        overlay.style.display = "none";
+      });
+    }
+  }
+
+  bindChatUI() {
+    if (this.dom.chatForm && this.dom.chatInput) {
+      this.dom.chatForm.addEventListener("submit", (e) => {
+        e.preventDefault();
+        const text = this.dom.chatInput.value.trim();
+        if (text) {
+          eventBus.emit("SEND_CHAT_MESSAGE", text);
+          this.dom.chatInput.value = "";
+        }
+        this.dom.chatInput.blur();
+      });
+
+      this.dom.chatInput.addEventListener("keydown", (e) => {
+        e.stopPropagation();
+        if (e.code === "Escape") {
+          this.dom.chatInput.blur();
+        }
+      });
+    }
+
+    if (this.dom.btnToggleChat && this.dom.chatBox) {
+      this.dom.btnToggleChat.addEventListener("click", () => {
+        this.dom.chatBox.classList.toggle("collapsed");
+        if (!this.dom.chatBox.classList.contains("collapsed")) {
+          this.dom.chatInput?.focus();
+        }
+      });
+    }
+
+    eventBus.on("FOCUS_CHAT", () => {
+      if (!this.dom.chatBox || !this.dom.chatInput) return;
+      this.dom.chatBox.classList.remove("collapsed");
+      this.dom.chatInput.focus();
+    });
+
+    eventBus.on("CHAT_MESSAGE_RECEIVED", ({ senderName, text, isMe }) => {
+      if (!this.dom.chatMessages) return;
+      const row = document.createElement("div");
+      row.className = "chat-msg-row";
+      row.innerHTML = `<b style="color:${isMe ? "#00f5d4" : "#fee440"};">${this.escapeHtml(senderName)}:</b> <span>${this.escapeHtml(text)}</span>`;
+      this.dom.chatMessages.appendChild(row);
+      while (this.dom.chatMessages.children.length > 35) {
+        this.dom.chatMessages.removeChild(this.dom.chatMessages.firstChild);
+      }
+      this.dom.chatMessages.scrollTop = this.dom.chatMessages.scrollHeight;
+    });
+  }
+
+  escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
   }
 
   bindAuthUI() {
@@ -155,7 +231,6 @@ export class UIManager {
   bindEvents() {
     eventBus.on("AUTH_STATE_CHANGED", (user) => {
       if (user) {
-        // Đã đăng nhập -> Ẩn Auth Screen, mở Lobby Screen
         this.dom.authScreen.classList.add("hidden");
         this.dom.lobbyScreen.classList.remove("hidden");
 
@@ -169,7 +244,6 @@ export class UIManager {
           nameInput.value = accName.slice(0, 16);
         }
       } else {
-        // Chưa đăng nhập -> Bắt buộc hiện Auth Screen, ẩn Lobby
         this.dom.authScreen.classList.remove("hidden");
         this.dom.lobbyScreen.classList.add("hidden");
         this.dom.gameoverScreen.classList.add("hidden");
@@ -221,11 +295,17 @@ export class UIManager {
 
     eventBus.on("PLAYER_EVOLVED", ({ stage, title }) => {
       this.dom.hudEvoStage.innerText = title;
-      this.dom.evoCounter.innerText = `${stage}/4`;
+      this.dom.evoCounter.innerText = `${stage}/${EVOLUTION_FORMS.length}`;
     });
 
     eventBus.on("PLAYER_LEVEL_UP", (level) => {
-      this.dom.hudLevel.innerText = `Lv.${level}`;
+      this.dom.hudLevel.innerText =
+        level >= MAX_PLAYER_LEVEL ? `Lv.${level} (MAX)` : `Lv.${level}`;
+    });
+
+    eventBus.on("PLAYER_LEVEL_UP_HUD_ONLY", (level) => {
+      this.dom.hudLevel.innerText =
+        level >= MAX_PLAYER_LEVEL ? `Lv.${level} (MAX)` : `Lv.${level}`;
     });
   }
 
@@ -234,6 +314,30 @@ export class UIManager {
     this.dom.metaGems.innerText = saveData.gems;
     this.dom.metaHighscore.innerText = saveData.highScore;
     this.dom.metaBosskills.innerText = saveData.bossKills;
+
+    document
+      .querySelectorAll("#species-selector .card-option")
+      .forEach((card) => {
+        const spKey = card.dataset.species;
+        const savedRun = saveData.speciesProgress?.[spKey];
+        let badge = card.querySelector(".saved-run-badge");
+        if (!badge) {
+          badge = document.createElement("div");
+          badge.className = "saved-run-badge";
+          badge.style.cssText =
+            "margin-top:5px; font-size:10px; font-weight:800; padding:2px 6px; border-radius:6px;";
+          card.appendChild(badge);
+        }
+        if (savedRun && savedRun.score > 0) {
+          badge.style.background = "rgba(0, 245, 212, 0.2)";
+          badge.style.color = "#00f5d4";
+          badge.innerText = `💾 Lv.${savedRun.level || 1} • Dạng ${savedRun.evoStage}/${EVOLUTION_FORMS.length} • ${savedRun.score} XP`;
+        } else {
+          badge.style.background = "rgba(255, 255, 255, 0.06)";
+          badge.style.color = "#90e0ef";
+          badge.innerText = "🆕 Chưa có bản lưu";
+        }
+      });
 
     this.dom.metaShopGrid.innerHTML = META_SHOP_ITEMS.map((item) => {
       const lvl = saveData.upgrades[item.key] || 0;
@@ -269,16 +373,28 @@ export class UIManager {
     });
   }
 
-  initMatchHUD(speciesKey, roomId) {
+  initMatchHUD(speciesKey, roomId, player = null) {
     const spCfg = SPECIES_CONFIG[speciesKey];
+    const stage = player ? player.evoStage : 1;
+    const evoTitle =
+      EVOLUTION_FORMS[stage - 1]?.title || EVOLUTION_FORMS[0].title;
+
     this.dom.hudSpecies.innerText = spCfg.name;
     this.dom.hudSkillName.innerText = spCfg.skillName;
-    this.dom.hudEvoStage.innerText = EVOLUTION_FORMS[0].title;
+    this.dom.hudEvoStage.innerText = evoTitle;
     this.dom.hudRoomTag.innerText = `Phòng: ${roomId}`;
-    this.dom.evoCounter.innerText = "1/4";
-    this.dom.hudScore.innerText = "0";
-    this.dom.hudLevel.innerText = "Lv.1";
-    this.dom.growthBar.style.width = "0%";
+    this.dom.evoCounter.innerText = `${stage}/${EVOLUTION_FORMS.length}`;
+    this.dom.hudScore.innerText = player ? player.score : "0";
+    this.dom.hudLevel.innerText = `Lv.${player ? player.level : 1}`;
+    this.dom.growthBar.style.width = player
+      ? `${Math.min(100, (player.xp / player.xpNext) * 100)}%`
+      : "0%";
+
+    if (this.dom.chatMessages) {
+      this.dom.chatMessages.innerHTML =
+        '<div class="chat-msg-row" style="color:#64dfdf;">🌊 Chào mừng đến đại dương! Nhấn Enter để chat.</div>';
+    }
+
     this.dom.lobbyScreen.classList.add("hidden");
     this.dom.gameoverScreen.classList.add("hidden");
   }
@@ -287,6 +403,10 @@ export class UIManager {
     if (!player) return;
 
     this.dom.hudScore.innerText = player.score;
+    this.dom.hudLevel.innerText =
+      player.level >= MAX_PLAYER_LEVEL
+        ? `Lv.${player.level} (MAX)`
+        : `Lv.${player.level}`;
     this.dom.growthBar.style.width = `${Math.min(
       100,
       (player.xp / player.xpNext) * 100,
@@ -353,13 +473,20 @@ export class UIManager {
   }
 
   renderQuests(quests) {
-    this.dom.questList.innerHTML = quests
+    const activeQuests = quests.filter((q) => !q.done).slice(0, 3);
+    if (activeQuests.length === 0) {
+      this.dom.questList.innerHTML =
+        '<div class="quest-item done">👑 Đã hoàn thành toàn bộ Nhiệm Vụ Tiến Hóa!</div>';
+      return;
+    }
+
+    this.dom.questList.innerHTML = activeQuests
       .map((q) => {
         const pct = Math.min(100, (q.current / q.target) * 100);
         return `
-        <div class="quest-item ${q.done ? "done" : ""}">
+        <div class="quest-item">
           <div style="display:flex; justify-content:space-between; font-weight:600;">
-            <span>${q.done ? "✅" : "🧬"} ${q.title}</span>
+            <span>🧬 ${q.title}</span>
             <span>${q.current}/${q.target}</span>
           </div>
           <div class="quest-reward-tag">Thưởng: ${q.rewardText}</div>
@@ -392,12 +519,12 @@ export class UIManager {
     if (entries.length < 4) {
       entries.push({
         name: "👑 Leviathan",
-        score: boss ? 4500 : 2800,
+        score: boss ? 12000 : 6500,
         type: "bot",
       });
       entries.push({
         name: "🦈 Megalodon AI",
-        score: 1450 + Math.floor(survivalTime * 6),
+        score: 2800 + Math.floor(survivalTime * 12),
         type: "bot",
       });
     }
@@ -468,17 +595,21 @@ export class UIManager {
 
   showGameOver(player, killerName, fishEatenCount, survivalTime, earnedGems) {
     let playTitle = "Thợ Săn Tập Sự";
-    if (player.evoStage === 4) playTitle = "👑 CHÚA TỂ ĐẠI DƯƠNG";
-    else if (fishEatenCount >= 35) playTitle = "🦈 ÁC MỘNG ĐÁY SÂU";
+    if (player.evoStage >= EVOLUTION_FORMS.length)
+      playTitle = "👑 TỐI THƯỢNG HẢI THẦN";
+    else if (player.evoStage >= 6) playTitle = "🌌 CỔ THẦN BIỂN SÂU";
+    else if (player.evoStage >= 4) playTitle = "🔱 HẢI VƯƠNG ĐẠI DƯƠNG";
+    else if (fishEatenCount >= 45) playTitle = "🦈 ÁC MỘNG ĐÁY SÂU";
     else if (survivalTime >= 180) playTitle = "🐢 BẬC THẦY SINH TỒN";
 
-    const evoTitle = EVOLUTION_FORMS[player.evoStage - 1].title;
+    const evoTitle =
+      EVOLUTION_FORMS[player.evoStage - 1]?.title || EVOLUTION_FORMS[0].title;
     this.dom.gameoverTitleBadge.innerText = `Danh hiệu: ${playTitle}`;
     this.dom.gameoverStats.innerHTML = `
       ${killerName ? `Bị hạ gục bởi: <b style="color:#ff4d6d;">${killerName}</b><br>` : ""}
       Sinh vật: <b>${player.name}</b> (${player.cfg.name})<br>
       Tiến hóa: <b style="color:#fee440;">${evoTitle}</b><br>
-      Điểm: <b>${player.score} XP</b> • Cấp: <b>Lv.${player.level}</b><br>
+      Điểm: <b>${player.score} XP</b> • Cấp: <b>Lv.${player.level}/${MAX_PLAYER_LEVEL}</b><br>
       Phần thưởng: <b style="color:#00f5d4;">+${earnedGems} 💎 Ngọc</b>
     `;
     this.dom.gameoverScreen.classList.remove("hidden");

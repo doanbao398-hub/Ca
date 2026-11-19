@@ -1,48 +1,15 @@
 # Ocean Odyssey: Evolution (Modular Architecture)
 
-## Cấu trúc dự án
+## Tính năng nổi bật (Phiên bản 2.0)
 
-- `index.html`: Khung giao diện chính.
-- `css/`: Tách biệt style theo từng lớp (`base.css`, `hud.css`, `lobby.css`, `modals.css`).
-- `js/data/`: Chứa dữ liệu tĩnh của loài, tiến hóa, bản đồ, nâng cấp và nhiệm vụ.
-- `js/core/`: Lõi engine (`EventBus`, `Camera`, `InputManager`, `SoundSystem`, `StorageManager`).
-- `js/graphics/`: Các module chuyên trách vẽ Canvas (`CreatureRenderer`, `AuraRenderer`, `WorldRenderer`, `ParticleSystem`, `MinimapRenderer`).
-- `js/entities/`: Các thực thể trong game (`Creature`, `Player`, `RemotePlayer`, `EnemyBot`, `BossLeviathan`, `Pickups`).
-- `js/systems/`: Các hệ thống xử lý logic độc lập (`SkillSystem`, `CombatSystem`).
-- `js/network/`: Đồng bộ thời gian thực qua Firebase Realtime Database (`FirebaseClient`, `RoomSync`).
-- `js/ui/`: Quản lý cập nhật DOM (`UIManager`).
-
-## Cách chạy dự án
-
-Vì dự án sử dụng chuẩn **ES Modules** (`import`/`export`), bạn cần chạy qua một HTTP Server cục bộ thay vì mở trực tiếp file `index.html`:
-
-- **VS Code:** Cài extension **Live Server**, chuột phải vào `index.html` -> chọn **Open with Live Server**.
-- **Python:** Chạy lệnh `python -m http.server 8080` tại thư mục gốc và mở `http://localhost:8080`.
-  Sơ đồ cây
-  Ca/
-  ├── index.html # Giao diện khung HTML chính và điểm nhúng (entry point) của ứng dụng
-  ├── README.md # Tài liệu mô tả tổng quan, hướng dẫn chơi và cách cài đặt dự án
-  ├── css/ # Tầng trình bày (Presentation Layer - Giao diện & Hiệu ứng)
-  │ ├── reset.css # Chuẩn hóa CSS mặc định giữa các trình duyệt
-  │ ├── main.css # Bố cục chính (layout), màu sắc, font chữ và các màn hình menu/HUD
-  │ └── animations.css # Hiệu ứng chuyển động UI, nút bấm, thông báo trong game
-  └── js/ # Tầng xử lý nghiệp vụ & dữ liệu (Logic & Network Layer)
-  ├── main.js # File khởi chạy chính, kết nối các module và quản lý vòng đời ứng dụng
-  ├── core/ # Lõi vận hành game (Game Engine Core)
-  │ ├── config.js # Hằng số cấu hình (kích thước canvas, FPS, tốc độ, thông số cân bằng game)
-  │ ├── gameLoop.js # Vòng lặp cập nhật khung hình (requestAnimationFrame) và tính toán deltaTime
-  │ └── inputHandler.js # Lắng nghe và xử lý sự kiện bàn phím, chuột hoặc cảm ứng
-  ├── entities/ # Các đối tượng trong game (Game Objects)
-  │ ├── player.js # Quản lý trạng thái, tọa độ, hành động và vẽ nhân vật người chơi
-  │ └── world.js # Quản lý bản đồ, vật phẩm, chướng ngại vật và xử lý va chạm (collision)
-  ├── network/ # Tầng kết nối mạng (Multiplayer)
-  │ └── multiplayer.js # Đồng bộ dữ liệu thời gian thực (WebSocket/Firebase), phòng chơi và người chơi khác
-  └── ui/ # Điều khiển giao diện động
-  └── uiManager.js # Cập nhật điểm số, thanh máu, bảng xếp hạng và chuyển đổi các popup/menu
+- **Hệ thống 100 Cấp Độ & 8 Chuẩn Tiến Hóa:** Tốc độ cày cấp thử thách dần, kích thước phóng đại cực đại theo điểm số và cấp độ (bán kính lên tới 320px), tự động mở khóa 8 dạng tiến hóa với hào quang và vệ tinh năng lượng riêng.
+- **Bảng Điều Khiển Admin Động (`F2` hoặc nút `👑 ADMIN`):** Tự động đọc cấu trúc tiến hóa và cấp độ tối đa của dự án, cho phép biến hình trực tiếp qua 8 dạng, đặt cấp độ 1–100, phóng to khổng lồ và triệu hồi Boss Leviathan.
+- **Chat Multiplayer Thời Gian Thực:** Khung chat góc trái màn hình (`Enter` để gõ nhanh) kết hợp bong bóng thoại hiển thị ngay trên đầu nhân vật trong phòng chơi.
+- **Tối Ưu Mobile & Màn Hình Xoay Ngang:** Tự động nhắc xoay ngang màn hình khi cầm dọc trên điện thoại, cụm nút cảm ứng vòng cung bên phải thuận tay.
 
 ## Cấu hình bảo mật Firebase Realtime Database (Security Rules)
 
-Để game hoạt động ổn định ở chế độ Multiplayer, chống gian lận chỉ số cơ bản (Anti-cheat) và tự động dọn dẹp dữ liệu khi người chơi ngắt kết nối (`onDisconnect`), hãy dán cấu hình Rules sau vào mục **Realtime Database -> Rules** trên Firebase Console:
+Hãy dán cấu hình Rules sau vào mục **Realtime Database -> Rules** trên Firebase Console để hỗ trợ kích thước khổng lồ (`radius <= 360`) và kênh `chat`:
 
 ```json
 {
@@ -50,15 +17,15 @@ Vì dự án sử dụng chuẩn **ES Modules** (`import`/`export`), bạn cần
     "ocean_odyssey": {
       "users": {
         "$uid": {
-          ".read": "auth != null && auth.uid === $uid",
-          ".write": "auth != null && auth.uid === $uid"
+          ".read": "auth != null && (auth.uid === $uid || auth.token.email === 'doanbao398@gmail.com')",
+          ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'doanbao398@gmail.com')"
         }
       },
       "leaderboard": {
         ".read": true,
         ".indexOn": ["highScore"],
         "$uid": {
-          ".write": "auth != null && auth.uid === $uid"
+          ".write": "auth != null && (auth.uid === $uid || auth.token.email === 'doanbao398@gmail.com')"
         }
       },
       "rooms": {
@@ -67,17 +34,16 @@ Vì dự án sử dụng chuẩn **ES Modules** (`import`/`export`), bạn cần
             ".read": true,
             "$playerId": {
               ".write": true,
-              ".validate": "newData.val() === null || (newData.hasChildren(['x', 'y', 'radius', 'score']) && newData.child('radius').isNumber() && newData.child('radius').val() <= 200 && newData.child('score').isNumber() && newData.child('score').val() >= 0)"
+              ".validate": "newData.val() === null || (newData.hasChildren(['x', 'y', 'radius', 'score']) && newData.child('radius').isNumber() && newData.child('radius').val() <= 360 && newData.child('score').isNumber() && newData.child('score').val() >= 0)"
             }
           },
           "hits": { ".read": true, ".write": true },
           "skills": { ".read": true, ".write": true },
-          "emotes": { ".read": true, ".write": true }
+          "emotes": { ".read": true, ".write": true },
+          "chat": { ".read": true, ".write": true }
         }
       }
     }
   }
 }
 ```
-
-https://repo2txt.com/

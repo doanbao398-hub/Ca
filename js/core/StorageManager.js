@@ -9,6 +9,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 import { db } from "../network/FirebaseClient.js";
 import { eventBus } from "./EventBus.js";
+import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
 
 const DEFAULT_SAVE = {
   gems: 150,
@@ -20,6 +21,7 @@ const DEFAULT_SAVE = {
     maxHpBonus: 0,
     gemMagnet: 0,
   },
+  speciesProgress: {},
 };
 
 class StorageManager {
@@ -73,6 +75,7 @@ class StorageManager {
             ...DEFAULT_SAVE.upgrades,
             ...(cloudData.upgrades || {}),
           },
+          speciesProgress: cloudData.speciesProgress || {},
         };
       } else {
         this.data = JSON.parse(JSON.stringify(DEFAULT_SAVE));
@@ -97,6 +100,54 @@ class StorageManager {
         console.error("Lỗi lưu Cloud:", err),
       );
       this.updateGlobalLeaderboardEntry(this.currentUser);
+    }
+  }
+
+  saveSpeciesRun(player, quests) {
+    if (!player || !player.species) return;
+    if (!this.data.speciesProgress) this.data.speciesProgress = {};
+
+    const maxStage = EVOLUTION_FORMS.length;
+    this.data.speciesProgress[player.species] = {
+      score: Math.round(player.score),
+      level: player.level,
+      xp: Math.round(player.xp),
+      xpNext: Math.round(player.xpNext),
+      baseRadius: Number(player.baseRadius.toFixed(2)),
+      evoStage: Math.min(maxStage, Math.max(1, player.evoStage)),
+      maxHp: Math.round(player.maxHp),
+      hp: Math.max(10, Math.ceil(player.hp)),
+      speedBonus: Number(player.speedBonus.toFixed(3)),
+      cdrMult: Number(player.cdrMult.toFixed(3)),
+      magnetRadius: Math.round(player.magnetRadius),
+      bitePower: Number(player.bitePower.toFixed(2)),
+      lifeSteal: Math.round(player.lifeSteal),
+      bounty: player.bounty || 0,
+      quests: Array.isArray(quests)
+        ? quests.map((q) => ({
+            id: q.id,
+            current: q.current,
+            done: !!q.done,
+          }))
+        : [],
+      updatedAt: Date.now(),
+    };
+
+    if (player.score > this.data.highScore) {
+      this.data.highScore = Math.round(player.score);
+    }
+
+    this.save();
+  }
+
+  getSpeciesRun(speciesKey) {
+    return this.data?.speciesProgress?.[speciesKey] || null;
+  }
+
+  clearSpeciesRun(speciesKey) {
+    if (this.data?.speciesProgress?.[speciesKey]) {
+      delete this.data.speciesProgress[speciesKey];
+      this.save();
     }
   }
 
