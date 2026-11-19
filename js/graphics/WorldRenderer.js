@@ -1,4 +1,4 @@
-import { WORLD_SIZE, MAP_CONFIG } from "../data/mapsConfig.js";
+import { getWorldSize, MAP_CONFIG } from "../data/mapsConfig.js";
 
 function seededRandom(seed) {
   let x = Math.sin(seed++) * 10000;
@@ -9,29 +9,68 @@ export class WorldRenderer {
   constructor() {
     this.mapProps = [];
     this.waterRipples = [];
+    this.shrines = [];
   }
 
   build(selectedMap) {
     this.mapProps = [];
     this.waterRipples = [];
+    this.shrines = [];
+    const worldSize = getWorldSize(selectedMap);
     let seed = MAP_CONFIG[selectedMap]?.seed || 101;
 
-    for (let i = 0; i < 45; i++) {
+    const rippleCount = selectedMap === "hybrid" ? 70 : 45;
+    for (let i = 0; i < rippleCount; i++) {
       this.waterRipples.push({
-        x: seededRandom(seed++) * WORLD_SIZE,
-        y: seededRandom(seed++) * WORLD_SIZE,
+        x: seededRandom(seed++) * worldSize,
+        y: seededRandom(seed++) * worldSize,
         r: 80 + seededRandom(seed++) * 140,
         phase: seededRandom(seed++) * Math.PI * 2,
         speed: 0.015 + seededRandom(seed++) * 0.015,
       });
     }
 
-    for (let i = 0; i < 95; i++) {
-      const x = seededRandom(seed++) * (WORLD_SIZE - 220) + 110;
-      const y = seededRandom(seed++) * (WORLD_SIZE - 220) + 110;
+    // Đền thờ chiếm đóng (chế độ Domination hoặc bản đồ Hybrid)
+    const shrineSpots =
+      selectedMap === "hybrid"
+        ? [
+            { x: worldSize * 0.5, y: worldSize * 0.5, name: "Đền Thờ Trung Tâm" },
+            { x: worldSize * 0.25, y: worldSize * 0.25, name: "Đền San Hô" },
+            { x: worldSize * 0.75, y: worldSize * 0.25, name: "Đền Đầm Lầy" },
+            { x: worldSize * 0.5, y: worldSize * 0.78, name: "Đền Vực Thẳm" },
+          ]
+        : [
+            { x: worldSize * 0.5, y: worldSize * 0.5, name: "Đền Thờ Hải Thần" },
+            { x: worldSize * 0.28, y: worldSize * 0.65, name: "Đền Cổ Đại" },
+            { x: worldSize * 0.72, y: worldSize * 0.35, name: "Đền Ánh Dương" },
+          ];
+
+    shrineSpots.forEach((sp, idx) => {
+      this.shrines.push({
+        id: `shrine_${idx}`,
+        x: sp.x,
+        y: sp.y,
+        name: sp.name,
+        radius: 230,
+        progress: 0,
+        captured: false,
+      });
+    });
+
+    const propCount = selectedMap === "hybrid" ? 150 : 95;
+    for (let i = 0; i < propCount; i++) {
+      const x = seededRandom(seed++) * (worldSize - 220) + 110;
+      const y = seededRandom(seed++) * (worldSize - 220) + 110;
       const size = 40 + seededRandom(seed++) * 75;
 
-      if (selectedMap === "coral") {
+      let biome = selectedMap;
+      if (selectedMap === "hybrid") {
+        if (y < worldSize * 0.45 && x < worldSize * 0.5) biome = "coral";
+        else if (y < worldSize * 0.45 && x >= worldSize * 0.5) biome = "swamp";
+        else biome = "abyss";
+      }
+
+      if (biome === "coral") {
         const kinds = ["coral_branch", "seaweed_cluster", "shipwreck"];
         const kind = i % 16 === 0 ? "shipwreck" : kinds[i % 2];
         const colors = ["#ff4d6d", "#ff9f1c", "#f72585", "#4cc9f0", "#06d6a0"];
@@ -43,7 +82,7 @@ export class WorldRenderer {
           color: colors[i % colors.length],
           phase: seededRandom(seed++) * 6,
         });
-      } else if (selectedMap === "abyss") {
+      } else if (biome === "abyss") {
         const kinds = ["crystal", "jellyfish", "volcano"];
         const kind = i % 14 === 0 ? "volcano" : kinds[i % 2];
         const colors = ["#b5179e", "#7209b7", "#4cc9f0", "#f72585"];
@@ -84,28 +123,29 @@ export class WorldRenderer {
       particleSystem,
     } = state;
 
+    const worldSize = getWorldSize(selectedMap);
     const mCfg = MAP_CONFIG[selectedMap];
-    const grad = ctx.createLinearGradient(0, 0, 0, WORLD_SIZE);
+    const grad = ctx.createLinearGradient(0, 0, 0, worldSize);
     grad.addColorStop(0, mCfg.bgTop);
     grad.addColorStop(0.5, mCfg.bgMid);
     grad.addColorStop(1, mCfg.bgBot);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+    ctx.fillRect(0, 0, worldSize, worldSize);
 
     if (worldEvent && worldEvent.type === "bloodmoon") {
       ctx.fillStyle = "rgba(208, 0, 0, 0.16)";
-      ctx.fillRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+      ctx.fillRect(0, 0, worldSize, worldSize);
     }
 
     ctx.save();
     ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
-    for (let r = 0; r < 6; r++) {
-      const rayX = (r * 850 + Math.sin(time * 0.0005 + r) * 120) % WORLD_SIZE;
+    for (let r = 0; r < 8; r++) {
+      const rayX = (r * 850 + Math.sin(time * 0.0005 + r) * 120) % worldSize;
       ctx.beginPath();
       ctx.moveTo(rayX, 0);
       ctx.lineTo(rayX + 260, 0);
-      ctx.lineTo(rayX + 680, WORLD_SIZE);
-      ctx.lineTo(rayX + 320, WORLD_SIZE);
+      ctx.lineTo(rayX + 680, worldSize);
+      ctx.lineTo(rayX + 320, worldSize);
       ctx.fill();
     }
     ctx.restore();
@@ -113,10 +153,10 @@ export class WorldRenderer {
     ctx.strokeStyle = mCfg.gridColor;
     ctx.lineWidth = 2;
     const flowOffset = Math.sin(time * 0.001) * 18;
-    for (let x = 0; x <= WORLD_SIZE; x += 220) {
+    for (let x = 0; x <= worldSize; x += 220) {
       ctx.beginPath();
       ctx.moveTo(x + flowOffset, 0);
-      ctx.lineTo(x - flowOffset, WORLD_SIZE);
+      ctx.lineTo(x - flowOffset, worldSize);
       ctx.stroke();
     }
 
@@ -131,6 +171,39 @@ export class WorldRenderer {
       ctx.stroke();
       ctx.restore();
     });
+
+    // Vẽ Đền Thờ nếu là chế độ Domination hoặc bản đồ Hybrid
+    if (selectedGameMode === "domination" || selectedMap === "hybrid") {
+      this.shrines.forEach((sh) => {
+        ctx.save();
+        ctx.translate(sh.x, sh.y);
+        ctx.strokeStyle = sh.captured
+          ? "rgba(6, 214, 160, 0.75)"
+          : "rgba(0, 187, 249, 0.45)";
+        ctx.fillStyle = sh.captured
+          ? "rgba(6, 214, 160, 0.12)"
+          : "rgba(0, 187, 249, 0.06)";
+        ctx.lineWidth = 4;
+        ctx.setLineDash([14, 8]);
+        ctx.beginPath();
+        ctx.arc(0, 0, sh.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.font = "bold 13px Segoe UI";
+        ctx.textAlign = "center";
+        ctx.fillStyle = sh.captured ? "#06d6a0" : "#90e0ef";
+        ctx.fillText(
+          sh.captured
+            ? `⛩️ ${sh.name} (ĐÃ CHIẾM +XP/s)`
+            : `⛩️ ${sh.name} (${Math.floor(sh.progress)}%)`,
+          0,
+          -sh.radius - 10,
+        );
+        ctx.restore();
+      });
+    }
 
     this.mapProps.forEach((p) => {
       if (p.kind === "volcano") {
@@ -268,13 +341,13 @@ export class WorldRenderer {
       ctx.lineWidth = 16;
       ctx.setLineDash([30, 15]);
       ctx.beginPath();
-      ctx.arc(WORLD_SIZE / 2, WORLD_SIZE / 2, zoneRadius, 0, Math.PI * 2);
+      ctx.arc(worldSize / 2, worldSize / 2, zoneRadius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
     ctx.strokeStyle = "rgba(255, 77, 109, 0.7)";
     ctx.lineWidth = 14;
-    ctx.strokeRect(0, 0, WORLD_SIZE, WORLD_SIZE);
+    ctx.strokeRect(0, 0, worldSize, worldSize);
   }
 }

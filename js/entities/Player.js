@@ -8,9 +8,11 @@ import {
 import {
   MAX_SUPER_AUGMENTS,
   SUPER_AUGMENTS,
+  COMMON_AUGMENTS,
   getSynergyCounts,
 } from "../data/augmentsData.js";
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { TACTICAL_ITEMS } from "../data/itemsData.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 import { settings } from "../core/SettingsManager.js";
@@ -22,13 +24,15 @@ export function calcXpRequiredForLevel(level) {
 export class Player extends Creature {
   constructor(name, speciesKey, saveUpgrades, selectedMap, savedRun = null) {
     const cfg = SPECIES_CONFIG[speciesKey];
+    const worldSize = getWorldSize(selectedMap);
     const startSizeMult = 1 + (saveUpgrades.startSize || 0) * 0.08;
-    const spawnX = WORLD_SIZE / 2 + (Math.random() - 0.5) * 450;
-    const spawnY = WORLD_SIZE / 2 + (Math.random() - 0.5) * 450;
+    const spawnX = worldSize / 2 + (Math.random() - 0.5) * 450;
+    const spawnY = worldSize / 2 + (Math.random() - 0.5) * 450;
 
     super(spawnX, spawnY, 22 * startSizeMult, speciesKey, name, true);
 
     this.cfg = cfg;
+    this.selectedMap = selectedMap;
     this.score = 0;
     this.level = 1;
     this.xp = 0;
@@ -48,7 +52,8 @@ export class Player extends Creature {
     this.rage = 0;
     this.ultTimer = 0;
 
-    this.speedBonus = cfg.favMap === selectedMap ? 0.15 : 0;
+    this.speedBonus = (cfg.favMap === selectedMap || selectedMap === "hybrid") ? 0.15 : 0;
+    this.loneHunterBonus = 0;
     this.cdrMult = 1.0;
     this.magnetRadius = 35 + (saveUpgrades.gemMagnet || 0) * 30;
     this.bitePower = 1.0;
@@ -56,15 +61,14 @@ export class Player extends Creature {
     this.evoStage = 1;
     this.adminSizeBonus = 0;
 
-    // Thuộc tính Lõi Nâng Cấp & Nội Tại Tiến Hóa
-    this.superAugments = []; // Tối đa 4 ID lõi siêu cấp khác nhau
-    this.commonAugments = []; // Danh sách ID lõi thường (vô hạn)
+    this.superAugments = [];
+    this.commonAugments = [];
+    this.inventory = [null, null, null];
     this.augmentScaleMult = 1.0;
     this.damageReduction = 0;
     this.rageGainMult = 1.0;
     this.boostFreeTimer = 0;
 
-    // Trạng thái nội tại tự động theo loài
     this.passiveState = {
       highSpeedTime: 0,
       fishPiercingReady: false,
@@ -91,41 +95,63 @@ export class Player extends Creature {
       this.level = Math.min(MAX_PLAYER_LEVEL, Math.max(1, savedRun.level || 1));
       this.xp = savedRun.xp || 0;
       this.xpNext = savedRun.xpNext || calcXpRequiredForLevel(this.level);
-      this.baseRadius = Math.max(
-        this.baseRadius,
-        savedRun.baseRadius || this.baseRadius,
-      );
+      this.baseRadius = Math.max(this.baseRadius, savedRun.baseRadius || this.baseRadius);
       this.maxHp = Math.max(this.maxHp, savedRun.maxHp || this.maxHp);
       this.hp = Math.min(this.maxHp, Math.max(20, savedRun.hp || this.maxHp));
       this.cdrMult = savedRun.cdrMult || 1.0;
-      this.magnetRadius = Math.max(
-        this.magnetRadius,
-        savedRun.magnetRadius || this.magnetRadius,
-      );
+      this.magnetRadius = Math.max(this.magnetRadius, savedRun.magnetRadius || this.magnetRadius);
       this.bitePower = Math.max(1.0, savedRun.bitePower || 1.0);
       this.lifeSteal = Math.max(3, savedRun.lifeSteal || 3);
       this.bounty = savedRun.bounty || 0;
 
       if (Array.isArray(savedRun.superAugments)) {
-        this.superAugments = savedRun.superAugments.slice(
-          0,
-          MAX_SUPER_AUGMENTS,
-        );
+        savedRun.superAugments.slice(0, MAX_SUPER_AUGMENTS).forEach((id) => {
+          const aug = SUPER_AUGMENTS.find((a) => a.id === id);
+          if (aug) {
+            this.superAugments.push(id);
+            if (aug.onEquip) aug.onEquip(this);
+          }
+        });
       }
       if (Array.isArray(savedRun.commonAugments)) {
-        this.commonAugments = [...savedRun.commonAugments];
+        savedRun.commonAugments.forEach((id) => {
+          const aug = COMMON_AUGMENTS.find((a) => a.id === id);
+          if (aug) {
+            this.commonAugments.push(id);
+            if (aug.apply) aug.apply(this);
+          }
+        });
+      }
+      if (Array.isArray(savedRun.inventory)) {
+        this.inventory = [
+          savedRun.inventory[0] || null,
+          savedRun.inventory[1] || null,
+          savedRun.inventory[2] || null,
+        ];
       }
 
-      const extraSpeed = Math.max(0, (savedRun.speedBonus || 0) - 0.15);
-      this.speedBonus = (cfg.favMap === selectedMap ? 0.15 : 0) + extraSpeed;
-
-      const stage = Math.min(
-        EVOLUTION_FORMS.length,
-        Math.max(1, savedRun.evoStage || 1),
-      );
+      const stage = Math.min(EVOLUTION_FORMS.length, Math.max(1, savedRun.evoStage || 1));
       this.applyEvoAppearance(stage);
       this.recalculateRadius();
     }
+  }
+
+  addItemToBag(itemId) {
+    const emptyIdx = this.inventory.findIndex((x) => !x);
+    if (emptyIdx === -1) return false;
+    this.inventory[emptyIdx] = itemId;
+    eventBus.emit("BAG_UPDATED", this.inventory);
+    return true;
+  }
+
+  useBagSlot(slotIdx, context) {
+    const itemId = this.inventory[slotIdx];
+    if (!itemId || !TACTICAL_ITEMS[itemId]) return false;
+    this.inventory[slotIdx] = null;
+    sound.playSkill();
+    TACTICAL_ITEMS[itemId].use(this, context);
+    eventBus.emit("BAG_UPDATED", this.inventory);
+    return true;
   }
 
   hasSuperAugment(id) {
@@ -210,7 +236,6 @@ export class Player extends Creature {
     this.passiveState.outOfCombatTime = 0;
     this.passiveState.diverNanoShield = false;
 
-    // Nội tại Rùa Dạng 2: Mai Giáp Hấp Thụ chặn hoàn toàn 1 đòn
     if (
       this.species === "turtle" &&
       this.evoStage >= 2 &&
@@ -251,7 +276,6 @@ export class Player extends Creature {
       "#ff4d6d",
     );
 
-    // Nội tại Rùa Dạng 8: Bất Tử Huyền Vũ khi HP < 18%
     if (
       this.species === "turtle" &&
       this.evoStage >= 8 &&
@@ -380,11 +404,15 @@ export class Player extends Creature {
       width,
       height,
       mapProps,
+      shrines,
       worldEvent,
       selectedGameMode,
+      selectedMap,
       zoneRadius,
       particleSystem,
     } = context;
+
+    const worldSize = getWorldSize(selectedMap);
 
     if (this.skillCooldownTimer > 0)
       this.skillCooldownTimer = Math.max(0, this.skillCooldownTimer - dt);
@@ -400,6 +428,26 @@ export class Player extends Creature {
     if (this.ultTimer > 0) {
       this.ultTimer = Math.max(0, this.ultTimer - dt);
       if (this.ultTimer === 0) this.recalculateRadius();
+    }
+
+    // Chiếm Đền Thờ (Domination / Hybrid)
+    if (Array.isArray(shrines) && (selectedGameMode === "domination" || selectedMap === "hybrid")) {
+      shrines.forEach((sh) => {
+        const d = Math.hypot(this.x - sh.x, this.y - sh.y);
+        if (d < sh.radius) {
+          if (!sh.captured) {
+            sh.progress = Math.min(100, sh.progress + 18 * dt);
+            if (sh.progress >= 100) {
+              sh.captured = true;
+              sound.playEvolution();
+              particleSystem.addShockwave(sh.x, sh.y, sh.radius, "#06d6a0");
+              eventBus.emit("SHOW_BANNER", `⛩️ BẠN ĐÃ CHIẾM ĐƯỢC ${sh.name.toUpperCase()}!`);
+            }
+          } else {
+            this.addScore(35 * dt, worldEvent, selectedMap, particleSystem, camera);
+          }
+        }
+      });
     }
 
     const wasStealthed = this.isStealthed;
@@ -427,11 +475,8 @@ export class Player extends Creature {
       }
     });
 
-    // Nội tại Cá Sấu Dạng 2: Kích hoạt đòn phục kích khi thoát khỏi bụi tảo
     if (this.species === "croc" && this.evoStage >= 2) {
-      if (this.isStealthed) {
-        this.passiveState.crocAmbushReady = true;
-      } else if (wasStealthed && !this.isStealthed) {
+      if (this.isStealthed || (wasStealthed && !this.isStealthed)) {
         this.passiveState.crocAmbushReady = true;
       }
     }
@@ -471,7 +516,11 @@ export class Player extends Creature {
     const canBoost = !this.isExhausted && this.stamina > 0;
     const isBoosting =
       input.wantsBoost && canBoost && (hasMoveInput || this.dashTimer > 0);
-    let speedMult = 1 + this.speedBonus + (this.ultTimer > 0 ? 0.3 : 0);
+    let speedMult =
+      1 +
+      this.speedBonus +
+      (this.loneHunterBonus || 0) +
+      (this.ultTimer > 0 ? 0.3 : 0);
 
     if (this.dashTimer > 0) {
       speedMult = 3.2;
@@ -479,7 +528,6 @@ export class Player extends Creature {
     } else if (isBoosting) {
       this.boostFreeTimer += dt;
       speedMult *= this.cfg.boostMult;
-      // Lõi Động Cơ Phản Lực: miễn phí thể lực trong 2s đầu
       const isFreeStamina =
         this.hasSuperAugment("s_jet_engine") && this.boostFreeTimer <= 2.0;
       if (!isFreeStamina) {
@@ -527,13 +575,13 @@ export class Player extends Creature {
       this.x += 1.2 * frameScale;
     }
 
-    this.x = Math.max(this.radius, Math.min(WORLD_SIZE - this.radius, this.x));
-    this.y = Math.max(this.radius, Math.min(WORLD_SIZE - this.radius, this.y));
+    this.x = Math.max(this.radius, Math.min(worldSize - this.radius, this.x));
+    this.y = Math.max(this.radius, Math.min(worldSize - this.radius, this.y));
 
     if (selectedGameMode === "royale") {
       const distFromCenter = Math.hypot(
-        this.x - WORLD_SIZE / 2,
-        this.y - WORLD_SIZE / 2,
+        this.x - worldSize / 2,
+        this.y - worldSize / 2,
       );
       if (distFromCenter > zoneRadius) {
         this.hp -= 12 * dt;
@@ -547,7 +595,10 @@ export class Player extends Creature {
   addScore(pts, worldEvent, selectedMap, particleSystem = null, camera = null) {
     const eventMult = worldEvent && worldEvent.type === "bloodmoon" ? 2.0 : 1.0;
     const mapBonus =
-      selectedMap === "swamp" && this.species === "croc" ? 1.2 : 1.0;
+      (selectedMap === "swamp" || selectedMap === "hybrid") &&
+      this.species === "croc"
+        ? 1.2
+        : 1.0;
     const gained = Math.round(pts * this.cfg.scoreMult * eventMult * mapBonus);
 
     const syn = this.getSynergies();

@@ -26,11 +26,9 @@ export function renderCreatureEffects(
     ctx.fill();
   }
 
-  // Hiệu ứng Lõi Siêu Cấp & Cộng Hưởng Hệ (Dành cho Player)
   if (creature.isPlayer && typeof creature.getSynergies === "function") {
     const syn = creature.getSynergies();
 
-    // Vòng hào quang băng giá (Lõi Hàn Băng Vực Thẳm)
     if (creature.hasSuperAugment("s_abyss_frost")) {
       ctx.save();
       ctx.strokeStyle = "rgba(144, 224, 239, 0.35)";
@@ -42,7 +40,6 @@ export function renderCreatureEffects(
       ctx.restore();
     }
 
-    // Cộng hưởng Hệ Nguyên Tố (2+ lõi): Vòng tròn ma pháp xoay dưới đáy
     if (syn.elemental >= 2) {
       ctx.save();
       ctx.rotate(-time * 0.0025);
@@ -55,7 +52,6 @@ export function renderCreatureEffects(
       ctx.restore();
     }
 
-    // Cộng hưởng Hệ Cường Hóa (2+ lõi): Viền rực lửa chiến thần
     if (syn.empowerment >= 2) {
       ctx.save();
       ctx.rotate(time * 0.003);
@@ -69,7 +65,6 @@ export function renderCreatureEffects(
       ctx.restore();
     }
 
-    // Khiên Mai Giáp Hấp Thụ (Rùa Dạng 2) hoặc Trường Lực Nano (Thợ Lặn Dạng 6)
     if (
       creature.passiveState?.turtleShieldReady ||
       creature.passiveState?.diverNanoShield
@@ -85,7 +80,6 @@ export function renderCreatureEffects(
       ctx.restore();
     }
 
-    // Drone Hộ Vệ (Thợ Lặn Dạng 4+)
     if (creature.species === "diver" && creature.evoStage >= 4) {
       ctx.save();
       const droneAng = time * 0.0035;
@@ -102,7 +96,6 @@ export function renderCreatureEffects(
     }
   }
 
-  // Vệ tinh năng lượng xoay quanh nhân vật từ Dạng 4 đến Dạng 8
   if ((creature.isPlayer || isRemoteHuman) && creature.evoStage >= 4) {
     ctx.save();
     ctx.rotate(time * (0.002 + creature.evoStage * 0.0003));

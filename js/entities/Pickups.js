@@ -1,10 +1,12 @@
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { getWorldSize } from "../data/mapsConfig.js";
+import { TACTICAL_ITEMS } from "../data/itemsData.js";
 
 export class Pearl {
-  constructor(x, y, id = null) {
+  constructor(x, y, mapKey = "coral", id = null) {
+    const ws = getWorldSize(mapKey);
     this.id = id || "p_" + Math.random().toString(36).substring(2, 9);
-    this.x = x ?? Math.random() * (WORLD_SIZE - 300) + 150;
-    this.y = y ?? Math.random() * (WORLD_SIZE - 300) + 150;
+    this.x = x ?? Math.random() * (ws - 300) + 150;
+    this.y = y ?? Math.random() * (ws - 300) + 150;
     this.radius = 13;
     this.pulse = Math.random() * Math.PI * 2;
   }
@@ -56,6 +58,38 @@ export class MeatChunk {
     ctx.arc(-6, 0, 3, 0, Math.PI * 2);
     ctx.arc(6, 0, 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+  }
+}
+
+export class DroppedItem {
+  constructor(x, y, itemId) {
+    this.x = x;
+    this.y = y;
+    this.itemId = itemId;
+    this.cfg = TACTICAL_ITEMS[itemId] || TACTICAL_ITEMS.heal_potion;
+    this.radius = 16;
+    this.pulse = Math.random() * Math.PI * 2;
+  }
+
+  draw(ctx) {
+    this.pulse += 0.08;
+    const r = this.radius + Math.sin(this.pulse) * 3;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+
+    ctx.fillStyle = "rgba(4, 22, 36, 0.88)";
+    ctx.strokeStyle = this.cfg.color;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = "18px Segoe UI";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(this.cfg.icon, 0, 1);
     ctx.restore();
   }
 }

@@ -1,4 +1,4 @@
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 
 export function drawOffscreenThreatIndicators(
   ctx,
@@ -53,14 +53,18 @@ export function drawMinimap(
     player,
     enemies,
     pearls,
+    droppedItems,
+    shrines,
     boss,
     remotePlayers,
+    selectedMap,
     selectedGameMode,
     zoneRadius,
   }
 ) {
+  const worldSize = getWorldSize(selectedMap);
   miniCtx.clearRect(0, 0, 165, 165);
-  const scale = 165 / WORLD_SIZE;
+  const scale = 165 / worldSize;
 
   if (selectedGameMode === "royale") {
     miniCtx.strokeStyle = "#b5179e";
@@ -70,12 +74,31 @@ export function drawMinimap(
     miniCtx.stroke();
   }
 
+  // Đền Thờ (nếu có)
+  if (Array.isArray(shrines)) {
+    shrines.forEach((sh) => {
+      miniCtx.fillStyle = sh.captured ? "#06d6a0" : "#00bbf9";
+      miniCtx.beginPath();
+      miniCtx.arc(sh.x * scale, sh.y * scale, 4.5, 0, Math.PI * 2);
+      miniCtx.fill();
+    });
+  }
+
   miniCtx.fillStyle = "#fee440";
   pearls.forEach((p) => {
     miniCtx.beginPath();
     miniCtx.arc(p.x * scale, p.y * scale, 2.2, 0, Math.PI * 2);
     miniCtx.fill();
   });
+
+  if (Array.isArray(droppedItems)) {
+    miniCtx.fillStyle = "#00f5d4";
+    droppedItems.forEach((it) => {
+      miniCtx.beginPath();
+      miniCtx.arc(it.x * scale, it.y * scale, 3.0, 0, Math.PI * 2);
+      miniCtx.fill();
+    });
+  }
 
   enemies.forEach((e) => {
     miniCtx.fillStyle =

@@ -98,7 +98,6 @@ export class RoomSync {
 
     const joinTimestamp = getServerNow();
 
-    // 1. Lắng nghe người chơi trong phòng
     const playersListRef = ref(db, `${this.currentRoomPath}/players`);
     const unsubPlayers = onValue(
       playersListRef,
@@ -148,7 +147,6 @@ export class RoomSync {
     );
     this.unsubscribers.push(unsubPlayers);
 
-    // 2. Lắng nghe đòn đánh trúng mình
     const myHitsRef = ref(db, `${this.currentRoomPath}/hits/${myPlayerId}`);
     onDisconnect(myHitsRef).remove();
     const unsubHits = onChildAdded(myHitsRef, (snapshot) => {
@@ -160,7 +158,6 @@ export class RoomSync {
     });
     this.unsubscribers.push(unsubHits);
 
-    // 3. Lắng nghe sóng kỹ năng & hiệu ứng sát thương
     const skillsRef = ref(db, `${this.currentRoomPath}/skills`);
     const unsubSkills = onChildAdded(skillsRef, (snapshot) => {
       const sk = snapshot.val();
@@ -179,7 +176,6 @@ export class RoomSync {
     });
     this.unsubscribers.push(unsubSkills);
 
-    // 4. Lắng nghe Emote
     const emotesRef = ref(db, `${this.currentRoomPath}/emotes`);
     const unsubEmotes = onChildAdded(emotesRef, (snapshot) => {
       const em = snapshot.val();
@@ -198,7 +194,6 @@ export class RoomSync {
     });
     this.unsubscribers.push(unsubEmotes);
 
-    // 5. Lắng nghe Chat Phòng Multiplayer
     const chatRef = ref(db, `${this.currentRoomPath}/chat`);
     const unsubChat = onChildAdded(chatRef, (snapshot) => {
       const msg = snapshot.val();

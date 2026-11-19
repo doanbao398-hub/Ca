@@ -1,5 +1,5 @@
 import { Creature } from "./Creature.js";
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 
 const PALETTES = [
   { primary: "#ff6b6b", secondary: "#c92a2a", accent: "#ffe066" },
@@ -18,9 +18,10 @@ const DANGER_NAMES = [
 ];
 
 export class EnemyBot extends Creature {
-  constructor(playerRadius) {
-    const x = Math.random() * (WORLD_SIZE - 250) + 125;
-    const y = Math.random() * (WORLD_SIZE - 250) + 125;
+  constructor(playerRadius, mapKey = "coral") {
+    const worldSize = getWorldSize(mapKey);
+    const x = Math.random() * (worldSize - 250) + 125;
+    const y = Math.random() * (worldSize - 250) + 125;
     const roll = Math.random();
     let radius;
     if (roll < 0.64) {
@@ -42,6 +43,7 @@ export class EnemyBot extends Creature {
         : "";
 
     super(x, y, radius, type, label, false);
+    this.mapKey = mapKey;
     this.colors = PALETTES[Math.floor(Math.random() * PALETTES.length)];
     this.baseSpeed = Math.max(1.2, 2.8 - radius / 120) + Math.random() * 0.5;
     this.angle = Math.random() * Math.PI * 2;
@@ -54,6 +56,7 @@ export class EnemyBot extends Creature {
       this.stunTimer = Math.max(0, this.stunTimer - dt);
       return;
     }
+    const worldSize = getWorldSize(this.mapKey);
     const dist = Math.hypot(player.x - this.x, player.y - this.y);
     if (this.species === "puffer") this.puffed = dist < 130 + this.radius;
 
@@ -78,9 +81,9 @@ export class EnemyBot extends Creature {
     }
 
     if (this.x < 180) targetAngle = 0;
-    if (this.x > WORLD_SIZE - 180) targetAngle = Math.PI;
+    if (this.x > worldSize - 180) targetAngle = Math.PI;
     if (this.y < 180) targetAngle = Math.PI / 2;
-    if (this.y > WORLD_SIZE - 180) targetAngle = -Math.PI / 2;
+    if (this.y > worldSize - 180) targetAngle = -Math.PI / 2;
 
     let diff = targetAngle - this.angle;
     while (diff < -Math.PI) diff += Math.PI * 2;

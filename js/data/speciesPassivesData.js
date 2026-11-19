@@ -1,4 +1,3 @@
-// KỸ NĂNG NỘI TẠI TỰ ĐỘNG KÍCH HOẠT THEO MỐC TIẾN HÓA (DẠNG 2, 4, 6, 8)
 export const SPECIES_EVOLUTION_PASSIVES = {
   fish: [
     {

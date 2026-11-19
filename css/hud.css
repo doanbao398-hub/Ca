@@ -40,9 +40,7 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 245, 212, 0.35);
-  transition:
-    transform 0.15s,
-    border-color 0.2s;
+  transition: transform 0.15s, border-color 0.2s;
 }
 
 .chat-floating-btn:active {
@@ -56,12 +54,8 @@
 }
 
 @keyframes chatPulse {
-  from {
-    transform: scale(1);
-  }
-  to {
-    transform: scale(1.08);
-  }
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
 }
 
 .chat-unread-badge {
@@ -91,7 +85,7 @@
   flex-direction: column;
   gap: 6px;
   border: 1.5px solid #00f5d4;
-  background: rgba(4, 20, 34, 0.92);
+  background: rgba(4, 20, 34, 0.94);
 }
 
 .chat-box.collapsed {
@@ -109,7 +103,8 @@
   padding-bottom: 4px;
 }
 
-.chat-close-x {
+.chat-close-x,
+.panel-mini-close {
   background: transparent;
   border: none;
   color: #ff758f;
@@ -173,6 +168,13 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 8px;
+}
+
+.hud-left-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 44vw;
 }
 
 .player-stats {
@@ -269,12 +271,8 @@
 }
 
 @keyframes pulseBanner {
-  from {
-    transform: translateX(-50%) scale(0.98);
-  }
-  to {
-    transform: translateX(-50%) scale(1.03);
-  }
+  from { transform: translateX(-50%) scale(0.98); }
+  to { transform: translateX(-50%) scale(1.03); }
 }
 
 .hud-right-col {
@@ -289,6 +287,8 @@
   gap: 6px;
   align-items: center;
   pointer-events: auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .online-pill {
@@ -327,14 +327,23 @@
 }
 
 .btn-hud:hover,
-.btn-hud:active {
-  background: rgba(0, 245, 212, 0.25);
+.btn-hud:active,
+.btn-hud.active-pill {
+  background: rgba(0, 245, 212, 0.28);
   border-color: #00f5d4;
+  box-shadow: 0 0 12px rgba(0, 245, 212, 0.35);
 }
 
-.leaderboard-panel {
-  width: 240px;
-  padding: 8px 12px;
+/* PANEL THU GỌN / MỞ RỘNG TOP & NHIỆM VỤ */
+.leaderboard-panel,
+.quest-panel {
+  width: 245px;
+  padding: 9px 12px;
+  pointer-events: auto;
+}
+
+.collapsed-panel {
+  display: none !important;
 }
 
 .lb-row {
@@ -353,11 +362,6 @@
 .lb-row.real-player {
   color: #fee440;
   font-weight: 700;
-}
-
-.quest-panel {
-  width: 240px;
-  padding: 10px 12px;
 }
 
 .quest-title {
@@ -507,10 +511,63 @@
 
 .controls-center {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   margin: 0 auto;
   pointer-events: auto;
+}
+
+/* TÚI ĐỒ NHANH 3 Ô */
+.quick-bag-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(4, 22, 36, 0.85);
+  border: 1px solid rgba(100, 223, 223, 0.35);
+  border-radius: 14px;
+  padding: 6px 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.bag-slot {
+  position: relative;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 2px solid rgba(0, 245, 212, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.2s;
+}
+
+.bag-slot:hover {
+  transform: translateY(-2px);
+}
+
+.bag-slot:active {
+  transform: scale(0.92);
+}
+
+.bag-slot.empty {
+  border-color: rgba(255, 255, 255, 0.16);
+  opacity: 0.7;
+}
+
+.bag-slot .slot-key {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 9px;
+  font-weight: 900;
+  color: #90e0ef;
+}
+
+.bag-slot .slot-icon {
+  font-size: 20px;
 }
 
 /* CỤM NÚT KỸ NĂNG & TĂNG TỐC BÊN PHẢI */
@@ -636,9 +693,6 @@
   .desktop-stamina-box {
     display: none;
   }
-  .quest-panel {
-    display: none;
-  }
 }
 
 /* TỐI ƯU MÀN HÌNH XOAY NGANG (LANDSCAPE MOBILE) */
@@ -657,13 +711,14 @@
   .stat-val {
     font-size: 12px;
   }
-  .leaderboard-panel {
-    width: 150px;
-    padding: 5px 8px;
+  .leaderboard-panel,
+  .quest-panel {
+    width: 185px;
+    padding: 6px 9px;
   }
   .minimap-wrap {
-    width: 72px;
-    height: 72px;
+    width: 74px;
+    height: 74px;
   }
   .emote-bar {
     flex-direction: row;
@@ -693,16 +748,26 @@
   .skill-box .skill-subtext {
     display: none;
   }
+  .bag-slot {
+    width: 34px;
+    height: 34px;
+  }
+  .bag-slot .slot-icon {
+    font-size: 16px;
+  }
 }
 
-/* TỐI ƯU MÀN HÌNH DỌC (PORTRAIT MOBILE) - XẾP CỘT NÚT SKILL ĐỂ KHÔNG BỊ CHE */
+/* TỐI ƯU MÀN HÌNH DỌC (PORTRAIT MOBILE) */
 @media (max-width: 768px) and (orientation: portrait) {
+  .hud-left-col {
+    max-width: 58vw;
+  }
   .player-stats {
     padding: 6px 8px;
     gap: 6px;
-    max-width: 62vw;
   }
-  .stat-item.hide-mobile {
+  .stat-item.hide-mobile,
+  .hide-xs {
     display: none;
   }
   .bar-wrap {
@@ -712,9 +777,10 @@
   .stat-val {
     font-size: 12px;
   }
-  .leaderboard-panel {
-    width: 136px;
-    padding: 5px 7px;
+  .leaderboard-panel,
+  .quest-panel {
+    width: 165px;
+    padding: 6px 8px;
   }
   .lb-row {
     font-size: 10px;
@@ -732,7 +798,6 @@
     height: 28px;
     font-size: 13px;
   }
-  /* Xếp dọc cụm nút Skill [E], Hóa Thần [R] và Bơi Nhanh ở góc dưới phải để hiển thị trọn vẹn 100% */
   .action-cluster-right {
     flex-direction: column;
     align-items: flex-end;
@@ -753,5 +818,9 @@
     width: 70px;
     height: 70px;
     font-size: 10px;
+  }
+  .bag-slot {
+    width: 34px;
+    height: 34px;
   }
 }

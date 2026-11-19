@@ -1,7 +1,9 @@
 import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 import { storage } from "../core/StorageManager.js";
-import { MeatChunk, Pearl } from "../entities/Pickups.js";
+import { MeatChunk, Pearl, DroppedItem } from "../entities/Pickups.js";
+import { getRandomItemConfig } from "../data/itemsData.js";
+import { getCounterMultiplier } from "../data/speciesConfig.js";
 
 const STREAK_LABELS = {
   3: "🔥 TRIPLE KILL!",
@@ -25,34 +27,35 @@ export class CombatSystem {
     this.killStreak = 0;
   }
 
-  getEffectiveBitePower(player, targetMaxHp = 100) {
+  getEffectiveBitePower(player, targetMaxHp = 100, targetSpecies = null) {
     const syn = player.getSynergies();
-    let mult = player.bitePower * (syn.empowerment >= 2 ? 1.15 : 1.0);
+    const counterMult = targetSpecies
+      ? getCounterMultiplier(player.species, targetSpecies)
+      : 1.0;
 
-    // Cá Kiếm Dạng 2: Mũi Kiếm Xuyên Giáp (+40%)
+    let mult =
+      player.bitePower * (syn.empowerment >= 2 ? 1.15 : 1.0) * counterMult;
+
     if (player.species === "fish" && player.passiveState.fishPiercingReady) {
       mult *= 1.4;
       player.passiveState.fishPiercingReady = false;
       player.passiveState.highSpeedTime = 0;
     }
 
-    // Cá Sấu Dạng 2: Đòn phục kích từ bụi tảo (x1.8)
     if (player.species === "croc" && player.passiveState.crocAmbushReady) {
       mult *= 1.8;
       player.passiveState.crocAmbushReady = false;
     }
 
-    // Cá Sấu Dạng 6: Cuồng Nộ Đầm Lầy (+35%)
     if (player.species === "croc" && player.crocFrenzyActive) {
       mult *= 1.35;
     }
 
-    // Lõi Siêu Cấp: Nanh Vuốt Hủy Diệt (+8% máu tối đa mục tiêu)
     const extraTrueDmg = player.hasSuperAugment("s_void_fangs")
       ? targetMaxHp * 0.08
       : 0;
 
-    return { mult, extraTrueDmg };
+    return { mult, extraTrueDmg, isCounter: counterMult > 1.0 };
   }
 
   update(dt, state) {
@@ -65,6 +68,7 @@ export class CombatSystem {
       player,
       pearls,
       meatChunks,
+      droppedItems,
       enemies,
       remotePlayers,
       boss,
@@ -77,7 +81,7 @@ export class CombatSystem {
 
     if (!player) return;
 
-    // 1. Nhặt Ngọc Trai (Lõi Thủy Triều Hấp Tinh nhân đôi điểm ngọc)
+    // 1. Nhặt Ngọc Trai
     const pearlMult = player.hasSuperAugment("s_astral_tide") ? 2 : 1;
     for (let i = pearls.length - 1; i >= 0; i--) {
       const p = pearls[i];
@@ -105,7 +109,7 @@ export class CombatSystem {
           "#fee440",
         );
         pearls.splice(i, 1);
-        pearls.push(new Pearl());
+        pearls.push(new Pearl(null, null, selectedMap));
       }
     }
 
@@ -123,6 +127,34 @@ export class CombatSystem {
         player.heal(14);
         particleSystem.addFloatingText(m.x, m.y, `+${m.pts} Thịt`, "#ff758f");
         meatChunks.splice(i, 1);
+      }
+    }
+
+    // 2.5. Nhặt Vật Phẩm Chiến Thuật Rơi Vào Túi 3 Ô
+    if (Array.isArray(droppedItems)) {
+      for (let i = droppedItems.length - 1; i >= 0; i--) {
+        const it = droppedItems[i];
+        const d = Math.hypot(player.x - it.x, player.y - it.y);
+        if (d < player.radius + it.radius + 10) {
+          const added = player.addItemToBag(it.itemId);
+          if (added) {
+            sound.playEat(2);
+            particleSystem.addFloatingText(
+              it.x,
+              it.y - 12,
+              `🎒 Nhặt ${it.cfg.name}!`,
+              it.cfg.color,
+            );
+            droppedItems.splice(i, 1);
+          } else {
+            particleSystem.addFloatingText(
+              it.x,
+              it.y - 12,
+              "🎒 Túi đồ đã đầy (3/3)!",
+              "#adb5bd",
+            );
+          }
+        }
       }
     }
 
@@ -172,6 +204,10 @@ export class CombatSystem {
               particleSystem,
               camera,
             );
+            if (Array.isArray(droppedItems)) {
+              const rndIt = getRandomItemConfig();
+              droppedItems.push(new DroppedItem(boss.x, boss.y, rndIt.id));
+            }
             sound.playEvolution();
             particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
             eventBus.emit(
@@ -225,10 +261,15 @@ export class CombatSystem {
             player.heal(player.maxHp * 0.05);
           }
 
+          // Tỉ lệ rơi vật phẩm chiến thuật khi ăn cá lớn
+          if (Array.isArray(droppedItems) && e.radius >= 38 && Math.random() < 0.16) {
+            const rndIt = getRandomItemConfig();
+            droppedItems.push(new DroppedItem(e.x, e.y, rndIt.id));
+          }
+
           sound.playEat(this.comboCount);
           eventBus.emit("ENEMY_EATEN");
 
-          // Cá Kiếm Dạng 6: Vũ Điệu Kiếm Ảnh sau khi hạ gục
           if (player.species === "fish" && player.evoStage >= 6) {
             particleSystem.addShockwave(
               player.x,
@@ -291,7 +332,7 @@ export class CombatSystem {
       }
     }
 
-    // 5. Va chạm PvP Người chơi Online
+    // 5. Va chạm PvP Người chơi Online (kèm khắc chế loài)
     Object.entries(remotePlayers).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed) return;
 
@@ -331,9 +372,10 @@ export class CombatSystem {
         player.ultTimer > 0 ||
         player.dashTimer > 0;
 
-      const { mult, extraTrueDmg } = this.getEffectiveBitePower(
+      const { mult, extraTrueDmg, isCounter } = this.getEffectiveBitePower(
         player,
         rp.maxHp || 100,
+        rp.species,
       );
 
       if (!isBiggerOrEqual && hitTail) {
@@ -375,9 +417,9 @@ export class CombatSystem {
         rp.lastHitTime = time;
         rp.triggerHurtFlash();
 
-        const isCrit = player.dashTimer > 0 || player.ultTimer > 0;
+        const isCrit = player.dashTimer > 0 || player.ultTimer > 0 || isCounter;
         const finalDmg = Math.round(
-          (32 * mult + extraTrueDmg) * (isCrit ? 1.5 : 1.0),
+          (32 * mult + extraTrueDmg) * (player.dashTimer > 0 || player.ultTimer > 0 ? 1.5 : 1.0),
         );
 
         const isLethal = rp.hp - finalDmg <= 0;
@@ -434,7 +476,11 @@ export class CombatSystem {
         particleSystem.addFloatingText(
           rp.x,
           rp.y - rp.radius - 12,
-          isCrit ? `⚡ CHÍ MẠNG -${finalDmg}!` : `💥 -${finalDmg} HP`,
+          isCounter
+            ? `⚔️ KHẮC CHẾ -${finalDmg}!`
+            : isCrit
+              ? `⚡ CHÍ MẠNG -${finalDmg}!`
+              : `💥 -${finalDmg} HP`,
           isCrit ? "#fee440" : "#ff4d6d",
         );
         particleSystem.addShockwave(

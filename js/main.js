@@ -1,5 +1,6 @@
-import { WORLD_SIZE, MAP_CONFIG } from "./data/mapsConfig.js";
+import { getWorldSize, MAP_CONFIG, getZoneNameAt } from "./data/mapsConfig.js";
 import { createInitialQuests } from "./data/questsData.js";
+import { getRandomItemConfig } from "./data/itemsData.js";
 import { eventBus } from "./core/EventBus.js";
 import { storage } from "./core/StorageManager.js";
 import { sound } from "./core/SoundSystem.js";
@@ -15,7 +16,7 @@ import {
 import { Player } from "./entities/Player.js";
 import { EnemyBot } from "./entities/EnemyBot.js";
 import { BossLeviathan } from "./entities/BossLeviathan.js";
-import { Pearl } from "./entities/Pickups.js";
+import { Pearl, DroppedItem } from "./entities/Pickups.js";
 import { triggerPlayerSkill } from "./systems/SkillSystem.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { PassiveAndAugmentSystem } from "./systems/PassiveAndAugmentSystem.js";
@@ -59,11 +60,12 @@ let bossSpawned = false;
 let enemies = [];
 let pearls = [];
 let meatChunks = [];
+let droppedItems = [];
 let quests = [];
 
 let survivalTime = 0;
 let hitStopTimer = 0;
-let zoneRadius = WORLD_SIZE * 0.75;
+let zoneRadius = 4500 * 0.75;
 let worldEvent = null;
 let nextEventTimer = 45;
 let lbUpdateTimer = 0;
@@ -118,7 +120,7 @@ function triggerRandomWorldEvent() {
   worldEvent = { ...ev, timer: ev.duration };
   ui.showEventBanner(ev.name, 5000);
   if (ev.type === "pearl_rain") {
-    for (let i = 0; i < 18; i++) pearls.push(new Pearl());
+    for (let i = 0; i < 18; i++) pearls.push(new Pearl(null, null, selectedMap));
   }
 }
 
@@ -138,6 +140,7 @@ function startGame() {
   selectedRoomId = inputRoom || "PUBLIC";
   selectedGameMode = document.getElementById("gamemode-select").value;
 
+  const worldSize = getWorldSize(selectedMap);
   const savedRun = storage.getSpeciesRun(selectedSpecies);
 
   worldRenderer.build(selectedMap);
@@ -162,7 +165,7 @@ function startGame() {
 
   boss = null;
   bossSpawned = false;
-  zoneRadius = WORLD_SIZE * 0.72;
+  zoneRadius = worldSize * 0.72;
   worldEvent = null;
   nextEventTimer = 35;
   survivalTime = 0;
@@ -172,14 +175,28 @@ function startGame() {
   enemies = [];
   const totalEnemies = MAP_CONFIG[selectedMap].enemyCount;
   for (let i = 0; i < totalEnemies; i++) {
-    const e = new EnemyBot(player.radius);
+    const e = new EnemyBot(player.radius, selectedMap);
     if (Math.hypot(e.x - player.x, e.y - player.y) < 420) e.x += 550;
     enemies.push(e);
   }
 
   pearls = [];
-  for (let i = 0; i < 22; i++) pearls.push(new Pearl());
+  const pearlCount = selectedMap === "hybrid" ? 36 : 22;
+  for (let i = 0; i < pearlCount; i++) pearls.push(new Pearl(null, null, selectedMap));
+
   meatChunks = [];
+  droppedItems = [];
+  for (let i = 0; i < 6; i++) {
+    const rndIt = getRandomItemConfig();
+    droppedItems.push(
+      new DroppedItem(
+        Math.random() * (worldSize - 400) + 200,
+        Math.random() * (worldSize - 400) + 200,
+        rndIt.id,
+      ),
+    );
+  }
+
   particleSystem.clear();
   combatSystem.reset();
   passiveAndAugmentSystem.clear();
@@ -260,7 +277,6 @@ eventBus.on("PLAYER_DIED", (killerName) => {
   triggerGameOver(killerName);
 });
 
-// TIẾN HÓA MỖI DẠNG: Kích hoạt Nội Tại ở Dạng 2, 4, 6, 8 + Mở chọn Lõi Siêu Cấp
 eventBus.on("PLAYER_EVOLVED", ({ stage }) => {
   if (player) {
     storage.saveSpeciesRun(player, quests);
@@ -277,7 +293,7 @@ eventBus.on("PLAYER_EVOLVED", ({ stage }) => {
 
   if (stage >= 3 && !bossSpawned) {
     bossSpawned = true;
-    boss = new BossLeviathan(player ? player.radius : 60);
+    boss = new BossLeviathan(player ? player.radius : 60, selectedMap);
     ui.showEventBanner("⚠️ THỦY QUÁI LEVIATHAN ĐÃ THỨC TỈNH!", 5000);
     camera.shake = 20;
   }
@@ -285,15 +301,15 @@ eventBus.on("PLAYER_EVOLVED", ({ stage }) => {
 
 eventBus.on("ADMIN_SPAWN_BOSS", () => {
   if (!player) return;
+  const worldSize = getWorldSize(selectedMap);
   bossSpawned = true;
-  boss = new BossLeviathan(player.radius);
-  boss.x = Math.min(WORLD_SIZE - 300, player.x + 420);
+  boss = new BossLeviathan(player.radius, selectedMap);
+  boss.x = Math.min(worldSize - 300, player.x + 420);
   boss.y = player.y;
   ui.showEventBanner("👑 ADMIN ĐÃ TRIỆU HỒI LEVIATHAN CHÚA TỂ!", 5000);
   camera.shake = 22;
 });
 
-// MỖI 2 CẤP ĐỘ: Mở chọn 1 Lõi Thường cộng dồn chỉ số
 eventBus.on("PLAYER_LEVEL_UP", (level) => {
   if (player) storage.saveSpeciesRun(player, quests);
   if (level % 2 === 0 && player && gameState !== "GAMEOVER") {
@@ -357,6 +373,16 @@ eventBus.on("INPUT_SKILL", () => {
 eventBus.on("INPUT_ULTIMATE", () => {
   if (gameState === "PLAYING" && player) {
     player.useUltimate(particleSystem, camera);
+  }
+});
+
+eventBus.on("USE_BAG_SLOT", (slotIdx) => {
+  if (gameState === "PLAYING" && player) {
+    player.useBagSlot(slotIdx, {
+      enemies,
+      particleSystem,
+      camera,
+    });
   }
 });
 
@@ -511,6 +537,7 @@ function gameLoop(time) {
       width,
       height,
       mapProps: worldRenderer.mapProps,
+      shrines: worldRenderer.shrines,
       worldEvent,
       selectedGameMode,
       selectedMap,
@@ -528,7 +555,8 @@ function gameLoop(time) {
       input,
     });
     camera.follow(player, width, height, selectedMap);
-    ui.updateHUD(player, survivalTime);
+    const zoneLabel = getZoneNameAt(player.x, player.y, selectedMap);
+    ui.updateHUD(player, survivalTime, zoneLabel);
   }
 
   ctx.save();
@@ -566,6 +594,7 @@ function gameLoop(time) {
 
   pearls.forEach((p) => p.draw(ctx));
   meatChunks.forEach((m) => m.draw(ctx));
+  droppedItems.forEach((it) => it.draw(ctx));
 
   if (boss && gameState === "PLAYING" && player) {
     boss.update(player, dt);
@@ -575,7 +604,7 @@ function gameLoop(time) {
 
   const targetCount = MAP_CONFIG[selectedMap].enemyCount;
   if (enemies.length < targetCount) {
-    enemies.push(new EnemyBot(player ? player.radius : 21));
+    enemies.push(new EnemyBot(player ? player.radius : 21, selectedMap));
   }
 
   for (let i = enemies.length - 1; i >= 0; i--) {
@@ -609,6 +638,7 @@ function gameLoop(time) {
       player,
       pearls,
       meatChunks,
+      droppedItems,
       enemies,
       remotePlayers: roomSync.remotePlayers,
       boss,
@@ -637,15 +667,18 @@ function gameLoop(time) {
       player,
       enemies,
       pearls,
+      droppedItems,
+      shrines: worldRenderer.shrines,
       boss,
       remotePlayers: roomSync.remotePlayers,
+      selectedMap,
       selectedGameMode,
       zoneRadius,
     });
 
     lbUpdateTimer += dt;
     if (lbUpdateTimer >= 0.5) {
-      ui.updateLeaderboard(player, roomSync.remotePlayers, boss, survivalTime);
+      ui.updateLeaderboard(player, roomSync.remotePlayers, boss);
       lbUpdateTimer = 0;
     }
   }

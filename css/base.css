@@ -26,10 +26,10 @@ body {
 }
 
 .panel-glass {
-  background: rgba(4, 22, 36, 0.82);
+  background: rgba(4, 22, 36, 0.84);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(100, 223, 223, 0.28);
+  border: 1px solid rgba(100, 223, 223, 0.32);
   border-radius: 14px;
   padding: 10px 14px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
@@ -93,7 +93,6 @@ body {
   line-height: 1.45;
 }
 
-/* Chỉ tự động hiện khi là thiết bị cảm ứng màn hình nhỏ và đang cầm dọc */
 @media (hover: none) and (pointer: coarse) and (orientation: portrait) and (max-width: 768px) {
   #rotate-device-overlay:not([data-dismissed="true"]) {
     display: flex;

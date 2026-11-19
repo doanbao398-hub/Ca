@@ -1,10 +1,10 @@
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 import { settings } from "./SettingsManager.js";
 
 export class Camera {
   constructor() {
-    this.x = WORLD_SIZE / 2;
-    this.y = WORLD_SIZE / 2;
+    this.x = 2250;
+    this.y = 2250;
     this.zoom = 1;
     this.shake = 0;
   }
@@ -17,11 +17,15 @@ export class Camera {
   }
 
   follow(player, width, height, selectedMap) {
+    const worldSize = getWorldSize(selectedMap);
     this.x += (player.x - this.x) * 0.08;
     this.y += (player.y - this.y) * 0.08;
 
     const visionBonus =
-      selectedMap === "abyss" && player.species === "diver" ? 0.14 : 0;
+      (selectedMap === "abyss" || selectedMap === "hybrid") &&
+      player.species === "diver"
+        ? 0.14
+        : 0;
     const minScreenDim = Math.min(width, height);
     const mobileScale = minScreenDim < 650 ? 0.72 : 1.0;
 
@@ -29,6 +33,15 @@ export class Camera {
       Math.max(0.32, 1.08 - (player.radius - 20) * 0.0032 - visionBonus) *
       mobileScale;
     this.zoom += (baseZoom - this.zoom) * 0.05;
+
+    const halfW = width / (2 * this.zoom);
+    const halfH = height / (2 * this.zoom);
+    if (worldSize > halfW * 2) {
+      this.x = Math.max(halfW * 0.4, Math.min(worldSize - halfW * 0.4, this.x));
+    }
+    if (worldSize > halfH * 2) {
+      this.y = Math.max(halfH * 0.4, Math.min(worldSize - halfH * 0.4, this.y));
+    }
 
     if (this.shake > 0) {
       this.shake *= 0.88;

@@ -3,7 +3,7 @@ import { eventBus } from "../core/EventBus.js";
 
 export class PassiveAndAugmentSystem {
   constructor() {
-    this.magmaPools = []; // Vệt dung nham dưới đáy biển
+    this.magmaPools = [];
   }
 
   clear() {
@@ -26,13 +26,8 @@ export class PassiveAndAugmentSystem {
     const ps = player.passiveState;
     const syn = player.getSynergies();
 
-    // ========================================================
-    // A. CẬP NHẬT NỘI TẠI ĐẶC THÙ TỪNG LOÀI (DẠNG 2, 4, 6, 8)
-    // ========================================================
-
     // 1. CÁ KIẾM HOÀNG KIM
     if (player.species === "fish") {
-      // Dạng 2: Mũi Kiếm Xuyên Giáp (chạy nhanh > 1.5s nạp đòn đâm +40%)
       if (player.evoStage >= 2) {
         if (input?.wantsBoost && !player.isExhausted) {
           ps.highSpeedTime += dt;
@@ -50,7 +45,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 4: Săn Mồi Cô Độc (+22% tốc độ tạm thời khi tiếp cận 1 mục tiêu đơn lẻ)
       if (player.evoStage >= 4) {
         const nearbyEnemies = enemies.filter(
           (e) => Math.hypot(e.x - player.x, e.y - player.y) < 380,
@@ -58,7 +52,6 @@ export class PassiveAndAugmentSystem {
         player.loneHunterBonus = nearbyEnemies.length === 1 ? 0.22 : 0;
       }
 
-      // Dạng 8: Nhất Kiếm Đoạt Mệnh (tự động kết liễu kẻ địch trước mặt < 25% HP)
       if (player.evoStage >= 8) {
         Object.entries(remotePlayers).forEach(([id, rp]) => {
           if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
@@ -94,7 +87,6 @@ export class PassiveAndAugmentSystem {
 
     // 2. RÙA THẦN BIỂN SÂU
     if (player.species === "turtle") {
-      // Dạng 2: Hồi phục Mai Giáp Hấp Thụ mỗi 12s
       if (player.evoStage >= 2 && !ps.turtleShieldReady) {
         ps.turtleShieldCd -= dt;
         if (ps.turtleShieldCd <= 0) {
@@ -108,7 +100,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 4: Hào Quang Phục Hồi (hồi 4% HP/s khi bơi chậm)
       if (player.evoStage >= 4) {
         if (!input?.wantsBoost) {
           ps.lowSpeedTime += dt;
@@ -120,7 +111,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 6: Địa Chấn Hải Quy (tự động giậm sóng khi có >= 2 kẻ địch vây quanh)
       if (player.evoStage >= 6) {
         if (ps.turtleQuakeCd > 0) ps.turtleQuakeCd -= dt;
         const closeCount =
@@ -168,12 +158,10 @@ export class PassiveAndAugmentSystem {
 
     // 3. CÁ SẤU CHÚA ĐẦM LẦY
     if (player.species === "croc") {
-      // Dạng 6: Cuồng Nộ Đầm Lầy (HP < 50% tăng mạnh sức cắn & hút máu)
       if (player.evoStage >= 6) {
         player.crocFrenzyActive = player.hp < player.maxHp * 0.5;
       }
 
-      // Dạng 8: Ác Mộng Vực Sâu (mỗi 10s triệu hồi hàm năng lượng ngoạm kẻ gần nhất)
       if (player.evoStage >= 8) {
         ps.crocJawsTimer += dt;
         if (ps.crocJawsTimer >= 10.0) {
@@ -199,7 +187,6 @@ export class PassiveAndAugmentSystem {
 
     // 4. THỢ LẶN CÔNG NGHỆ
     if (player.species === "diver") {
-      // Dạng 2: Radar Dò Kho Báu mỗi 8s
       if (player.evoStage >= 2) {
         ps.radarTimer += dt;
         if (ps.radarTimer >= 8.0) {
@@ -214,7 +201,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 4: Drone Hộ Vệ Tự Động bắn laser mỗi 1.5s
       if (player.evoStage >= 4) {
         ps.droneTimer += dt;
         if (ps.droneTimer >= 1.5) {
@@ -234,7 +220,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 6: Trường Lực Nano sau 4s không nhận sát thương
       if (player.evoStage >= 6) {
         ps.outOfCombatTime += dt;
         if (ps.outOfCombatTime >= 4.0) {
@@ -242,7 +227,6 @@ export class PassiveAndAugmentSystem {
         }
       }
 
-      // Dạng 8: Pháo Hủy Diệt Orbital khi Nộ > 80% hoặc Hóa Thần
       if (player.evoStage >= 8 && (player.rage >= 80 || player.ultTimer > 0)) {
         ps.orbitalTimer += dt;
         if (ps.orbitalTimer >= 2.2) {
@@ -271,11 +255,7 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // ========================================================
-    // B. HIỆU ỨNG LÕI SIÊU CẤP & CỘNG HƯỞNG HỆ (2 / 3 / 4)
-    // ========================================================
-
-    // 1. Lõi Lôi Đình Đại Dương: Mỗi 4s giật sét tối đa 3 mục tiêu
+    // B. LÕI SIÊU CẤP & CỘNG HƯỞNG
     if (player.hasSuperAugment("s_thunder_lord")) {
       ps.thunderTimer += dt;
       if (ps.thunderTimer >= 4.0) {
@@ -299,7 +279,6 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // 2. Lõi Hàn Băng Vực Thẳm: Làm chậm kẻ địch áp sát
     if (player.hasSuperAugment("s_abyss_frost")) {
       enemies.forEach((e) => {
         if (Math.hypot(e.x - player.x, e.y - player.y) < player.radius + 180) {
@@ -309,7 +288,6 @@ export class PassiveAndAugmentSystem {
       });
     }
 
-    // 3. Lõi Hỏa Ngục Dung Nham: Để lại vệt lửa khi bơi nhanh
     if (player.hasSuperAugment("s_magma_trail") && input?.wantsBoost) {
       ps.magmaTimer += dt;
       if (ps.magmaTimer >= 0.25) {
@@ -334,7 +312,6 @@ export class PassiveAndAugmentSystem {
       if (m.life <= 0) this.magmaPools.splice(i, 1);
     }
 
-    // 4. Cộng hưởng 3 Lõi Hệ Cường Hóa: Cú Đớp Chấn Động mỗi 5s
     if (syn.empowerment >= 3) {
       ps.empShockTimer += dt;
       if (ps.empShockTimer >= 5.0) {
@@ -356,7 +333,6 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // 5. Cộng hưởng 4 Lõi Hệ Nguyên Tố: Khi bật Hóa Thần [R] liên tục phóng cầu nguyên tố
     if (syn.elemental >= 4 && player.ultTimer > 0) {
       ps.ultOrbTimer += dt;
       if (ps.ultOrbTimer >= 0.6) {

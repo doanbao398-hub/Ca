@@ -5,6 +5,7 @@ import { settings } from "../core/SettingsManager.js";
 import { SPECIES_CONFIG } from "../data/speciesConfig.js";
 import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
 import { META_SHOP_ITEMS } from "../data/upgradesData.js";
+import { TACTICAL_ITEMS } from "../data/itemsData.js";
 import {
   COMMON_AUGMENTS,
   SUPER_AUGMENTS,
@@ -47,9 +48,42 @@ export class UIManager {
 
     this.bindAuthEvents();
     this.bindChatAndMobileEvents();
+    this.bindHudPanelToggles();
     this.bindSettingsEvents();
     this.bindBusEvents();
     this.renderMetaShop();
+  }
+
+  bindHudPanelToggles() {
+    const lbPanel = document.getElementById("leaderboard-panel");
+    const questPanel = document.getElementById("quest-panel");
+    const btnLb = document.getElementById("btn-toggle-lb");
+    const btnQuest = document.getElementById("btn-toggle-quest");
+
+    btnLb?.addEventListener("click", () => {
+      const isHidden = lbPanel?.classList.toggle("collapsed-panel");
+      btnLb.classList.toggle("active-pill", !isHidden);
+    });
+    document.getElementById("btn-close-lb")?.addEventListener("click", () => {
+      lbPanel?.classList.add("collapsed-panel");
+      btnLb?.classList.remove("active-pill");
+    });
+
+    btnQuest?.addEventListener("click", () => {
+      const isHidden = questPanel?.classList.toggle("collapsed-panel");
+      btnQuest.classList.toggle("active-pill", !isHidden);
+    });
+    document.getElementById("btn-close-quest")?.addEventListener("click", () => {
+      questPanel?.classList.add("collapsed-panel");
+      btnQuest?.classList.remove("active-pill");
+    });
+
+    document.querySelectorAll("#quick-bag-bar .bag-slot").forEach((slotEl) => {
+      slotEl.addEventListener("click", () => {
+        const idx = Number(slotEl.dataset.slot);
+        eventBus.emit("USE_BAG_SLOT", idx);
+      });
+    });
   }
 
   bindAuthEvents() {
@@ -348,6 +382,20 @@ export class UIManager {
       opVal.textContent = `${Math.round((d.hudOpacity ?? 0.95) * 100)}%`;
   }
 
+  renderSavedSpeciesBadges() {
+    ["fish", "turtle", "croc", "diver"].forEach((sp) => {
+      const tag = document.getElementById(`saved-tag-${sp}`);
+      if (!tag) return;
+      const run = storage.getSpeciesRun(sp);
+      if (run && run.score > 0) {
+        tag.textContent = `💾 Lv.${run.level} • Dạng ${run.evoStage}`;
+        tag.classList.remove("hidden");
+      } else {
+        tag.classList.add("hidden");
+      }
+    });
+  }
+
   bindBusEvents() {
     eventBus.on("AUTH_STATE_CHANGED", (user) => {
       if (user) {
@@ -386,6 +434,11 @@ export class UIManager {
       const bk = document.getElementById("meta-bosskills");
       if (bk) bk.textContent = data.bossKills ?? 0;
       this.renderMetaShop();
+      this.renderSavedSpeciesBadges();
+    });
+
+    eventBus.on("BAG_UPDATED", (inv) => {
+      this.renderQuickBag(inv);
     });
 
     eventBus.on("GLOBAL_LB_UPDATED", (list) => {
@@ -449,6 +502,26 @@ export class UIManager {
     });
   }
 
+  renderQuickBag(inventory = [null, null, null]) {
+    document.querySelectorAll("#quick-bag-bar .bag-slot").forEach((slotEl) => {
+      const idx = Number(slotEl.dataset.slot);
+      const itemId = inventory[idx];
+      const iconEl = slotEl.querySelector(".slot-icon");
+      if (itemId && TACTICAL_ITEMS[itemId]) {
+        const cfg = TACTICAL_ITEMS[itemId];
+        slotEl.classList.remove("empty");
+        slotEl.style.borderColor = cfg.color;
+        slotEl.title = `${cfg.name}: ${cfg.desc}`;
+        if (iconEl) iconEl.textContent = cfg.icon;
+      } else {
+        slotEl.classList.add("empty");
+        slotEl.style.borderColor = "";
+        slotEl.title = `Ô túi đồ ${idx + 1} (Trống)`;
+        if (iconEl) iconEl.textContent = "";
+      }
+    });
+  }
+
   renderMetaShop() {
     const grid = document.getElementById("meta-shop-grid");
     if (!grid) return;
@@ -487,11 +560,9 @@ export class UIManager {
 
     settings.applyToDOM();
     this.renderAugmentAndPassiveHUD(player);
+    this.renderQuickBag(player.inventory);
   }
 
-  // ========================================================
-  // HÀNG ĐỢI LÕI SIÊU CẤP (DẠNG 2,4,6,8) & LÕI THƯỜNG (MỖI 2 CẤP)
-  // ========================================================
   enqueueAugment(type, player, particleSystem, onAllDoneCallback) {
     if (type === "super" && player.superAugments.length >= MAX_SUPER_AUGMENTS) {
       return;
@@ -716,7 +787,7 @@ export class UIManager {
     `;
   }
 
-  updateHUD(player, survivalTime) {
+  updateHUD(player, survivalTime, zoneLabel = "") {
     if (!player) return;
 
     const evoForm =
@@ -724,6 +795,9 @@ export class UIManager {
       EVOLUTION_FORMS[EVOLUTION_FORMS.length - 1];
     const evoStageEl = document.getElementById("hud-evo-stage");
     if (evoStageEl) evoStageEl.textContent = evoForm.shortTitle;
+
+    const zoneEl = document.getElementById("hud-zone");
+    if (zoneEl && zoneLabel) zoneEl.textContent = zoneLabel;
 
     const hpText = document.getElementById("hud-hp-text");
     if (hpText)
@@ -786,9 +860,11 @@ export class UIManager {
     const timeEl = document.getElementById("hud-time");
     if (timeEl) timeEl.textContent = `${mins}:${secs}`;
 
+    const evoRatioText = `${player.evoStage}/${EVOLUTION_FORMS.length}`;
     const evoCounter = document.getElementById("evo-counter");
-    if (evoCounter)
-      evoCounter.textContent = `${player.evoStage}/${EVOLUTION_FORMS.length}`;
+    if (evoCounter) evoCounter.textContent = evoRatioText;
+    const evoCounterPill = document.getElementById("evo-counter-pill");
+    if (evoCounterPill) evoCounterPill.textContent = evoRatioText;
 
     this.renderAugmentAndPassiveHUD(player);
   }

@@ -8,11 +8,12 @@ export const SPECIES_CONFIG = {
     boostMult: 1.8,
     maxHp: 100,
     maxStamina: 115,
-    staminaDrain: 32,     // tiêu hao mỗi giây khi boost
-    staminaRegen: 22,     // hồi mỗi giây
+    staminaDrain: 32,
+    staminaRegen: 22,
     eatRangeMult: 1.08,
     scoreMult: 1.0,
     favMap: "coral",
+    counters: "diver", // Cá Kiếm khắc chế Thợ Lặn (+18% sát thương)
     colors: { primary: "#00bbf9", secondary: "#023e8a", accent: "#fee440" },
   },
   turtle: {
@@ -29,6 +30,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.02,
     scoreMult: 1.05,
     favMap: "coral",
+    counters: "croc", // Rùa khắc chế Cá Sấu (+18% sát thương)
     colors: { primary: "#2ec4b6", secondary: "#1b4332", accent: "#cbf3f0" },
   },
   croc: {
@@ -45,6 +47,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.25,
     scoreMult: 1.2,
     favMap: "swamp",
+    counters: "fish", // Cá Sấu khắc chế Cá Kiếm (+18% sát thương)
     colors: { primary: "#52b788", secondary: "#1b4332", accent: "#d8f3dc" },
   },
   diver: {
@@ -61,6 +64,13 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.15,
     scoreMult: 1.15,
     favMap: "abyss",
+    counters: "turtle", // Thợ Lặn khắc chế Rùa (+18% sát thương)
     colors: { primary: "#ff9f1c", secondary: "#2b2d42", accent: "#00f5d4" },
   },
 };
+
+export function getCounterMultiplier(attackerSpecies, targetSpecies) {
+  const cfg = SPECIES_CONFIG[attackerSpecies];
+  if (cfg && cfg.counters === targetSpecies) return 1.18;
+  return 1.0;
+}

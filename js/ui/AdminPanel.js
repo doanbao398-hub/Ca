@@ -23,6 +23,7 @@ export class AdminPanel {
 
     const btn = document.createElement("button");
     btn.id = "btn-admin-toggle";
+    btn.type = "button";
     btn.innerText = "👑 ADMIN";
     btn.style.cssText = `
       position: fixed;
@@ -57,7 +58,7 @@ export class AdminPanel {
       <div class="lobby-container" style="width: 500px; border: 2px solid #fee440;">
         <div style="display:flex; justify-content:space-between; align-items:center;">
           <h2 style="color:#fee440; font-size:18px;">👑 BẢNG ĐIỀU KHIỂN ADMIN (${maxStage} DẠNG • MAX LV.${MAX_PLAYER_LEVEL})</h2>
-          <button id="btn-close-admin" class="btn-hud" style="border-color:#ff4d6d; color:#ff758f;">✖ Đóng</button>
+          <button type="button" id="btn-close-admin" class="btn-hud" style="border-color:#ff4d6d; color:#ff758f;">✖ Đóng</button>
         </div>
 
         <div style="background:rgba(0,0,0,0.4); padding:12px; border-radius:12px; display:flex; flex-direction:column; gap:8px;">
@@ -83,7 +84,7 @@ export class AdminPanel {
             <input type="number" id="adm-pvpkills" class="lobby-input" style="width:160px; padding:6px;" />
           </label>
 
-          <button id="btn-adm-save-meta" class="btn-play" style="width:100%; padding:10px; font-size:13px; margin-top:4px;">
+          <button type="button" id="btn-adm-save-meta" class="btn-play" style="width:100%; padding:10px; font-size:13px; margin-top:4px;">
             💾 LƯU & ĐỒNG BỘ LÊN SERVER
           </button>
         </div>
@@ -93,27 +94,27 @@ export class AdminPanel {
           
           <div style="display:flex; gap:6px;">
             <input type="number" id="adm-match-score" class="lobby-input" style="flex:1; padding:6px;" placeholder="Điểm trận (XP)..." />
-            <button id="btn-adm-set-score" class="btn-hud" style="border-color:#00f5d4; color:#00f5d4;">Đặt Điểm</button>
+            <button type="button" id="btn-adm-set-score" class="btn-hud" style="border-color:#00f5d4; color:#00f5d4;">Đặt Điểm</button>
           </div>
 
           <div style="display:flex; gap:6px;">
             <input type="number" id="adm-match-level" min="1" max="${MAX_PLAYER_LEVEL}" class="lobby-input" style="flex:1; padding:6px;" placeholder="Cấp độ (1 - ${MAX_PLAYER_LEVEL})..." />
-            <button id="btn-adm-set-level" class="btn-hud" style="border-color:#fee440; color:#fee440;">Đặt Cấp</button>
+            <button type="button" id="btn-adm-set-level" class="btn-hud" style="border-color:#fee440; color:#fee440;">Đặt Cấp</button>
           </div>
 
           <div style="display:flex; gap:6px;">
             <select id="adm-evo-select" class="lobby-input" style="flex:1; padding:6px; text-align:left;">
               ${evoOptionsHtml}
             </select>
-            <button id="btn-adm-apply-evo" class="btn-hud" style="border-color:#ffbe0b; color:#ffbe0b;">Biến Hình</button>
+            <button type="button" id="btn-adm-apply-evo" class="btn-hud" style="border-color:#ffbe0b; color:#ffbe0b;">Biến Hình</button>
           </div>
 
           <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px; margin-top:4px;">
-            <button id="btn-adm-evolve" class="btn-hud">🧬 Max Dạng ${maxStage} (${maxForm.shortTitle})</button>
-            <button id="btn-adm-godmode" class="btn-hud">🛡️ Bật/Tắt Bất Tử</button>
-            <button id="btn-adm-heal" class="btn-hud">💖 Hồi Đầy Máu & 100% Nộ</button>
-            <button id="btn-adm-size" class="btn-hud">🐋 Phóng To Khổng Lồ (+40)</button>
-            <button id="btn-adm-spawn-boss" class="btn-hud" style="grid-column: span 2; border-color:#ff006e; color:#ff758f;">
+            <button type="button" id="btn-adm-evolve" class="btn-hud">🧬 Max Dạng ${maxStage} (${maxForm.shortTitle})</button>
+            <button type="button" id="btn-adm-godmode" class="btn-hud">🛡️ Bật/Tắt Bất Tử</button>
+            <button type="button" id="btn-adm-heal" class="btn-hud">💖 Hồi Đầy Máu & 100% Nộ</button>
+            <button type="button" id="btn-adm-size" class="btn-hud">🐋 Phóng To Khổng Lồ (+40)</button>
+            <button type="button" id="btn-adm-spawn-boss" class="btn-hud" style="grid-column: span 2; border-color:#ff006e; color:#ff758f;">
               🐉 Triệu Hồi Siêu Boss Leviathan
             </button>
           </div>
@@ -203,7 +204,6 @@ export class AdminPanel {
         );
         p.setLevel(lvl, this.particleSystem, this.camera);
         document.getElementById("adm-evo-select").value = String(p.evoStage);
-        eventBus.emit("PLAYER_LEVEL_UP_HUD_ONLY", p.level);
       });
 
     document

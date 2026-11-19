@@ -1,5 +1,6 @@
 import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
+import { getCounterMultiplier } from "../data/speciesConfig.js";
 
 const SKILL_HANDLERS = {
   dash_stun: (player, { enemies, remotePlayers, particleSystem }) => {
@@ -27,7 +28,8 @@ const SKILL_HANDLERS = {
         !rp.invincibleTimer &&
         Math.hypot(rp.x - player.x, rp.y - player.y) < player.radius * 5
       ) {
-        const dmg = Math.round(22 * player.bitePower);
+        const counterMult = getCounterMultiplier(player.species, rp.species);
+        const dmg = Math.round(22 * player.bitePower * counterMult);
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg,
@@ -69,7 +71,8 @@ const SKILL_HANDLERS = {
     Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
       const d = Math.hypot(rp.x - player.x, rp.y - player.y);
       if (rp && !rp.invincibleTimer && d < player.radius * 5.5) {
-        const dmg = Math.round(18 * player.bitePower);
+        const counterMult = getCounterMultiplier(player.species, rp.species);
+        const dmg = Math.round(18 * player.bitePower * counterMult);
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg,
@@ -108,7 +111,8 @@ const SKILL_HANDLERS = {
     Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
       const d = Math.hypot(rp.x - player.x, rp.y - player.y);
       if (rp && !rp.invincibleTimer && d < player.radius * 6.5) {
-        const dmg = Math.round(24 * player.bitePower);
+        const counterMult = getCounterMultiplier(player.species, rp.species);
+        const dmg = Math.round(24 * player.bitePower * counterMult);
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg,
@@ -144,7 +148,8 @@ const SKILL_HANDLERS = {
     Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
       const d = Math.hypot(rp.x - player.x, rp.y - player.y);
       if (rp && !rp.invincibleTimer && d < player.radius * 7) {
-        const dmg = Math.round(25 * player.bitePower);
+        const counterMult = getCounterMultiplier(player.species, rp.species);
+        const dmg = Math.round(25 * player.bitePower * counterMult);
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg,
@@ -163,7 +168,10 @@ const SKILL_HANDLERS = {
 export function triggerPlayerSkill(player, context) {
   if (!player || player.skillCooldownTimer > 0) return;
 
-  player.skillCooldownTimer = player.cfg.skillCooldown * player.cdrMult;
+  const syn = player.getSynergies();
+  const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+
+  player.skillCooldownTimer = player.cfg.skillCooldown * player.cdrMult * synCdr;
   sound.playSkill();
   context.camera.shake = 10;
   eventBus.emit("HIT_STOP", 0.035);
@@ -178,6 +186,24 @@ export function triggerPlayerSkill(player, context) {
   const handler = SKILL_HANDLERS[player.cfg.skillId];
   if (handler) {
     handler(player, context);
+  }
+
+  // Lõi Cộng Hưởng Sóng Âm hoặc Cộng Hưởng 3 Nguyên Tố: Phóng thêm sóng xung kích
+  if (player.hasSuperAugment("s_sonic_resonance") || syn.elemental >= 3) {
+    setTimeout(() => {
+      if (!player) return;
+      context.particleSystem.addShockwave(
+        player.x,
+        player.y,
+        player.radius * 6.5,
+        "#00f5d4",
+      );
+      context.enemies.forEach((e) => {
+        if (Math.hypot(e.x - player.x, e.y - player.y) < player.radius * 6.5) {
+          e.stunTimer = Math.max(e.stunTimer, 1.5);
+        }
+      });
+    }, 220);
   }
 
   eventBus.emit("SKILL_USED_FOR_QUEST");

@@ -69,7 +69,7 @@
       </div>
 
       <div class="hud-top">
-        <div style="display: flex; flex-direction: column; gap: 6px">
+        <div class="hud-left-col">
           <div class="panel-glass player-stats">
             <div class="stat-item">
               <span class="stat-label">Sinh Vật</span>
@@ -77,13 +77,13 @@
                 class="stat-val"
                 id="hud-species"
                 style="font-size: 13px; color: #00f5d4"
-                >Cá Kiếm Xanh</span
+                >Cá Kiếm Hoàng Kim</span
               >
               <span class="evo-badge" id="hud-evo-stage">Dạng 1</span>
             </div>
             <div class="stat-item">
               <span class="stat-label"
-                >HP (<span id="hud-hp-text">100</span>)</span
+                >HP (<span id="hud-hp-text">100/100</span>)</span
               >
               <div class="bar-wrap">
                 <div id="hp-bar"></div>
@@ -104,7 +104,7 @@
                 class="stat-val"
                 id="hud-zone"
                 style="font-size: 12px; color: #fee440"
-                >Trung Tâm</span
+                >Rạn San Hô</span
               >
               <span
                 id="hud-room-tag"
@@ -127,33 +127,70 @@
               <div class="online-dot"></div>
               <span id="hud-online-count">1 Online</span>
             </div>
-            <button class="btn-hud" id="btn-mute" title="Bật/Tắt Âm Thanh">
+            <button
+              type="button"
+              class="btn-hud hud-toggle-pill"
+              id="btn-toggle-lb"
+              title="Bật/Tắt Bảng Xếp Hạng"
+            >
+              🏆 <span class="hide-xs">Top</span>
+            </button>
+            <button
+              type="button"
+              class="btn-hud hud-toggle-pill"
+              id="btn-toggle-quest"
+              title="Bật/Tắt Nhiệm Vụ Tiến Hóa"
+            >
+              🧬 <span id="evo-counter-pill" style="color: #00f5d4">1/8</span>
+            </button>
+            <button type="button" class="btn-hud" id="btn-mute" title="Bật/Tắt Âm Thanh">
               🔊
             </button>
-            <button class="btn-hud" id="btn-settings" title="Cài Đặt Hệ Thống">
+            <button type="button" class="btn-hud" id="btn-settings" title="Cài Đặt Hệ Thống">
               ⚙️
             </button>
-            <button class="btn-hud" id="btn-pause" title="Tạm Dừng & Xem Build">
+            <button type="button" class="btn-hud" id="btn-pause" title="Tạm Dừng & Xem Build">
               ⏸️
             </button>
           </div>
 
-          <!-- Bảng Xếp Hạng Online Trực Tiếp -->
-          <div class="panel-glass leaderboard-panel">
+          <!-- Bảng Xếp Hạng Online Trực Tiếp (Thu gọn/Mở rộng) -->
+          <div
+            class="panel-glass leaderboard-panel collapsed-panel"
+            id="leaderboard-panel"
+          >
             <div class="quest-title" style="margin-bottom: 4px; color: #00f5d4">
               <span>🏆 Top Phòng</span>
-              <span id="hud-time" style="color: #fff; font-size: 10px"
-                >00:00</span
-              >
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span id="hud-time" style="color: #fff; font-size: 10px"
+                  >00:00</span
+                >
+                <button
+                  type="button"
+                  class="panel-mini-close"
+                  id="btn-close-lb"
+                >
+                  ✖
+                </button>
+              </div>
             </div>
             <div id="leaderboard-list"></div>
           </div>
 
-          <!-- Bảng nhiệm vụ tiến hóa -->
-          <div class="panel-glass quest-panel">
+          <!-- Bảng nhiệm vụ tiến hóa (Thu gọn/Mở rộng) -->
+          <div class="panel-glass quest-panel collapsed-panel" id="quest-panel">
             <div class="quest-title">
               <span>🧬 Nhiệm Vụ Tiến Hóa</span>
-              <span id="evo-counter" style="color: #00f5d4">1/8</span>
+              <div style="display: flex; align-items: center; gap: 6px">
+                <span id="evo-counter" style="color: #00f5d4">1/8</span>
+                <button
+                  type="button"
+                  class="panel-mini-close"
+                  id="btn-close-quest"
+                >
+                  ✖
+                </button>
+              </div>
             </div>
             <div id="quest-list"></div>
           </div>
@@ -165,14 +202,17 @@
       <div class="hud-bottom">
         <div class="hud-bottom-left">
           <div class="hud-radar-emote-row">
-            <div class="minimap-wrap">
+            <div
+              class="minimap-wrap"
+              title="Radar Đại Dương"
+            >
               <canvas id="minimapCanvas" width="165" height="165"></canvas>
             </div>
             <div class="emote-bar" id="emote-bar">
-              <button class="emote-btn" data-emote="👋">👋</button>
-              <button class="emote-btn" data-emote="😂">😂</button>
-              <button class="emote-btn" data-emote="😡">😡</button>
-              <button class="emote-btn" data-emote="🤝">🤝</button>
+              <button type="button" class="emote-btn" data-emote="👋">👋</button>
+              <button type="button" class="emote-btn" data-emote="😂">😂</button>
+              <button type="button" class="emote-btn" data-emote="😡">😡</button>
+              <button type="button" class="emote-btn" data-emote="🤝">🤝</button>
             </div>
           </div>
 
@@ -187,8 +227,27 @@
           </div>
         </div>
 
-        <!-- Thanh Thể Lực PC -->
+        <!-- Thanh Thể Lực PC + Túi Vật Phẩm Chiến Thuật 3 Ô -->
         <div class="controls-center">
+          <div
+            class="quick-bag-bar"
+            id="quick-bag-bar"
+            title="Túi Vật Phẩm Nhanh [Phím 1-2-3 hoặc Chạm]"
+          >
+            <div class="bag-slot empty" data-slot="0">
+              <span class="slot-key">1</span>
+              <span class="slot-icon"></span>
+            </div>
+            <div class="bag-slot empty" data-slot="1">
+              <span class="slot-key">2</span>
+              <span class="slot-icon"></span>
+            </div>
+            <div class="bag-slot empty" data-slot="2">
+              <span class="slot-key">3</span>
+              <span class="slot-icon"></span>
+            </div>
+          </div>
+
           <div
             class="panel-glass desktop-stamina-box"
             style="text-align: center; padding: 8px 14px"
@@ -244,7 +303,7 @@
           </div>
 
           <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
-          <button id="mobile-boost-btn">
+          <button type="button" id="mobile-boost-btn">
             <span style="font-size: 16px">⚡</span>
             <span>BƠI NHANH</span>
           </button>
@@ -263,8 +322,8 @@
         </div>
 
         <div class="auth-tabs">
-          <button class="auth-tab active" id="tab-login">ĐĂNG NHẬP</button>
-          <button class="auth-tab" id="tab-register">ĐĂNG KÝ MỚI</button>
+          <button type="button" class="auth-tab active" id="tab-login">ĐĂNG NHẬP</button>
+          <button type="button" class="auth-tab" id="tab-register">ĐĂNG KÝ MỚI</button>
         </div>
 
         <form id="auth-form" class="auth-form">
@@ -425,7 +484,7 @@
           </div>
         </div>
 
-        <!-- TAB 2: ĐIỀU KHIỂN PC / MOBILE (TỰ ĐỘNG THEO THIẾT BỊ) -->
+        <!-- TAB 2: ĐIỀU KHIỂN PC / MOBILE -->
         <div id="settings-tab-controls" class="settings-body hidden">
           <!-- DÀNH RIÊNG CHO PC -->
           <div id="settings-pc-section">
@@ -453,8 +512,8 @@
                 <code>R</code>
               </div>
               <div>
-                <b>Chat nhanh:</b> Phím <code>Enter</code> | <b>Tạm dừng:</b>
-                <code>Esc</code>
+                <b>Túi đồ nhanh:</b> Phím <code>1</code>, <code>2</code>,
+                <code>3</code> | <b>Chat:</b> <code>Enter</code>
               </div>
             </div>
           </div>
@@ -547,11 +606,11 @@
             flex-wrap: wrap;
           "
         >
-          <button class="btn-play" id="btn-resume" style="margin: 0">
+          <button type="button" class="btn-play" id="btn-resume" style="margin: 0">
             TIẾP TỤC CHƠI
           </button>
-          <button class="btn-hud" id="btn-pause-settings">⚙️ Cài Đặt</button>
-          <button class="btn-hud" id="btn-quit-lobby">
+          <button type="button" class="btn-hud" id="btn-pause-settings">⚙️ Cài Đặt</button>
+          <button type="button" class="btn-hud" id="btn-quit-lobby">
             Thoát Về Sảnh Chính
           </button>
         </div>
@@ -564,7 +623,8 @@
         <div class="lobby-header">
           <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
           <p>
-            100 Cấp Độ • 8 Chuẩn Tiến Hóa • Lõi Siêu Cấp & Nội Tại • PC & Mobile
+            100 Cấp Độ • 8 Chuẩn Tiến Hóa • 4 Bản Đồ Sinh Thái • Túi Đồ Chiến
+            Thuật
           </p>
         </div>
 
@@ -589,8 +649,9 @@
             style="color: #fee440; font-weight: 800"
             >🟡 Đang kiểm tra kết nối...</span
           >
-          <button class="btn-hud" id="btn-lobby-settings">⚙️ Cài Đặt</button>
+          <button type="button" class="btn-hud" id="btn-lobby-settings">⚙️ Cài Đặt</button>
           <button
+            type="button"
             class="btn-hud"
             id="btn-logout"
             style="border-color: #ff4d6d; color: #ff758f"
@@ -624,43 +685,49 @@
           >
             <option value="classic">🌊 Chế Độ: Sinh Tồn Tự Do</option>
             <option value="royale">☠️ Chế Độ: Sinh Tử Vòng Bo</option>
+            <option value="domination">⛩️ Chế Độ: Chiếm Đền Thờ</option>
           </select>
         </div>
 
         <div>
-          <div class="section-label">1. Chọn Loài & Bộ Kỹ Năng Riêng</div>
+          <div class="section-label">
+            1. Chọn Loài & Bộ Kỹ Năng Riêng (Khắc Chế Hệ Sinh Thái)
+          </div>
           <div class="grid-select" id="species-selector">
             <div class="card-option active" data-species="fish">
+              <div class="saved-run-tag hidden" id="saved-tag-fish"></div>
               <div class="card-icon">🗡️</div>
               <div class="card-title">Cá Kiếm Hoàng Kim</div>
               <div class="card-skill">Skill [E]: Xung Kích Xuyên Phá</div>
               <div class="card-desc">
-                Lướt siêu tốc làm choáng địch. <b>+15% tốc độ</b> ở San Hô.
+                Khắc chế <b>Thợ Lặn</b> (+18% DMG). <b>+15% tốc độ</b> ở San Hô.
               </div>
             </div>
             <div class="card-option" data-species="turtle">
+              <div class="saved-run-tag hidden" id="saved-tag-turtle"></div>
               <div class="card-icon">🐢</div>
               <div class="card-title">Rùa Thần Biển Sâu</div>
               <div class="card-skill">Skill [E]: Pháo Đài Mai Giáp</div>
               <div class="card-desc">
-                Bất tử 3.5s & đẩy văng kẻ thù. <b>+25% HP tối đa</b>.
+                Khắc chế <b>Cá Sấu</b> (+18% DMG). <b>+25% HP tối đa</b>.
               </div>
             </div>
             <div class="card-option" data-species="croc">
+              <div class="saved-run-tag hidden" id="saved-tag-croc"></div>
               <div class="card-icon">🐊</div>
               <div class="card-title">Cá Sấu Chúa Đầm Lầy</div>
               <div class="card-skill">Skill [E]: Xoáy Nước Tử Thần</div>
               <div class="card-desc">
-                Hút con mồi & tăng sát thương cắn đuôi. <b>+20% XP</b> ở Đầm
-                Lầy.
+                Khắc chế <b>Cá Kiếm</b> (+18% DMG). <b>+20% XP</b> ở Đầm Lầy.
               </div>
             </div>
             <div class="card-option" data-species="diver">
+              <div class="saved-run-tag hidden" id="saved-tag-diver"></div>
               <div class="card-icon">🤿</div>
               <div class="card-title">Thợ Lặn Công Nghệ</div>
               <div class="card-skill">Skill [E]: Xung Điện Từ (EMP)</div>
               <div class="card-desc">
-                Tê liệt toàn bộ sinh vật & hút ngọc. <b>+30% tầm nhìn</b> Vực
+                Khắc chế <b>Rùa Thần</b> (+18% DMG). <b>+30% tầm nhìn</b> Vực
                 Thẳm.
               </div>
             </div>
@@ -676,14 +743,14 @@
               <div class="card-icon">🪸</div>
               <div class="card-title">Rạn San Hô Ánh Dương</div>
               <div class="card-desc">
-                Bụi tảo tàng hình, tàu đắm tạo địa hình lách góc PvP.
+                Bụi tảo tàng hình, tàu đắm, sao biển & hải lưu ấm.
               </div>
             </div>
             <div class="card-option" data-map="abyss">
               <div class="card-icon">🔮</div>
               <div class="card-title">Vực Thẳm Phát Quang</div>
               <div class="card-desc">
-                Núi lửa phun trào hất văng cá lớn, nhiều Ngọc Trai.
+                Núi lửa phun trào, sứa phát sáng & nhiều Ngọc Trai.
               </div>
             </div>
             <div class="card-option" data-map="swamp">
@@ -691,6 +758,19 @@
               <div class="card-title">Rừng Ngập Mặn Huyền Bí</div>
               <div class="card-desc">
                 Rễ đước ẩn nấp, cột đá cổ đại và hệ sinh thái giàu XP.
+              </div>
+            </div>
+            <div
+              class="card-option"
+              data-map="hybrid"
+              style="border-color: rgba(254, 228, 64, 0.55)"
+            >
+              <div class="card-icon">🌐</div>
+              <div class="card-title" style="color: #fee440">
+                Đại Dương Hỗn Mang
+              </div>
+              <div class="card-desc">
+                Bản đồ siêu rộng kết hợp cả 3 vùng sinh thái & Đền Thờ!
               </div>
             </div>
           </div>
@@ -713,7 +793,7 @@
           </div>
         </div>
 
-        <button class="btn-play" id="start-btn">VÀO PHÒNG CHƠI ONLINE</button>
+        <button type="button" class="btn-play" id="start-btn">VÀO PHÒNG CHƠI ONLINE</button>
       </div>
     </div>
 
@@ -745,7 +825,7 @@
             border-radius: 12px;
           "
         ></p>
-        <button class="btn-play" id="restart-btn">QUAY LẠI SẢNH CHÍNH</button>
+        <button type="button" class="btn-play" id="restart-btn">QUAY LẠI SẢNH CHÍNH</button>
       </div>
     </div>
 

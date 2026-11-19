@@ -46,7 +46,7 @@ class StorageManager {
     const lbQuery = query(
       ref(db, "ocean_odyssey/leaderboard"),
       orderByChild("highScore"),
-      limitToLast(5),
+      limitToLast(6),
     );
     onValue(
       lbQuery,
@@ -123,6 +123,9 @@ class StorageManager {
       bitePower: Number(player.bitePower.toFixed(2)),
       lifeSteal: Math.round(player.lifeSteal),
       bounty: player.bounty || 0,
+      superAugments: [...(player.superAugments || [])],
+      commonAugments: [...(player.commonAugments || [])],
+      inventory: [...(player.inventory || [null, null, null])],
       quests: Array.isArray(quests)
         ? quests.map((q) => ({
             id: q.id,

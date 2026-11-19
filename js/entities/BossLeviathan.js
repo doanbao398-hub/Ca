@@ -1,12 +1,13 @@
 import { Creature } from "./Creature.js";
-import { WORLD_SIZE } from "../data/mapsConfig.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 
 export class BossLeviathan extends Creature {
-  constructor(playerRadius = 60) {
+  constructor(playerRadius = 60, mapKey = "coral") {
+    const worldSize = getWorldSize(mapKey);
     const bossRadius = Math.min(260, Math.max(150, playerRadius * 1.45));
     super(
-      WORLD_SIZE * 0.35,
-      WORLD_SIZE * 0.35,
+      worldSize * 0.35,
+      worldSize * 0.35,
       bossRadius,
       "croc",
       "👑 LEVIATHAN CHÚA TỂ",
@@ -50,7 +51,7 @@ export class BossLeviathan extends Creature {
     ctx.fillRect(
       this.x - barW / 2 + 2,
       this.y - this.radius - 44,
-      (barW - 4) * (this.hp / this.maxHp),
+      (barW - 4) * Math.max(0, this.hp / this.maxHp),
       10,
     );
     ctx.restore();

@@ -2,11 +2,14 @@ import { settings } from "./SettingsManager.js";
 
 class SoundSystem {
   constructor() {
-    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    this.ctx = AudioCtx ? new AudioCtx() : null;
   }
 
   resume() {
-    if (this.ctx.state === "suspended") this.ctx.resume();
+    if (this.ctx && this.ctx.state === "suspended") {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   get muted() {
@@ -20,7 +23,7 @@ class SoundSystem {
   }
 
   playTone(freq, type, duration, vol = 0.08, slideFreq = null) {
-    if (this.muted) return;
+    if (!this.ctx || this.muted) return;
     const masterVol = settings.data.sfxVolume ?? 0.8;
     if (masterVol <= 0) return;
 

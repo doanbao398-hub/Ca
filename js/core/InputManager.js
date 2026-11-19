@@ -79,6 +79,9 @@ export class InputManager {
       }
       if (e.code === "KeyE") eventBus.emit("INPUT_SKILL");
       if (e.code === "KeyR") eventBus.emit("INPUT_ULTIMATE");
+      if (e.code === "Digit1") eventBus.emit("USE_BAG_SLOT", 0);
+      if (e.code === "Digit2") eventBus.emit("USE_BAG_SLOT", 1);
+      if (e.code === "Digit3") eventBus.emit("USE_BAG_SLOT", 2);
       if (e.code === "Escape") eventBus.emit("INPUT_PAUSE");
     });
 
@@ -88,7 +91,6 @@ export class InputManager {
 
     this.bindVirtualJoystick();
 
-    // Chỉ nhận chạm trên Canvas để điều hướng khi Mobile đang ở chế độ "click"
     this.canvas.addEventListener(
       "touchstart",
       (e) => {

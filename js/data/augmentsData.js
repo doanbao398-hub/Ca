@@ -1,24 +1,19 @@
 export const MAX_SUPER_AUGMENTS = 4;
 
-// LÕI THƯỜNG (Mỗi 2 cấp độ nhận 1 lần, tích lũy vô hạn)
 export const COMMON_AUGMENTS = [
   {
     id: "c_speed",
     name: "Vây Lướt Sóng",
     icon: "💨",
     desc: "+0.6% Tốc độ bơi cơ bản",
-    apply: (p) => {
-      p.speedBonus += 0.006;
-    },
+    apply: (p) => { p.speedBonus += 0.006; },
   },
   {
     id: "c_bite",
     name: "Mài Nanh Sắc",
     icon: "🦷",
     desc: "+0.8% Sát thương cắn & PvP",
-    apply: (p) => {
-      p.bitePower += 0.008;
-    },
+    apply: (p) => { p.bitePower += 0.008; },
   },
   {
     id: "c_hp",
@@ -46,42 +41,32 @@ export const COMMON_AUGMENTS = [
     name: "Từ Trường Biển Sâu",
     icon: "🧲",
     desc: "+1.2% Bán kính hút ngọc & thịt",
-    apply: (p) => {
-      p.magnetRadius = Math.round(p.magnetRadius * 1.012) + 2;
-    },
+    apply: (p) => { p.magnetRadius = Math.round(p.magnetRadius * 1.012) + 2; },
   },
   {
     id: "c_cdr",
     name: "Nhịp Tim Hối Hả",
     icon: "⏱️",
     desc: "+0.5% Giảm hồi chiêu kỹ năng [E]",
-    apply: (p) => {
-      p.cdrMult = Math.max(0.35, p.cdrMult * 0.995);
-    },
+    apply: (p) => { p.cdrMult = Math.max(0.35, p.cdrMult * 0.995); },
   },
   {
     id: "c_rage",
     name: "Huyết Sôi Sục",
     icon: "🔥",
     desc: "+0.8% Tốc độ tích Nộ Hóa Thần",
-    apply: (p) => {
-      p.rageGainMult = (p.rageGainMult || 1) + 0.008;
-    },
+    apply: (p) => { p.rageGainMult = (p.rageGainMult || 1) + 0.008; },
   },
   {
     id: "c_lifesteal",
     name: "Hấp Huyết Nhẹ",
     icon: "🩸",
     desc: "+0.5% Hút máu khi săn mồi",
-    apply: (p) => {
-      p.lifeSteal += 0.35;
-    },
+    apply: (p) => { p.lifeSteal += 0.35; },
   },
 ];
 
-// 10 LÕI SIÊU CẤP (PRISMATIC) CHIA LÀM 2 HỆ: CƯỜNG HÓA & NGUYÊN TỐ
 export const SUPER_AUGMENTS = [
-  // === 5 LÕI HỆ CƯỜNG HÓA (empowerment) ===
   {
     id: "s_giant_heart",
     system: "empowerment",
@@ -103,9 +88,7 @@ export const SUPER_AUGMENTS = [
     name: "Nanh Vuốt Hủy Diệt",
     icon: "🗡️",
     desc: "+22% Sức mạnh cắn và gây thêm sát thương chuẩn theo % máu địch.",
-    onEquip: (p) => {
-      p.bitePower += 0.22;
-    },
+    onEquip: (p) => { p.bitePower += 0.22; },
   },
   {
     id: "s_thorn_armor",
@@ -114,9 +97,7 @@ export const SUPER_AUGMENTS = [
     name: "Giáp Gai Phản Chấn",
     icon: "🛡️",
     desc: "Giảm 20% sát thương nhận vào và phản lại 35% sát thương lên kẻ tấn công.",
-    onEquip: (p) => {
-      p.damageReduction = Math.min(0.65, (p.damageReduction || 0) + 0.2);
-    },
+    onEquip: (p) => { p.damageReduction = Math.min(0.65, (p.damageReduction || 0) + 0.2); },
   },
   {
     id: "s_bloodlust",
@@ -125,9 +106,7 @@ export const SUPER_AUGMENTS = [
     name: "Cuồng Huyết Hút Hồn",
     icon: "🧛",
     desc: "Hồi ngay 15% Máu tối đa mỗi khi hạ gục kẻ địch hoặc cắn trúng đuôi.",
-    onEquip: (p) => {
-      p.lifeSteal += 8;
-    },
+    onEquip: (p) => { p.lifeSteal += 8; },
   },
   {
     id: "s_jet_engine",
@@ -136,12 +115,8 @@ export const SUPER_AUGMENTS = [
     name: "Động Cơ Phản Lực",
     icon: "🚀",
     desc: "+28% Tốc độ bơi và miễn phí thể lực trong 2 giây đầu khi tăng tốc.",
-    onEquip: (p) => {
-      p.speedBonus += 0.28;
-    },
+    onEquip: (p) => { p.speedBonus += 0.28; },
   },
-
-  // === 5 LÕI HỆ NGUYÊN TỐ (elemental) ===
   {
     id: "s_thunder_lord",
     system: "elemental",
@@ -176,9 +151,7 @@ export const SUPER_AUGMENTS = [
     name: "Thủy Triều Hấp Tinh",
     icon: "🌀",
     desc: "+260px bán kính hút ngọc trai & thịt rơi, đồng thời nhân đôi điểm ngọc.",
-    onEquip: (p) => {
-      p.magnetRadius += 260;
-    },
+    onEquip: (p) => { p.magnetRadius += 260; },
   },
   {
     id: "s_sonic_resonance",
@@ -187,13 +160,10 @@ export const SUPER_AUGMENTS = [
     name: "Cộng Hưởng Sóng Âm",
     icon: "🔮",
     desc: "Giảm 25% hồi chiêu [E] và mỗi lần dùng [E] phóng thêm 1 sóng xung kích.",
-    onEquip: (p) => {
-      p.cdrMult = Math.max(0.3, p.cdrMult * 0.75);
-    },
+    onEquip: (p) => { p.cdrMult = Math.max(0.3, p.cdrMult * 0.75); },
   },
 ];
 
-// CỘNG HƯỞNG KHI SỞ HỮU 2 / 3 / 4 LÕI SIÊU CẤP CÙNG HỆ
 export const SYNERGY_TIERS = {
   empowerment: {
     name: "⚔️ Hệ Cường Hóa",

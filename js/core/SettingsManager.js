@@ -5,11 +5,11 @@ const SETTINGS_KEY = "ocean_odyssey_settings_v3";
 const DEFAULT_SETTINGS = {
   sfxVolume: 0.8,
   muted: false,
-  particleQuality: "high", // "high" | "medium" | "low"
+  particleQuality: "high",
   screenShake: true,
   showFloatingText: true,
   mouseSensitivity: 1.0,
-  mobileControlMode: "joystick", // "joystick" (Mặc định) | "click"
+  mobileControlMode: "joystick",
   mobileButtonScale: 1.0,
   hudOpacity: 0.95,
 };
