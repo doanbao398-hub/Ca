@@ -26,7 +26,6 @@ export class PassiveAndAugmentSystem {
     const ps = player.passiveState;
     const syn = player.getSynergies();
 
-    // 1. CÁ KIẾM HOÀNG KIM
     if (player.species === "fish") {
       if (player.evoStage >= 2) {
         if (input?.wantsBoost && !player.isExhausted) {
@@ -85,7 +84,6 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // 2. RÙA THẦN BIỂN SÂU
     if (player.species === "turtle") {
       if (player.evoStage >= 2 && !ps.turtleShieldReady) {
         ps.turtleShieldCd -= dt;
@@ -156,7 +154,6 @@ export class PassiveAndAugmentSystem {
       if (ps.turtleUndyingCd > 0) ps.turtleUndyingCd -= dt;
     }
 
-    // 3. CÁ SẤU CHÚA ĐẦM LẦY
     if (player.species === "croc") {
       if (player.evoStage >= 6) {
         player.crocFrenzyActive = player.hp < player.maxHp * 0.5;
@@ -185,7 +182,6 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // 4. THỢ LẶN CÔNG NGHỆ
     if (player.species === "diver") {
       if (player.evoStage >= 2) {
         ps.radarTimer += dt;
@@ -255,7 +251,6 @@ export class PassiveAndAugmentSystem {
       }
     }
 
-    // B. LÕI SIÊU CẤP & CỘNG HƯỞNG
     if (player.hasSuperAugment("s_thunder_lord")) {
       ps.thunderTimer += dt;
       if (ps.thunderTimer >= 4.0) {

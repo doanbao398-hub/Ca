@@ -27,8 +27,8 @@ function drawPufferfish(ctx, creature, r) {
   drawDetailedEye(ctx, r * 0.45, -r * 0.25, r * 0.22);
 }
 
-function drawDetailedSwordfish(ctx, creature, r, wag) {
-  const { colors, isPlayer, evoStage } = creature;
+function drawDetailedSwordfish(ctx, creature, r, wag, colors) {
+  const { isPlayer, evoStage } = creature;
   ctx.fillStyle = colors.secondary;
   ctx.beginPath();
   ctx.moveTo(-r * 0.85, 0);
@@ -50,7 +50,7 @@ function drawDetailedSwordfish(ctx, creature, r, wag) {
   const bodyGrad = ctx.createLinearGradient(0, -r * 0.65, 0, r * 0.65);
   bodyGrad.addColorStop(0, colors.secondary);
   bodyGrad.addColorStop(0.55, colors.primary);
-  bodyGrad.addColorStop(1, "#e0fbfc");
+  bodyGrad.addColorStop(1, evoStage >= 8 ? colors.accent : "#e0fbfc");
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
   ctx.ellipse(0, 0, r * 1.2, r * 0.6, 0, 0, Math.PI * 2);
@@ -70,8 +70,8 @@ function drawDetailedSwordfish(ctx, creature, r, wag) {
   drawDetailedEye(ctx, r * 0.62, -r * 0.18, r * 0.17);
 }
 
-function drawDetailedTurtle(ctx, creature, r) {
-  const { colors, animPhase, evoStage } = creature;
+function drawDetailedTurtle(ctx, creature, r, wag, colors) {
+  const { animPhase, evoStage } = creature;
   ctx.fillStyle = colors.primary;
   const paddleSwing = Math.sin(animPhase) * 0.25;
 
@@ -115,7 +115,7 @@ function drawDetailedTurtle(ctx, creature, r) {
   ctx.stroke();
 
   if (evoStage >= 3) {
-    ctx.fillStyle = "#fee440";
+    ctx.fillStyle = evoStage >= 8 ? colors.accent : "#fee440";
     for (let a = -2; a <= 2; a++) {
       ctx.beginPath();
       ctx.arc(a * r * 0.22, 0, r * 0.09, 0, Math.PI * 2);
@@ -125,8 +125,8 @@ function drawDetailedTurtle(ctx, creature, r) {
   drawDetailedEye(ctx, r * 1.12, -r * 0.11, r * 0.12);
 }
 
-function drawDetailedCrocodile(ctx, creature, r, wag) {
-  const { colors, eatAnim } = creature;
+function drawDetailedCrocodile(ctx, creature, r, wag, colors) {
+  const { eatAnim } = creature;
   ctx.fillStyle = colors.secondary;
   ctx.beginPath();
   ctx.moveTo(-r * 0.75, -r * 0.34);
@@ -137,7 +137,7 @@ function drawDetailedCrocodile(ctx, creature, r, wag) {
   const bodyGrad = ctx.createLinearGradient(0, -r * 0.48, 0, r * 0.48);
   bodyGrad.addColorStop(0, colors.secondary);
   bodyGrad.addColorStop(0.5, colors.primary);
-  bodyGrad.addColorStop(1, "#b7e4c7");
+  bodyGrad.addColorStop(1, creature.evoStage >= 8 ? colors.accent : "#b7e4c7");
   ctx.fillStyle = bodyGrad;
   ctx.beginPath();
   ctx.ellipse(-r * 0.12, 0, r * 1.0, r * 0.48, 0, 0, Math.PI * 2);
@@ -169,9 +169,9 @@ function drawDetailedCrocodile(ctx, creature, r, wag) {
   drawDetailedEye(ctx, r * 0.48, -r * 0.26, r * 0.14);
 }
 
-function drawDetailedDiver(ctx, creature, r) {
-  const { colors, animPhase } = creature;
-  ctx.fillStyle = "#fee440";
+function drawDetailedDiver(ctx, creature, r, wag, colors) {
+  const { animPhase } = creature;
+  ctx.fillStyle = creature.evoStage >= 8 ? colors.accent : "#fee440";
   const kick = Math.sin(animPhase) * 0.28;
   ctx.save();
   ctx.translate(-r * 0.75, r * 0.15);
@@ -209,8 +209,8 @@ function drawDetailedDiver(ctx, creature, r) {
     r * 1.1,
     r * 0.25
   );
-  visorGrad.addColorStop(0, "#00f5d4");
-  visorGrad.addColorStop(1, "#00bbf9");
+  visorGrad.addColorStop(0, creature.evoStage >= 8 ? colors.primary : "#00f5d4");
+  visorGrad.addColorStop(1, creature.evoStage >= 8 ? colors.accent : "#00bbf9");
   ctx.fillStyle = visorGrad;
   ctx.beginPath();
   ctx.roundRect(r * 0.8, -r * 0.24, r * 0.28, r * 0.42, 6);
@@ -225,7 +225,7 @@ const SPECIES_RENDERERS = {
   puffer: drawPufferfish,
 };
 
-export function renderCreatureBody(ctx, creature, r, wag) {
+export function renderCreatureBody(ctx, creature, r, wag, activeColors = null) {
   const renderer = SPECIES_RENDERERS[creature.species] || drawDetailedSwordfish;
-  renderer(ctx, creature, r, wag);
+  renderer(ctx, creature, r, wag, activeColors || creature.colors);
 }

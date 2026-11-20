@@ -47,6 +47,10 @@ export function drawOffscreenThreatIndicators(
   });
 }
 
+/**
+ * RADAR MINIMAP DI CHUYỂN THEO PLAYER (PLAYER-CENTERED RADAR)
+ * Người chơi luôn nằm ở tâm radar, thế giới xung quanh dịch chuyển theo player.
+ */
 export function drawMinimap(
   miniCtx,
   {
@@ -62,79 +66,177 @@ export function drawMinimap(
     zoneRadius,
   }
 ) {
-  const worldSize = getWorldSize(selectedMap);
-  miniCtx.clearRect(0, 0, 165, 165);
-  const scale = 165 / worldSize;
+  const size = 165;
+  const half = size / 2;
+  miniCtx.clearRect(0, 0, size, size);
 
-  if (selectedGameMode === "royale") {
-    miniCtx.strokeStyle = "#b5179e";
-    miniCtx.lineWidth = 2;
+  if (!player) return;
+
+  const worldSize = getWorldSize(selectedMap);
+  // Tầm quét radar xung quanh player (bán kính 1850px thế giới)
+  const radarRange = 1850;
+  const scale = half / radarRange;
+
+  const toRadar = (wx, wy) => ({
+    x: half + (wx - player.x) * scale,
+    y: half + (wy - player.y) * scale,
+  });
+
+  miniCtx.save();
+  // Clip hình tròn radar
+  miniCtx.beginPath();
+  miniCtx.arc(half, half, half - 1, 0, Math.PI * 2);
+  miniCtx.clip();
+
+  // 1. Lưới tọa độ dịch chuyển theo player
+  const gridStep = 450;
+  const startGridX = Math.floor((player.x - radarRange) / gridStep) * gridStep;
+  const startGridY = Math.floor((player.y - radarRange) / gridStep) * gridStep;
+  miniCtx.strokeStyle = "rgba(100, 223, 223, 0.12)";
+  miniCtx.lineWidth = 1;
+
+  for (let gx = startGridX; gx <= player.x + radarRange; gx += gridStep) {
+    const rx = half + (gx - player.x) * scale;
     miniCtx.beginPath();
-    miniCtx.arc(82.5, 82.5, zoneRadius * scale, 0, Math.PI * 2);
+    miniCtx.moveTo(rx, 0);
+    miniCtx.lineTo(rx, size);
+    miniCtx.stroke();
+  }
+  for (let gy = startGridY; gy <= player.y + radarRange; gy += gridStep) {
+    const ry = half + (gy - player.y) * scale;
+    miniCtx.beginPath();
+    miniCtx.moveTo(0, ry);
+    miniCtx.lineTo(size, ry);
     miniCtx.stroke();
   }
 
-  // Đền Thờ (nếu có)
+  // 2. Đường biên giới hạn bản đồ (để player thấy tường đại dương khi tới gần)
+  const topLeft = toRadar(0, 0);
+  const mapPixelSize = worldSize * scale;
+  miniCtx.strokeStyle = "rgba(255, 77, 109, 0.85)";
+  miniCtx.lineWidth = 2.5;
+  miniCtx.strokeRect(topLeft.x, topLeft.y, mapPixelSize, mapPixelSize);
+
+  // 3. Vòng bo Royale (nếu có)
+  if (selectedGameMode === "royale") {
+    const center = toRadar(worldSize / 2, worldSize / 2);
+    miniCtx.strokeStyle = "#b5179e";
+    miniCtx.lineWidth = 2;
+    miniCtx.beginPath();
+    miniCtx.arc(center.x, center.y, zoneRadius * scale, 0, Math.PI * 2);
+    miniCtx.stroke();
+  }
+
+  // 4. Đền Thờ (kẹp viền radar nếu ở xa)
   if (Array.isArray(shrines)) {
     shrines.forEach((sh) => {
+      let pt = toRadar(sh.x, sh.y);
+      const dist = Math.hypot(pt.x - half, pt.y - half);
+      if (dist > half - 8) {
+        const ang = Math.atan2(pt.y - half, pt.x - half);
+        pt = {
+          x: half + Math.cos(ang) * (half - 8),
+          y: half + Math.sin(ang) * (half - 8),
+        };
+      }
       miniCtx.fillStyle = sh.captured ? "#06d6a0" : "#00bbf9";
       miniCtx.beginPath();
-      miniCtx.arc(sh.x * scale, sh.y * scale, 4.5, 0, Math.PI * 2);
+      miniCtx.arc(pt.x, pt.y, 4.2, 0, Math.PI * 2);
       miniCtx.fill();
     });
   }
 
+  // 5. Ngọc Trai
   miniCtx.fillStyle = "#fee440";
   pearls.forEach((p) => {
+    const pt = toRadar(p.x, p.y);
+    if (Math.hypot(pt.x - half, pt.y - half) > half) return;
     miniCtx.beginPath();
-    miniCtx.arc(p.x * scale, p.y * scale, 2.2, 0, Math.PI * 2);
+    miniCtx.arc(pt.x, pt.y, 2.3, 0, Math.PI * 2);
     miniCtx.fill();
   });
 
+  // 6. Vật phẩm rơi
   if (Array.isArray(droppedItems)) {
     miniCtx.fillStyle = "#00f5d4";
     droppedItems.forEach((it) => {
+      const pt = toRadar(it.x, it.y);
+      if (Math.hypot(pt.x - half, pt.y - half) > half) return;
       miniCtx.beginPath();
-      miniCtx.arc(it.x * scale, it.y * scale, 3.0, 0, Math.PI * 2);
+      miniCtx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
       miniCtx.fill();
     });
   }
 
+  // 7. Bot AI
   enemies.forEach((e) => {
+    const pt = toRadar(e.x, e.y);
+    if (Math.hypot(pt.x - half, pt.y - half) > half) return;
     miniCtx.fillStyle =
-      player && e.radius > player.radius * 1.05
-        ? "#ff4d6d"
-        : "rgba(255,255,255,0.35)";
+      e.radius > player.radius * 1.05 ? "#ff4d6d" : "rgba(255,255,255,0.42)";
     miniCtx.beginPath();
-    miniCtx.arc(
-      e.x * scale,
-      e.y * scale,
-      e.radius > 45 ? 3 : 1.5,
-      0,
-      Math.PI * 2
-    );
+    miniCtx.arc(pt.x, pt.y, e.radius > 45 ? 3.2 : 1.7, 0, Math.PI * 2);
     miniCtx.fill();
   });
 
+  // 8. Người chơi thật khác (kẹp viền nếu ở xa để dễ săn/né)
   Object.values(remotePlayers).forEach((rp) => {
     if (!rp || rp.isStealthed) return;
+    let pt = toRadar(rp.x, rp.y);
+    const dist = Math.hypot(pt.x - half, pt.y - half);
+    if (dist > half - 7) {
+      const ang = Math.atan2(pt.y - half, pt.x - half);
+      pt = {
+        x: half + Math.cos(ang) * (half - 7),
+        y: half + Math.sin(ang) * (half - 7),
+      };
+    }
     miniCtx.fillStyle = "#ffbe0b";
     miniCtx.beginPath();
-    miniCtx.arc(rp.x * scale, rp.y * scale, 5.5, 0, Math.PI * 2);
+    miniCtx.arc(pt.x, pt.y, 5, 0, Math.PI * 2);
     miniCtx.fill();
   });
 
+  // 9. Boss Leviathan (luôn hiện chỉ hướng trên viền radar)
   if (boss) {
+    let pt = toRadar(boss.x, boss.y);
+    const dist = Math.hypot(pt.x - half, pt.y - half);
+    if (dist > half - 8) {
+      const ang = Math.atan2(pt.y - half, pt.x - half);
+      pt = {
+        x: half + Math.cos(ang) * (half - 8),
+        y: half + Math.sin(ang) * (half - 8),
+      };
+    }
     miniCtx.fillStyle = "#ff006e";
     miniCtx.beginPath();
-    miniCtx.arc(boss.x * scale, boss.y * scale, 6.5, 0, Math.PI * 2);
+    miniCtx.arc(pt.x, pt.y, 6.5, 0, Math.PI * 2);
     miniCtx.fill();
   }
 
-  if (player) {
-    miniCtx.fillStyle = "#00f5d4";
-    miniCtx.beginPath();
-    miniCtx.arc(player.x * scale, player.y * scale, 5, 0, Math.PI * 2);
-    miniCtx.fill();
-  }
+  // 10. Vòng quét sonar nhẹ quanh tâm radar
+  miniCtx.strokeStyle = "rgba(0, 245, 212, 0.16)";
+  miniCtx.lineWidth = 1;
+  miniCtx.beginPath();
+  miniCtx.arc(half, half, half * 0.5, 0, Math.PI * 2);
+  miniCtx.stroke();
+
+  // 11. Mũi tên Player ngay tại tâm (xoay theo hướng bơi)
+  miniCtx.save();
+  miniCtx.translate(half, half);
+  miniCtx.rotate(player.angle);
+  miniCtx.fillStyle = "#00f5d4";
+  miniCtx.strokeStyle = "#011627";
+  miniCtx.lineWidth = 1.5;
+  miniCtx.beginPath();
+  miniCtx.moveTo(8, 0);
+  miniCtx.lineTo(-5, -5);
+  miniCtx.lineTo(-2.5, 0);
+  miniCtx.lineTo(-5, 5);
+  miniCtx.closePath();
+  miniCtx.fill();
+  miniCtx.stroke();
+  miniCtx.restore();
+
+  miniCtx.restore();
 }

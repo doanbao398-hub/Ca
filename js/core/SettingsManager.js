@@ -1,6 +1,6 @@
 import { eventBus } from "./EventBus.js";
 
-const SETTINGS_KEY = "ocean_odyssey_settings_v3";
+const SETTINGS_KEY = "ocean_odyssey_settings_v4";
 
 const DEFAULT_SETTINGS = {
   sfxVolume: 0.8,
@@ -23,7 +23,8 @@ export class SettingsManager {
   detectMobile() {
     return (
       window.matchMedia("(hover: none) and (pointer: coarse)").matches ||
-      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent)
+      /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) ||
+      navigator.maxTouchPoints > 0
     );
   }
 
@@ -64,18 +65,22 @@ export class SettingsManager {
     const joystickZone = document.getElementById("mobile-joystick-zone");
     const actionCluster = document.querySelector(".action-cluster-right");
     const scale = this.data.mobileButtonScale || 1.0;
+    const isSmallScreen =
+      this.isMobileDevice ||
+      window.innerWidth <= 950 ||
+      window.innerHeight <= 520;
 
     if (joystickZone) {
-      if (this.isMobileDevice && this.data.mobileControlMode === "click") {
+      if (isSmallScreen && this.data.mobileControlMode === "click") {
         joystickZone.style.display = "none";
-      } else if (this.isMobileDevice) {
+      } else if (isSmallScreen) {
         joystickZone.style.display = "flex";
         joystickZone.style.transform = `scale(${scale})`;
         joystickZone.style.transformOrigin = "bottom left";
       }
     }
 
-    if (actionCluster && this.isMobileDevice) {
+    if (actionCluster && isSmallScreen) {
       actionCluster.style.transform = `scale(${scale})`;
       actionCluster.style.transformOrigin = "bottom right";
     }

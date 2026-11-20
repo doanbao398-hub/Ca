@@ -13,7 +13,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.08,
     scoreMult: 1.0,
     favMap: "coral",
-    counters: "diver", // Cá Kiếm khắc chế Thợ Lặn (+18% sát thương)
+    counters: "diver",
     colors: { primary: "#00bbf9", secondary: "#023e8a", accent: "#fee440" },
   },
   turtle: {
@@ -30,7 +30,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.02,
     scoreMult: 1.05,
     favMap: "coral",
-    counters: "croc", // Rùa khắc chế Cá Sấu (+18% sát thương)
+    counters: "croc",
     colors: { primary: "#2ec4b6", secondary: "#1b4332", accent: "#cbf3f0" },
   },
   croc: {
@@ -47,7 +47,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.25,
     scoreMult: 1.2,
     favMap: "swamp",
-    counters: "fish", // Cá Sấu khắc chế Cá Kiếm (+18% sát thương)
+    counters: "fish",
     colors: { primary: "#52b788", secondary: "#1b4332", accent: "#d8f3dc" },
   },
   diver: {
@@ -64,7 +64,7 @@ export const SPECIES_CONFIG = {
     eatRangeMult: 1.15,
     scoreMult: 1.15,
     favMap: "abyss",
-    counters: "turtle", // Thợ Lặn khắc chế Rùa (+18% sát thương)
+    counters: "turtle",
     colors: { primary: "#ff9f1c", secondary: "#2b2d42", accent: "#00f5d4" },
   },
 };

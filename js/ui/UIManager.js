@@ -314,7 +314,10 @@ export class UIManager {
   }
 
   renderSettingsModal() {
-    const isMobile = settings.isMobileDevice;
+    const isMobile =
+      settings.isMobileDevice ||
+      window.innerWidth <= 950 ||
+      window.innerHeight <= 520;
     const d = settings.data;
 
     document.querySelectorAll(".settings-tab-btn").forEach((b) => {
@@ -794,7 +797,10 @@ export class UIManager {
       EVOLUTION_FORMS[player.evoStage - 1] ||
       EVOLUTION_FORMS[EVOLUTION_FORMS.length - 1];
     const evoStageEl = document.getElementById("hud-evo-stage");
-    if (evoStageEl) evoStageEl.textContent = evoForm.shortTitle;
+    if (evoStageEl) {
+      evoStageEl.textContent = evoForm.shortTitle;
+      evoStageEl.classList.toggle("rainbow-badge", player.evoStage >= 8);
+    }
 
     const zoneEl = document.getElementById("hud-zone");
     if (zoneEl && zoneLabel) zoneEl.textContent = zoneLabel;

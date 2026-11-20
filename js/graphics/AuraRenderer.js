@@ -8,7 +8,69 @@ export function renderCreatureEffects(
   isRemoteHuman,
 ) {
   const evoData = EVOLUTION_FORMS[creature.evoStage - 1];
-  if ((creature.isPlayer || isRemoteHuman) && evoData && evoData.auraColor) {
+  const isRainbowStage = (creature.isPlayer || isRemoteHuman) && creature.evoStage >= 8;
+
+  // HIỆU ỨNG HÀO QUANG 7 SẮC CẦU VỒNG RẦM RỘ CHO DẠNG TIẾN HÓA CUỐI CÙNG (DẠNG 8)
+  if (isRainbowStage) {
+    const hueBase = (time * 0.18) % 360;
+    const pulse = 1 + Math.sin(time * 0.007) * 0.12;
+
+    // 1. Vầng hào quang tỏa nhiệt cầu vồng khổng lồ
+    const outerR = creature.radius * 2.55 * pulse;
+    const rainbowGrad = ctx.createRadialGradient(
+      0,
+      0,
+      creature.radius * 0.3,
+      0,
+      0,
+      outerR,
+    );
+    rainbowGrad.addColorStop(0, `hsla(${hueBase}, 100%, 62%, 0.65)`);
+    rainbowGrad.addColorStop(0.35, `hsla(${(hueBase + 90) % 360}, 100%, 56%, 0.42)`);
+    rainbowGrad.addColorStop(0.7, `hsla(${(hueBase + 200) % 360}, 100%, 52%, 0.22)`);
+    rainbowGrad.addColorStop(1, "rgba(0, 0, 0, 0)");
+    ctx.fillStyle = rainbowGrad;
+    ctx.beginPath();
+    ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 2. Các tia hào quang thần thánh xoay tròn
+    ctx.save();
+    ctx.rotate(time * 0.0018);
+    const rayCount = 12;
+    for (let i = 0; i < rayCount; i++) {
+      const a = (i * Math.PI * 2) / rayCount;
+      const rayHue = (hueBase + i * (360 / rayCount)) % 360;
+      ctx.fillStyle = `hsla(${rayHue}, 100%, 64%, 0.26)`;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, creature.radius * 2.25 * pulse, a - 0.09, a + 0.09);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // 3. Hai vòng ma pháp cầu vồng xoay ngược chiều
+    ctx.save();
+    ctx.rotate(-time * 0.004);
+    ctx.strokeStyle = `hsl(${(hueBase + 60) % 360}, 100%, 60%)`;
+    ctx.lineWidth = 4;
+    ctx.setLineDash([18, 8]);
+    ctx.beginPath();
+    ctx.arc(0, 0, creature.radius * 1.65, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    ctx.save();
+    ctx.rotate(time * 0.005);
+    ctx.strokeStyle = `hsl(${(hueBase + 180) % 360}, 100%, 62%)`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([10, 10]);
+    ctx.beginPath();
+    ctx.arc(0, 0, creature.radius * 1.9, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  } else if ((creature.isPlayer || isRemoteHuman) && evoData && evoData.auraColor) {
     const pulse = 1 + Math.sin(time * 0.005) * 0.08;
     const auraGrad = ctx.createRadialGradient(
       0,
@@ -96,22 +158,27 @@ export function renderCreatureEffects(
     }
   }
 
+  // TINH CẦU QUAY QUANH (DẠNG 8 CÓ 12 TINH CẦU 7 SẮC CẦU VỒNG PHÁT SÁNG)
   if ((creature.isPlayer || isRemoteHuman) && creature.evoStage >= 4) {
     ctx.save();
-    ctx.rotate(time * (0.002 + creature.evoStage * 0.0003));
-    const orbCount = Math.min(8, creature.evoStage);
-    const orbRadius = Math.max(5, creature.radius * 0.08);
+    ctx.rotate(time * (0.002 + creature.evoStage * 0.0004));
+    const orbCount = isRainbowStage ? 12 : Math.min(8, creature.evoStage);
+    const orbRadius = Math.max(5.5, creature.radius * (isRainbowStage ? 0.1 : 0.08));
+    const orbitR = creature.radius * (isRainbowStage ? 1.55 : 1.42);
     for (let c = 0; c < orbCount; c++) {
       const ca = (c * Math.PI * 2) / orbCount;
-      ctx.fillStyle = creature.evoStage >= 7 ? "#fee440" : "#00f5d4";
+      const ox = Math.cos(ca) * orbitR;
+      const oy = Math.sin(ca) * orbitR;
+      if (isRainbowStage) {
+        const orbHue = (time * 0.25 + c * (360 / orbCount)) % 360;
+        ctx.fillStyle = `hsl(${orbHue}, 100%, 60%)`;
+        ctx.shadowColor = `hsl(${orbHue}, 100%, 60%)`;
+        ctx.shadowBlur = 12;
+      } else {
+        ctx.fillStyle = creature.evoStage >= 7 ? "#fee440" : "#00f5d4";
+      }
       ctx.beginPath();
-      ctx.arc(
-        Math.cos(ca) * creature.radius * 1.42,
-        Math.sin(ca) * creature.radius * 1.42,
-        orbRadius,
-        0,
-        Math.PI * 2,
-      );
+      ctx.arc(ox, oy, orbRadius, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
@@ -204,7 +271,11 @@ export function renderCreatureEffects(
         : "600 11px Segoe UI";
     ctx.textAlign = "center";
 
-    const crownPrefix = creature.bounty >= 2 ? "👑 " : "";
+    const crownPrefix = isRainbowStage
+      ? "🌈👑 "
+      : creature.bounty >= 2
+        ? "👑 "
+        : "";
     const lvTag =
       (creature.isPlayer || isRemoteHuman) && creature.level
         ? ` [Lv.${creature.level}]`
@@ -225,13 +296,15 @@ export function renderCreatureEffects(
     ctx.roundRect(-textW / 2 - 7, labelY - 12, textW + 14, 18, 7);
     ctx.fill();
 
-    ctx.fillStyle = creature.isPlayer
-      ? "#00f5d4"
-      : isRemoteHuman
-        ? "#fee440"
-        : isDangerous
-          ? "#ff758f"
-          : "#ffffff";
+    ctx.fillStyle = isRainbowStage
+      ? `hsl(${(time * 0.25) % 360}, 100%, 66%)`
+      : creature.isPlayer
+        ? "#00f5d4"
+        : isRemoteHuman
+          ? "#fee440"
+          : isDangerous
+            ? "#ff758f"
+            : "#ffffff";
     ctx.fillText(displayLabel, 0, labelY);
 
     if (isRemoteHuman && typeof creature.hp === "number") {

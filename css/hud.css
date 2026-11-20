@@ -1,10 +1,15 @@
 #ui-layer {
   position: fixed;
   inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  max-width: 100%;
+  max-height: 100%;
+  overflow: hidden;
   pointer-events: none;
   padding: max(8px, env(safe-area-inset-top))
-    max(12px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
-    max(12px, env(safe-area-inset-left));
+    max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom))
+    max(10px, env(safe-area-inset-left));
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -14,7 +19,7 @@
 /* ICON CHAT + KHUNG CHAT Ở CHÍNH GIỮA MÉP TRÊN MÀN HÌNH */
 .top-center-chat-anchor {
   position: fixed;
-  top: max(10px, env(safe-area-inset-top));
+  top: max(8px, env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 35;
@@ -28,13 +33,13 @@
 .chat-floating-btn {
   pointer-events: auto;
   position: relative;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: rgba(4, 22, 36, 0.9);
   border: 2px solid #00f5d4;
   color: #fff;
-  font-size: 18px;
+  font-size: 17px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -62,8 +67,8 @@
   position: absolute;
   top: -5px;
   right: -6px;
-  min-width: 19px;
-  height: 19px;
+  min-width: 18px;
+  height: 18px;
   padding: 0 4px;
   border-radius: 10px;
   background: #ff006e;
@@ -167,14 +172,17 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
 }
 
 .hud-left-col {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   max-width: 44vw;
+  min-width: 0;
 }
 
 .player-stats {
@@ -187,20 +195,23 @@
 .stat-item {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .stat-label {
   font-size: 9px;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.6px;
   color: #64dfdf;
   margin-bottom: 2px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .stat-val {
   font-size: 15px;
   font-weight: 800;
+  white-space: nowrap;
 }
 
 .evo-badge {
@@ -212,6 +223,20 @@
   background: linear-gradient(90deg, #ffbe0b, #fb5607);
   color: #000;
   margin-top: 2px;
+  white-space: nowrap;
+}
+
+.evo-badge.rainbow-badge {
+  background: linear-gradient(90deg, #ff006e, #ffbe0b, #06d6a0, #00bbf9, #8338ec, #ff006e);
+  background-size: 300% 100%;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
+  animation: rainbowShift 2.2s linear infinite;
+}
+
+@keyframes rainbowShift {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
 }
 
 .bar-wrap {
@@ -252,7 +277,7 @@
 
 #event-banner {
   position: fixed;
-  top: 94px;
+  top: 90px;
   left: 50%;
   transform: translateX(-50%);
   padding: 6px 16px;
@@ -280,11 +305,13 @@
   flex-direction: column;
   gap: 6px;
   align-items: flex-end;
+  max-width: 46vw;
+  min-width: 0;
 }
 
 .hud-actions {
   display: flex;
-  gap: 6px;
+  gap: 5px;
   align-items: center;
   pointer-events: auto;
   flex-wrap: wrap;
@@ -295,9 +322,9 @@
   background: rgba(6, 214, 160, 0.18);
   border: 1px solid #06d6a0;
   color: #06d6a0;
-  padding: 5px 9px;
+  padding: 4px 8px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 800;
   display: flex;
   align-items: center;
@@ -317,7 +344,7 @@
   background: rgba(4, 22, 36, 0.85);
   border: 1px solid rgba(100, 223, 223, 0.4);
   color: #fff;
-  padding: 6px 10px;
+  padding: 5px 9px;
   border-radius: 10px;
   font-size: 11px;
   font-weight: 700;
@@ -338,6 +365,7 @@
 .leaderboard-panel,
 .quest-panel {
   width: 245px;
+  max-width: 85vw;
   padding: 9px 12px;
   pointer-events: auto;
 }
@@ -422,29 +450,31 @@
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
+  min-width: 0;
 }
 
 .hud-bottom-left {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
   align-items: flex-start;
+  flex-shrink: 0;
 }
 
 .hud-radar-emote-row {
   display: flex;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
 }
 
 /* CẦN GẠT CẢM ỨNG ĐIỆN THOẠI (VIRTUAL JOYSTICK) */
 .mobile-joystick-zone {
   display: none;
   pointer-events: auto;
-  width: 132px;
-  height: 132px;
+  width: 124px;
+  height: 124px;
   justify-content: center;
   align-items: center;
   touch-action: none;
@@ -452,8 +482,8 @@
 
 .mobile-joystick-base {
   position: relative;
-  width: 112px;
-  height: 112px;
+  width: 106px;
+  height: 106px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -474,8 +504,8 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   background: radial-gradient(circle at 35% 35%, #00f5d4, #0077b6);
@@ -492,12 +522,12 @@
 }
 
 .emote-btn {
-  width: 34px;
-  height: 34px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   background: rgba(4, 22, 36, 0.85);
   border: 1px solid rgba(100, 223, 223, 0.35);
-  font-size: 16px;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -513,27 +543,28 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   margin: 0 auto;
   pointer-events: auto;
+  min-width: 0;
 }
 
 /* TÚI ĐỒ NHANH 3 Ô */
 .quick-bag-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: rgba(4, 22, 36, 0.85);
   border: 1px solid rgba(100, 223, 223, 0.35);
   border-radius: 14px;
-  padding: 6px 10px;
+  padding: 5px 8px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
 .bag-slot {
   position: relative;
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 10px;
   background: rgba(0, 0, 0, 0.55);
   border: 2px solid rgba(0, 245, 212, 0.45);
@@ -567,23 +598,24 @@
 }
 
 .bag-slot .slot-icon {
-  font-size: 20px;
+  font-size: 19px;
 }
 
 /* CỤM NÚT KỸ NĂNG & TĂNG TỐC BÊN PHẢI */
 .action-cluster-right {
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 8px;
   pointer-events: auto;
   flex-shrink: 0;
+  max-width: 52vw;
 }
 
 .skill-box {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
+  gap: 7px;
+  padding: 8px 11px;
   border-radius: 14px;
   background: rgba(4, 22, 36, 0.88);
   border: 2px solid #00f5d4;
@@ -607,13 +639,13 @@
 }
 
 .skill-key {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 8px;
   background: #00f5d4;
   color: #011627;
   font-weight: 900;
-  font-size: 13px;
+  font-size: 12px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -632,8 +664,8 @@
 
 .minimap-wrap {
   position: relative;
-  width: 140px;
-  height: 140px;
+  width: 136px;
+  height: 136px;
   border-radius: 50%;
   overflow: hidden;
   border: 2.5px solid rgba(100, 223, 223, 0.6);
@@ -650,8 +682,8 @@
 #mobile-boost-btn {
   display: none;
   pointer-events: auto;
-  width: 74px;
-  height: 74px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: radial-gradient(
     circle,
@@ -661,7 +693,7 @@
   border: 3px solid #fee440;
   color: #fff;
   font-weight: 900;
-  font-size: 10.5px;
+  font-size: 10px;
   text-align: center;
   box-shadow: 0 0 22px rgba(255, 159, 28, 0.55);
   align-items: center;
@@ -695,21 +727,41 @@
   }
 }
 
-/* TỐI ƯU MÀN HÌNH XOAY NGANG (LANDSCAPE MOBILE) */
+/* TỐI ƯU MÀN HÌNH XOAY NGANG (LANDSCAPE MOBILE) - CHỐNG TRÀN MÀN HÌNH */
 @media (max-width: 950px) and (orientation: landscape), (max-height: 520px) {
+  #ui-layer {
+    padding: max(4px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .hud-left-col {
+    max-width: 40vw;
+  }
+  .hud-right-col {
+    max-width: 42vw;
+  }
   .player-stats {
-    padding: 5px 9px;
-    gap: 8px;
+    padding: 4px 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
   }
   .stat-item.hide-mobile {
     display: none;
   }
   .bar-wrap {
-    width: 72px;
+    width: 62px;
     height: 6px;
   }
   .stat-val {
-    font-size: 12px;
+    font-size: 11px;
+  }
+  .btn-hud {
+    padding: 4px 7px;
+    font-size: 10px;
+  }
+  .online-pill {
+    padding: 3px 6px;
+    font-size: 9.5px;
   }
   .leaderboard-panel,
   .quest-panel {
@@ -717,65 +769,109 @@
     padding: 6px 9px;
   }
   .minimap-wrap {
-    width: 74px;
-    height: 74px;
+    width: 68px;
+    height: 68px;
   }
   .emote-bar {
     flex-direction: row;
-    gap: 4px;
+    gap: 3px;
   }
   .emote-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
   }
   .mobile-joystick-zone {
-    width: 112px;
-    height: 112px;
+    width: 102px;
+    height: 102px;
   }
   .mobile-joystick-base {
-    width: 98px;
-    height: 98px;
+    width: 88px;
+    height: 88px;
+  }
+  .mobile-joystick-stick {
+    width: 38px;
+    height: 38px;
   }
   .action-cluster-right {
-    gap: 8px;
+    gap: 6px;
     align-items: center;
+    max-width: 55vw;
   }
   .skill-box {
-    padding: 7px 9px;
-    border-radius: 14px;
+    padding: 6px 8px;
+    border-radius: 12px;
+    gap: 5px;
+  }
+  .skill-box .skill-title-text {
+    font-size: 10.5px !important;
   }
   .skill-box .skill-subtext {
     display: none;
   }
+  #mobile-boost-btn {
+    width: 62px;
+    height: 62px;
+    font-size: 9px;
+  }
   .bag-slot {
-    width: 34px;
-    height: 34px;
+    width: 30px;
+    height: 30px;
   }
   .bag-slot .slot-icon {
-    font-size: 16px;
+    font-size: 14px;
   }
 }
 
-/* TỐI ƯU MÀN HÌNH DỌC (PORTRAIT MOBILE) */
+/* TỐI ƯU MÀN HÌNH DỌC (PORTRAIT MOBILE) - CHỐNG BAY NÚT RA KHỎI MÀN HÌNH */
 @media (max-width: 768px) and (orientation: portrait) {
+  #ui-layer {
+    padding: max(6px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+  .top-center-chat-anchor {
+    top: max(54px, calc(env(safe-area-inset-top) + 46px));
+  }
+  .chat-floating-btn {
+    width: 34px;
+    height: 34px;
+    font-size: 15px;
+  }
+  .hud-top {
+    gap: 4px;
+  }
   .hud-left-col {
-    max-width: 58vw;
+    max-width: 52vw;
+  }
+  .hud-right-col {
+    max-width: 45vw;
   }
   .player-stats {
-    padding: 6px 8px;
-    gap: 6px;
+    padding: 5px 7px;
+    gap: 5px;
   }
   .stat-item.hide-mobile,
   .hide-xs {
     display: none;
   }
   .bar-wrap {
-    width: 64px;
+    width: 54px;
     height: 6px;
   }
   .stat-val {
-    font-size: 12px;
+    font-size: 11px;
+  }
+  .hud-actions {
+    gap: 4px;
+  }
+  .btn-hud {
+    padding: 4px 6px;
+    font-size: 10px;
+  }
+  .online-pill {
+    padding: 3px 6px;
+    font-size: 9.5px;
   }
   .leaderboard-panel,
   .quest-panel {
@@ -785,42 +881,88 @@
   .lb-row {
     font-size: 10px;
   }
+  .hud-bottom {
+    align-items: flex-end;
+    gap: 4px;
+  }
+  .hud-bottom-left {
+    max-width: 44vw;
+  }
+  .hud-radar-emote-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
   .minimap-wrap {
-    width: 74px;
-    height: 74px;
+    width: 68px;
+    height: 68px;
   }
   .emote-bar {
     flex-direction: row;
-    gap: 4px;
+    gap: 3px;
   }
   .emote-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 13px;
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+  .mobile-joystick-zone {
+    width: 104px;
+    height: 104px;
+  }
+  .mobile-joystick-base {
+    width: 90px;
+    height: 90px;
+  }
+  .mobile-joystick-stick {
+    width: 38px;
+    height: 38px;
+  }
+  .controls-center {
+    margin: 0 2px;
+  }
+  .quick-bag-bar {
+    flex-direction: column;
+    padding: 4px;
+    gap: 4px;
+  }
+  .bag-slot {
+    width: 30px;
+    height: 30px;
+  }
+  .bag-slot .slot-icon {
+    font-size: 14px;
   }
   .action-cluster-right {
     flex-direction: column;
     align-items: flex-end;
-    gap: 8px;
+    gap: 6px;
+    max-width: 40vw;
   }
   .skill-box {
-    padding: 7px 10px;
-    min-width: 104px;
+    padding: 6px 8px;
+    min-width: 92px;
+    max-width: 100%;
     justify-content: flex-start;
+    gap: 5px;
+  }
+  .skill-key {
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
   }
   .skill-box .skill-title-text {
-    font-size: 11px !important;
+    font-size: 10px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .skill-box .skill-subtext {
-    font-size: 9.5px !important;
+    font-size: 8.5px !important;
   }
   #mobile-boost-btn {
-    width: 70px;
-    height: 70px;
-    font-size: 10px;
-  }
-  .bag-slot {
-    width: 34px;
-    height: 34px;
+    width: 64px;
+    height: 64px;
+    font-size: 9px;
   }
 }

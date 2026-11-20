@@ -26,24 +26,49 @@ export class InputManager {
     return this.isMouseDown || this.isSpaceDown || this.isTouchBoost;
   }
 
+  get isJoystickModeActive() {
+    const isSmallOrTouch =
+      settings.isMobileDevice ||
+      window.innerWidth <= 950 ||
+      window.innerHeight <= 520;
+    return isSmallOrTouch && settings.data.mobileControlMode === "joystick";
+  }
+
   get isClickMoveMode() {
-    return (
-      !settings.isMobileDevice || settings.data.mobileControlMode === "click"
-    );
+    return !this.isJoystickModeActive;
+  }
+
+  resetJoystickState() {
+    this.joystick.active = false;
+    this.joystick.touchId = null;
+    this.joystick.dx = 0;
+    this.joystick.dy = 0;
+    this.joystick.force = 0;
+    const stick = document.getElementById("mobile-joystick-stick");
+    const base = document.getElementById("mobile-joystick-base");
+    if (stick) stick.style.transform = "translate(-50%, -50%)";
+    if (base) base.classList.remove("active");
   }
 
   bindEvents() {
     this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     this.canvas.addEventListener("dragstart", (e) => e.preventDefault());
 
+    eventBus.on("SETTINGS_CHANGED", () => {
+      if (!this.isJoystickModeActive) {
+        this.resetJoystickState();
+      }
+    });
+
     window.addEventListener("blur", () => {
       this.isMouseDown = false;
       this.isSpaceDown = false;
       this.isTouchBoost = false;
+      this.resetJoystickState();
     });
 
     window.addEventListener("mousemove", (e) => {
-      if (this.joystick.active) return;
+      if (this.isJoystickModeActive || this.joystick.active) return;
       this.x = e.clientX;
       this.y = e.clientY;
     });
@@ -51,6 +76,7 @@ export class InputManager {
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
         e.preventDefault();
+        if (this.isJoystickModeActive) return;
         this.isMouseDown = true;
         sound.resume();
       }
@@ -91,10 +117,11 @@ export class InputManager {
 
     this.bindVirtualJoystick();
 
+    // KHÓA CỨNG: Nếu đang bật chế độ Cần Gạt Ảo (Joystick), chạm/vuốt trên màn hình tuyệt đối KHÔNG điều khiển hướng bơi!
     this.canvas.addEventListener(
       "touchstart",
       (e) => {
-        if (!this.isClickMoveMode || this.joystick.active) return;
+        if (!this.isClickMoveMode) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
         this.x = touch.clientX;
@@ -107,7 +134,7 @@ export class InputManager {
     this.canvas.addEventListener(
       "touchmove",
       (e) => {
-        if (!this.isClickMoveMode || this.joystick.active) return;
+        if (!this.isClickMoveMode) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
         this.x = touch.clientX;
@@ -152,7 +179,7 @@ export class InputManager {
     const stick = document.getElementById("mobile-joystick-stick");
     if (!zone || !base || !stick) return;
 
-    const maxDist = 42;
+    const maxDist = 38;
 
     const updateStickFromTouch = (touch) => {
       const rect = base.getBoundingClientRect();
@@ -182,13 +209,7 @@ export class InputManager {
     };
 
     const resetStick = () => {
-      this.joystick.active = false;
-      this.joystick.touchId = null;
-      this.joystick.dx = 0;
-      this.joystick.dy = 0;
-      this.joystick.force = 0;
-      stick.style.transform = "translate(-50%, -50%)";
-      base.classList.remove("active");
+      this.resetJoystickState();
     };
 
     zone.addEventListener(
@@ -196,7 +217,7 @@ export class InputManager {
       (e) => {
         e.preventDefault();
         e.stopPropagation();
-        if (this.joystick.active) return;
+        if (!this.isJoystickModeActive || this.joystick.active) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
 

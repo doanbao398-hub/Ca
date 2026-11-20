@@ -67,11 +67,12 @@ export const EVOLUTION_FORMS = [
   {
     stage: 8,
     minLevel: 100,
-    title: "Dạng 8: TỐI THƯỢNG HẢI THẦN",
-    shortTitle: "Tối Thượng",
+    title: "Dạng 8: TỐI THƯỢNG CẦU VỒNG",
+    shortTitle: "🌈 Tối Thượng",
     scaleBonus: 2.4,
-    auraColor: "rgba(254, 228, 64, 0.65)",
-    tint: { primary: "#fee440", secondary: "#7209b7", accent: "#00f5d4" },
+    isRainbow: true,
+    auraColor: "rgba(255, 0, 128, 0.72)",
+    tint: { primary: "#ff006e", secondary: "#3a0ca3", accent: "#00f5d4" },
   },
 ];
 

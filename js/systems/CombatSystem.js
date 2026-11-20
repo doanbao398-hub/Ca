@@ -81,7 +81,6 @@ export class CombatSystem {
 
     if (!player) return;
 
-    // 1. Nhặt Ngọc Trai
     const pearlMult = player.hasSuperAugment("s_astral_tide") ? 2 : 1;
     for (let i = pearls.length - 1; i >= 0; i--) {
       const p = pearls[i];
@@ -113,7 +112,6 @@ export class CombatSystem {
       }
     }
 
-    // 2. Nhặt Thịt Rơi
     for (let i = meatChunks.length - 1; i >= 0; i--) {
       const m = meatChunks[i];
       const d = Math.hypot(player.x - m.x, player.y - m.y);
@@ -130,7 +128,6 @@ export class CombatSystem {
       }
     }
 
-    // 2.5. Nhặt Vật Phẩm Chiến Thuật Rơi Vào Túi 3 Ô
     if (Array.isArray(droppedItems)) {
       for (let i = droppedItems.length - 1; i >= 0; i--) {
         const it = droppedItems[i];
@@ -158,7 +155,6 @@ export class CombatSystem {
       }
     }
 
-    // 3. Va chạm Boss Leviathan
     if (boss) {
       const distBoss = Math.hypot(player.x - boss.x, player.y - boss.y);
       if (distBoss < (player.radius + boss.radius) * 0.78) {
@@ -229,7 +225,6 @@ export class CombatSystem {
       }
     }
 
-    // 4. Va chạm Bot AI
     for (let i = enemies.length - 1; i >= 0; i--) {
       const e = enemies[i];
       const dist = Math.hypot(player.x - e.x, player.y - e.y);
@@ -261,7 +256,6 @@ export class CombatSystem {
             player.heal(player.maxHp * 0.05);
           }
 
-          // Tỉ lệ rơi vật phẩm chiến thuật khi ăn cá lớn
           if (Array.isArray(droppedItems) && e.radius >= 38 && Math.random() < 0.16) {
             const rndIt = getRandomItemConfig();
             droppedItems.push(new DroppedItem(e.x, e.y, rndIt.id));
@@ -332,7 +326,6 @@ export class CombatSystem {
       }
     }
 
-    // 5. Va chạm PvP Người chơi Online (kèm khắc chế loài)
     Object.entries(remotePlayers).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed) return;
 

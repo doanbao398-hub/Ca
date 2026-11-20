@@ -323,18 +323,35 @@ export class Player extends Creature {
       this.bitePower += 0.15;
 
       sound.playEvolution();
-      camera.shake = 16;
+      camera.shake = clamped >= 8 ? 24 : 16;
 
-      particleSystem.addShockwave(this.x, this.y, this.radius * 4.5, "#fee440");
-      for (let i = 0; i < 35; i++) {
-        particleSystem.addParticle(
-          this.x,
-          this.y,
-          this.colors.primary,
-          Math.random() * 7 + 2,
-          5,
-        );
+      if (clamped >= 8) {
+        const rainbowColors = ["#ff006e", "#ffbe0b", "#06d6a0", "#00bbf9", "#8338ec"];
+        rainbowColors.forEach((col, idx) => {
+          particleSystem.addShockwave(this.x, this.y, this.radius * (2.5 + idx * 0.9), col);
+        });
+        for (let i = 0; i < 65; i++) {
+          particleSystem.addParticle(
+            this.x,
+            this.y,
+            rainbowColors[i % rainbowColors.length],
+            Math.random() * 9 + 3,
+            6,
+          );
+        }
+      } else {
+        particleSystem.addShockwave(this.x, this.y, this.radius * 4.5, "#fee440");
+        for (let i = 0; i < 35; i++) {
+          particleSystem.addParticle(
+            this.x,
+            this.y,
+            this.colors.primary,
+            Math.random() * 7 + 2,
+            5,
+          );
+        }
       }
+
       particleSystem.addFloatingText(
         this.x,
         this.y - this.radius - 35,
@@ -485,8 +502,9 @@ export class Player extends Creature {
     let moveIntensity = 1.0;
     const sens = settings.data.mouseSensitivity || 1.0;
 
-    if (input.joystick && input.joystick.active) {
-      if (input.joystick.force > 0.05) {
+    // TÁCH BIỆT HOÀN TOÀN 2 CHẾ ĐỘ ĐIỀU KHIỂN: JOYSTICK vs CLICK
+    if (input.isJoystickModeActive) {
+      if (input.joystick && input.joystick.active && input.joystick.force > 0.05) {
         const targetAngle = Math.atan2(input.joystick.dy, input.joystick.dx);
         let diff = targetAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
@@ -541,7 +559,7 @@ export class Player extends Creature {
         particleSystem.addParticle(
           this.x,
           this.y,
-          "#fff",
+          this.evoStage >= 8 ? `hsl(${(Date.now() * 0.2) % 360}, 100%, 60%)` : "#fff",
           1,
           Math.random() * 4 + 2,
           true,
@@ -557,6 +575,19 @@ export class Player extends Creature {
         this.isExhausted = false;
       }
       this.animPhase += 0.16;
+    }
+
+    // Hạt hào quang cầu vồng rơi phía sau khi đạt Dạng 8
+    if (this.evoStage >= 8 && Math.random() < 0.45) {
+      const rainbowHue = (Date.now() * 0.22 + Math.random() * 60) % 360;
+      particleSystem.addParticle(
+        this.x - Math.cos(this.angle) * this.radius * 0.8 + (Math.random() - 0.5) * this.radius,
+        this.y - Math.sin(this.angle) * this.radius * 0.8 + (Math.random() - 0.5) * this.radius,
+        `hsl(${rainbowHue}, 100%, 62%)`,
+        1.5,
+        Math.random() * 4 + 2.5,
+        false,
+      );
     }
 
     const maxSpeed = this.cfg.baseSpeed * speedMult;

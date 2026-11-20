@@ -188,7 +188,6 @@ export function triggerPlayerSkill(player, context) {
     handler(player, context);
   }
 
-  // Lõi Cộng Hưởng Sóng Âm hoặc Cộng Hưởng 3 Nguyên Tố: Phóng thêm sóng xung kích
   if (player.hasSuperAugment("s_sonic_resonance") || syn.elemental >= 3) {
     setTimeout(() => {
       if (!player) return;

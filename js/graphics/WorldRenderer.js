@@ -30,7 +30,6 @@ export class WorldRenderer {
       });
     }
 
-    // Đền thờ chiếm đóng (chế độ Domination hoặc bản đồ Hybrid)
     const shrineSpots =
       selectedMap === "hybrid"
         ? [
@@ -172,7 +171,6 @@ export class WorldRenderer {
       ctx.restore();
     });
 
-    // Vẽ Đền Thờ nếu là chế độ Domination hoặc bản đồ Hybrid
     if (selectedGameMode === "domination" || selectedMap === "hybrid") {
       this.shrines.forEach((sh) => {
         ctx.save();
@@ -317,36 +315,39 @@ export class WorldRenderer {
       } else if (p.kind === "lilypad") {
         ctx.fillStyle = "rgba(64, 145, 108, 0.5)";
         ctx.beginPath();
-        ctx.arc(0, 0, p.size * 0.65, 0.2, Math.PI * 1.85);
+        ctx.arc(0, 0, p.size * 0.75, 0.2, Math.PI * 1.9);
         ctx.lineTo(0, 0);
         ctx.fill();
       } else if (p.kind === "mangrove_root") {
-        ctx.strokeStyle = "rgba(88, 49, 1, 0.6)";
-        ctx.lineWidth = 12;
+        ctx.strokeStyle = "#432818";
+        ctx.lineWidth = 10;
+        for (let r = -2; r <= 2; r++) {
+          ctx.beginPath();
+          ctx.moveTo(r * 16, -p.size * 0.8);
+          ctx.quadraticCurveTo(r * 25, 0, r * 12, p.size * 0.8);
+          ctx.stroke();
+        }
+      } else {
+        ctx.fillStyle = "rgba(108, 117, 125, 0.65)";
         ctx.beginPath();
-        ctx.moveTo(-p.size * 0.8, p.size * 0.6);
-        ctx.quadraticCurveTo(0, -p.size * 0.8, p.size * 0.8, p.size * 0.6);
-        ctx.stroke();
-      } else if (p.kind === "ancient_pillar") {
-        ctx.fillStyle = "rgba(108, 117, 125, 0.55)";
-        ctx.fillRect(-24, -p.size, 48, p.size * 2);
+        ctx.arc(0, 0, 28, 0, Math.PI * 2);
+        ctx.fill();
       }
-
       ctx.restore();
     });
 
     if (selectedGameMode === "royale") {
       ctx.save();
-      ctx.strokeStyle = "#b5179e";
+      ctx.strokeStyle = "rgba(255, 0, 110, 0.85)";
       ctx.lineWidth = 16;
-      ctx.setLineDash([30, 15]);
+      ctx.setLineDash([40, 20]);
       ctx.beginPath();
       ctx.arc(worldSize / 2, worldSize / 2, zoneRadius, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
-    ctx.strokeStyle = "rgba(255, 77, 109, 0.7)";
+    ctx.strokeStyle = "#ff4d6d";
     ctx.lineWidth = 14;
     ctx.strokeRect(0, 0, worldSize, worldSize);
   }

@@ -34,6 +34,7 @@ let height = (canvas.height = window.innerHeight);
 window.addEventListener("resize", () => {
   width = canvas.width = window.innerWidth;
   height = canvas.height = window.innerHeight;
+  settings.applyToDOM();
 });
 
 const camera = new Camera();

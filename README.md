@@ -1,12 +1,12 @@
-# Ocean Odyssey: Evolution Online (Phiên bản Hoàn Chỉnh 3.0)
+# Ocean Odyssey: Evolution Online (Phiên bản 4.0 Ultimate)
 
-## Kiến Trúc & Nâng Cấp Toàn Diện
-1. **HUD & UI Không Điểm Chết (Zero-Clutter):**
-   - **Bảng Xếp Hạng Top Phòng (`🏆 Top`)** và **Nhiệm Vụ Tiến Hóa (`🧬 1/8`)** được thu gọn thành 2 nút Pill trên thanh công cụ góc phải, mở/đóng tức thì chỉ bằng 1 chạm — trả lại 100% tầm nhìn đại dương trên cả PC lẫn điện thoại.
-   - **Khung Chat Phòng (`💬`)** nằm gọn ở chính giữa mép trên màn hình, tự động đếm badge tin nhắn chưa đọc và hiển thị bong bóng thoại trên đầu nhân vật.
-   - **Túi Vật Phẩm Chiến Thuật 3 Ô (`1`, `2`, `3` hoặc chạm trực tiếp):** Nhặt & kích hoạt *Tinh Chất San Hô*, *Bình Khí Phản Lực*, *Bom Xung Điện Từ*, *Huyết Thần Đan* ngay giữa chiến trường.
-2. **Hệ Sinh Thái & Khắc Chế 4 Loài:**
-   - **Cá Kiếm** khắc chế **Thợ Lặn** (+18% sát thương) → **Thợ Lặn** khắc chế **Rùa Thần** → **Rùa Thần** khắc chế **Cá Sấu** → **Cá Sấu** khắc chế **Cá Kiếm**.
-   - **4 Bản Đồ Sinh Thái:** *Rạn San Hô*, *Vực Thẳm Phát Quang*, *Rừng Ngập Mặn*, và siêu bản đồ **Đại Dương Hỗn Mang (6400x6400)** kết hợp cả 3 vùng sinh thái cùng hệ thống **Chiếm Đền Thờ (`⛩️`)**.
-3. **100 Cấp Độ • 8 Chuẩn Tiến Hóa • Lõi Siêu Cấp & Nội Tại Đặc Thù:**
-   - Tự động lưu & khôi phục tiến trình riêng từng loài (`💾 Lv.X • Dạng Y`) ngay tại Sảnh Chính.
+## Các Nâng Cấp & Sửa Lỗi Toàn Diện
+1. **Khóa Chế Độ Điều Khiển Mobile Độc Lập (Settings -> Điều Khiển):**
+   - **Chế độ Cần Gạt Ảo (`joystick`)**: Chỉ nhận điều hướng từ Joystick góc trái; chạm/vuốt trên màn hình ngoài joystick hoàn toàn không làm lệch hướng bơi.
+   - **Chế độ Chạm/Vuốt Trực Tiếp (`click`)**: Ẩn hoàn toàn Joystick; chạm/vuốt màn hình là bơi theo ngón tay.
+2. **Tối Ưu Layout Màn Hình Dọc (Portrait) & Ngang (Landscape):**
+   - Tự động gom gọn thanh chỉ số trên cùng, khóa khung nút hành động góc phải nằm trọn trong vùng an toàn (`safe-area-inset`) để không bao giờ bị tràn/bay nút ra ngoài màn hình ở cả 2 chiều xoay.
+3. **Radar Minimap Xoay & Dịch Chuyển Theo Player (Player-Centered Radar):**
+   - Bản đồ nhỏ luôn đặt người chơi làm tâm điểm di chuyển, hiển thị lưới hải lưu, ranh giới đại dương, vị trí Đền Thờ, Ngọc Trai, Vật phẩm, Boss và người chơi khác trực quan như các game 2D sinh tồn chuẩn mực.
+4. **Hiệu Ứng Tiến Hóa Dạng 8: TỐI THƯỢNG HẢI THẦN (7 Sắc Cầu Vồng & Hào Quang Rực Rỡ):**
+   - Khi đạt **Dạng 8 (Cấp 100)**, sinh vật sở hữu **hiệu ứng đổi màu 7 sắc cầu vồng liên tục (Rainbow HSL Cycle)** toàn thân + vũ khí/giáp, kết hợp **vòng hào quang rầm rộ đa tầng**, **12 tinh cầu cầu vồng quay quanh**, **tia hào quang thần thánh tỏa sáng** và **vệt sao cầu vồng khi bơi**.

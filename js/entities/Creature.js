@@ -51,6 +51,20 @@ export class Creature {
     }
   }
 
+  getDynamicColors(time) {
+    if (this.evoStage >= 8) {
+      const h1 = (time * 0.16) % 360;
+      const h2 = (h1 + 120) % 360;
+      const h3 = (h1 + 240) % 360;
+      return {
+        primary: `hsl(${h1}, 100%, 56%)`,
+        secondary: `hsl(${h2}, 92%, 34%)`,
+        accent: `hsl(${h3}, 100%, 64%)`,
+      };
+    }
+    return this.colors;
+  }
+
   setChatBubble(text, duration = 5.0) {
     this.chatBubble = String(text || "").slice(0, 60);
     this.chatBubbleTimer = duration;
@@ -77,7 +91,8 @@ export class Creature {
 
     const r = this.radius;
     const wag = Math.sin(this.animPhase) * (r * 0.28);
-    renderCreatureBody(ctx, this, r, wag);
+    const activeColors = this.getDynamicColors(time);
+    renderCreatureBody(ctx, this, r, wag, activeColors);
 
     ctx.restore();
   }
