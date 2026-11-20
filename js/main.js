@@ -26,8 +26,6 @@ import { RoomSync } from "./network/RoomSync.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AdminPanel } from "./ui/AdminPanel.js";
 
-const ADMIN_EMAILS = ["doanbao398@gmail.com"];
-
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
 const miniCanvas = document.getElementById("minimapCanvas");
@@ -138,10 +136,12 @@ function startGame() {
     return;
   }
 
-  const userEmail = storage.currentUser.email?.toLowerCase() || "";
-  if (selectedSpecies === "space" && !ADMIN_EMAILS.includes(userEmail)) {
-    alert("🌌 Cá Không Gian là sinh vật Sử Thi độc quyền Admin!");
-    selectedSpecies = "fish";
+  if (
+    (selectedSpecies === "space" || selectedSpecies === "time") &&
+    !storage.isEpicUnlocked(selectedSpecies)
+  ) {
+    ui.openRebirthModal(selectedSpecies);
+    return;
   }
 
   sound.resume();
@@ -289,6 +289,21 @@ eventBus.on("AUTH_STATE_CHANGED", (user) => {
   }
 });
 
+eventBus.on("EPIC_UNLOCKED", (speciesKey) => {
+  selectedSpecies = speciesKey;
+  document
+    .querySelectorAll("#species-selector .card-option")
+    .forEach((c) =>
+      c.classList.toggle("active", c.dataset.species === speciesKey),
+    );
+  ui.showEventBanner(
+    speciesKey === "space"
+      ? "🌌 TRÙNG SINH THÀNH CÔNG! ĐÃ GIẢI PHONG ẤN CÁ KHÔNG GIAN!"
+      : "⏳ TRÙNG SINH THÀNH CÔNG! ĐÃ GIẢI PHONG ẤN CÁ THỜI GIAN!",
+    5000,
+  );
+});
+
 eventBus.on("HIT_STOP", (duration) => {
   hitStopTimer = duration;
 });
@@ -386,6 +401,7 @@ eventBus.on("INPUT_SKILL", () => {
     spaceFishSystem.triggerSkill1(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -396,6 +412,7 @@ eventBus.on("INPUT_SKILL", () => {
     timeFishSystem.triggerSkill1(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -406,6 +423,7 @@ eventBus.on("INPUT_SKILL", () => {
     triggerPlayerSkill(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
     });
@@ -419,6 +437,7 @@ eventBus.on("INPUT_SKILL_2", () => {
     spaceFishSystem.triggerSkill2(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -429,6 +448,7 @@ eventBus.on("INPUT_SKILL_2", () => {
     timeFishSystem.triggerSkill2(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -445,6 +465,7 @@ eventBus.on("INPUT_ULTIMATE", () => {
     spaceFishSystem.triggerSkill3(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -455,6 +476,7 @@ eventBus.on("INPUT_ULTIMATE", () => {
     timeFishSystem.triggerSkill3(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
       input,
@@ -509,12 +531,7 @@ eventBus.on("LOCAL_PLAYER_HIT", (hit) => {
 });
 
 eventBus.on("REMOTE_SKILL_EFFECT", (sk) => {
-  particleSystem.addShockwave(
-    sk.x,
-    sk.y,
-    sk.maxR || 150,
-    sk.color || "#00f5d4",
-  );
+  particleSystem.addRemoteSkillVisual(sk);
 });
 
 eventBus.on("REMOTE_DMG_POPUP", (sk) => {
@@ -529,11 +546,16 @@ eventBus.on("REMOTE_DMG_POPUP", (sk) => {
 
 document.querySelectorAll("#species-selector .card-option").forEach((card) => {
   card.addEventListener("click", () => {
+    const sp = card.dataset.species;
+    if ((sp === "space" || sp === "time") && !storage.isEpicUnlocked(sp)) {
+      ui.openRebirthModal(sp);
+      return;
+    }
     document
       .querySelectorAll("#species-selector .card-option")
       .forEach((c) => c.classList.remove("active"));
     card.classList.add("active");
-    selectedSpecies = card.dataset.species;
+    selectedSpecies = sp;
   });
 });
 
@@ -670,6 +692,7 @@ function gameLoop(time) {
       player,
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
     });
@@ -677,6 +700,7 @@ function gameLoop(time) {
       player,
       enemies,
       remotePlayers: roomSync.remotePlayers,
+      boss,
       particleSystem,
       camera,
     });

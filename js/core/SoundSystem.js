@@ -71,3 +71,4 @@ class SoundSystem {
 }
 
 export const sound = new SoundSystem();
+

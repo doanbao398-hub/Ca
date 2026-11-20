@@ -64,3 +64,4 @@ export function getZoneNameAt(x, y, mapKey) {
   if (y < ws * 0.45 && x >= ws * 0.5) return "🌿 Vùng Đầm Lầy";
   return "🔮 Vùng Vực Thẳm";
 }
+

@@ -2,12 +2,18 @@ import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 import { getCounterMultiplier } from "../data/speciesConfig.js";
 import { renderCreatureBody } from "../graphics/CreatureRenderer.js";
+import { getWorldSize } from "../data/mapsConfig.js";
 
 function smoothRotate(currentAngle, targetAngle, turnRate) {
   let diff = targetAngle - currentAngle;
   while (diff < -Math.PI) diff += Math.PI * 2;
   while (diff > Math.PI) diff -= Math.PI * 2;
   return currentAngle + diff * Math.min(1, turnRate);
+}
+
+function calcLevelProgress(level) {
+  const lvl = Math.min(100, Math.max(1, level || 1));
+  return (lvl - 1) / 99; // 0.0 tại Lv.1 -> 1.0 tại Lv.100
 }
 
 export class TimeFishSystem {
@@ -71,6 +77,39 @@ export class TimeFishSystem {
     }
   }
 
+  damageBossIfHit(boss, cx, cy, hitRadius, dmg, player, particleSystem, camera) {
+    if (!boss || boss.hp <= 0) return false;
+    if (Math.hypot(boss.x - cx, boss.y - cy) <= hitRadius + boss.radius) {
+      boss.hp -= dmg;
+      boss.stunTimer = Math.max(boss.stunTimer || 0, 0.8);
+      this.triggerTimePulseSteal(player, boss, particleSystem);
+      particleSystem.addFloatingText(
+        boss.x,
+        boss.y - boss.radius - 14,
+        `⏳ -${Math.round(dmg)} BOSS!`,
+        "#fef08a",
+      );
+      if (boss.hp <= 0) {
+        player.addScore(
+          2500,
+          null,
+          player.selectedMap,
+          particleSystem,
+          camera,
+        );
+        sound.playEvolution();
+        particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
+        eventBus.emit(
+          "SHOW_BANNER",
+          "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN BẰNG NGHỊCH LÝ THỜI GIAN (+2500 XP)!",
+        );
+        eventBus.emit("BOSS_KILLED");
+      }
+      return true;
+    }
+    return false;
+  }
+
   accumulateParadoxDamage(targetId, targetObj, rawDmg) {
     let absorbed = false;
     this.stasisCages.forEach((cage) => {
@@ -93,7 +132,7 @@ export class TimeFishSystem {
   // SKILL 1 [E]: DÒNG CHẢY ĐA CHIỀU (Bản Thể Quá Khứ 0.5x & Bản Thể Tương Lai 2.0x)
   triggerSkill1(player, context) {
     if (!player || player.skillCooldownTimer > 0) return;
-    const { enemies, remotePlayers, particleSystem, camera } = context;
+    const { enemies, remotePlayers, boss, particleSystem, camera } = context;
 
     const inside = this.isInsideDomain(player);
     const syn = player.getSynergies();
@@ -104,8 +143,9 @@ export class TimeFishSystem {
       player.cfg.skillCooldown * player.cdrMult * synCdr * domainCdr;
 
     const lvl = Math.min(100, Math.max(1, player.level));
+    const t = calcLevelProgress(lvl);
     const passiveBonus = player.evoStage >= 4 ? 1.5 : 0;
-    const duration = Number((6.0 + lvl * 0.055 + passiveBonus).toFixed(1));
+    const duration = Number((6.5 + t * 7.5 + passiveBonus).toFixed(1));
     const domainBoost = inside ? 1.25 : 1.0;
 
     const pairCount = lvl >= 60 ? 2 : 1;
@@ -115,7 +155,6 @@ export class TimeFishSystem {
       const sideSign = p === 0 ? 1 : -1;
       const spreadAngle = sideSign * 0.95;
 
-      // 1. BẢN THỂ QUÁ KHỨ: Quy mô, kích thước, sát thương & kỹ năng bằng 0.5x (một nửa) bản gốc
       const pastScale = 0.5;
       this.clones.push({
         uid: `past_${p}`,
@@ -137,12 +176,11 @@ export class TimeFishSystem {
         maxTimer: duration,
         damageRatio: pastScale * domainBoost,
         biteCd: 0,
-        skillCd: 0.6, // Tự động tung Skill 2 (Lồng giam 0.5x)
+        skillCd: 0.6,
         backOffTimer: 0,
         animPhase: 0,
       });
 
-      // 2. BẢN THỂ TƯƠNG LAI: Quy mô, kích thước, sát thương & kỹ năng gấp 2.0x (gấp đôi) bản gốc
       const futureScale = 2.0;
       this.clones.push({
         uid: `future_${p}`,
@@ -165,18 +203,18 @@ export class TimeFishSystem {
         damageRatio: futureScale * domainBoost,
         markCd: 0.8 + p * 0.4,
         biteCd: 0,
-        skillCd: 0.4, // Tự động tung Skill 2 (Lồng giam 2.0x)
+        skillCd: 0.4,
         backOffTimer: 0,
         animPhase: Math.PI,
       });
     }
 
-    // Tung xung chấn đồng bộ theo quy mô từng phân thân
+    const auraRadius = Math.round(240 + t * 560);
     this.clones.forEach((c) => {
       particleSystem.addShockwave(
         c.x,
         c.y,
-        c.radius * 3.0,
+        c.radius * 3.0 + t * 220,
         c.type === "past" ? "#f59e0b" : "#2dd4bf",
       );
     });
@@ -186,6 +224,7 @@ export class TimeFishSystem {
         player,
         enemies,
         remotePlayers,
+        boss,
         particleSystem,
         camera,
       );
@@ -193,25 +232,55 @@ export class TimeFishSystem {
 
     sound.playSkill();
     camera.shake = 12;
-    particleSystem.addShockwave(
-      player.x,
-      player.y,
-      player.radius * 3.5,
-      "#f59e0b",
-    );
+    particleSystem.addShockwave(player.x, player.y, auraRadius, "#f59e0b");
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 26,
       `⏳ QUÁ KHỨ (0.5x) & TƯƠNG LAI KHỔNG LỒ (2.0x)!`,
       "#fef08a",
     );
+
+    // Đồng bộ hiệu ứng phân thân & xung chấn thời gian cho toàn phòng Online
+    eventBus.emit("SKILL_BROADCAST", {
+      type: "time_clones",
+      x: player.x,
+      y: player.y,
+      maxR: auraRadius,
+      duration,
+      clones: this.clones.map((c) => ({
+        x: Math.round(c.x),
+        y: Math.round(c.y),
+        r: Math.round(c.radius),
+        type: c.type,
+      })),
+      color: "#f59e0b",
+    });
     eventBus.emit("SKILL_USED_FOR_QUEST");
   }
 
-  pulseCloneEchoAttack(player, enemies, remotePlayers, particleSystem, camera) {
+  pulseCloneEchoAttack(
+    player,
+    enemies,
+    remotePlayers,
+    boss,
+    particleSystem,
+    camera,
+  ) {
+    const t = calcLevelProgress(player.level);
     this.clones.forEach((c) => {
-      const blastR = c.radius * 3.2;
-      const dmg = Math.round(32 * player.bitePower * c.damageRatio);
+      const blastR = Math.round(c.radius * 3.2 + t * 260);
+      const dmg = Math.round(36 * player.bitePower * c.damageRatio);
+
+      this.damageBossIfHit(
+        boss,
+        c.x,
+        c.y,
+        blastR,
+        dmg * 1.4,
+        player,
+        particleSystem,
+        camera,
+      );
 
       for (let k = enemies.length - 1; k >= 0; k--) {
         const e = enemies[k];
@@ -257,29 +326,30 @@ export class TimeFishSystem {
     });
   }
 
-  // PHÂN THÂN TỰ ĐỘNG THI TRIỂN SKILL 2 (CẦU NGƯNG ĐỌNG & LỒNG GIAM THEO QUY MÔ)
   castCloneStasisSkill(clone, player, targetEntity, particleSystem) {
-    const lvl = Math.min(100, Math.max(1, player.level));
+    const t = calcLevelProgress(player.level);
     const aimAngle = Math.atan2(
       targetEntity.y - clone.y,
       targetEntity.x - clone.x,
     );
-    const scale = clone.scaleMult; // 0.5 cho Quá Khứ, 2.0 cho Tương Lai
+    const scale = clone.scaleMult;
 
-    const baseCageR = 155 + lvl * 1.4;
-    const baseDuration = 2.8 + lvl * 0.02;
+    // Phạm vi Lồng Giam tăng theo cấp độ (Lv.1 = 210px -> Lv.100 = 760px)
+    const baseCageR = 210 + t * 550;
+    const baseDuration = 3.0 + t * 2.4;
+    const maxRange = Math.round((520 + t * 950) * (scale === 2.0 ? 1.3 : 0.85));
 
     this.stasisOrbs.push({
       x: clone.x + Math.cos(aimAngle) * (clone.radius + 10),
       y: clone.y + Math.sin(aimAngle) * (clone.radius + 10),
       angle: aimAngle,
-      speed: 13.0,
-      r: Math.max(10, Math.round(16 * scale)),
+      speed: 13.5,
+      r: Math.max(10, Math.round(18 * scale)),
       traveled: 0,
-      maxRange: Math.round((420 + lvl * 3.5) * (scale === 2.0 ? 1.35 : 0.85)),
+      maxRange,
       cageRadius: Math.round(baseCageR * scale),
       cageDuration: Number(
-        (baseDuration * (scale === 2.0 ? 1.2 : 0.8)).toFixed(1),
+        (baseDuration * (scale === 2.0 ? 1.2 : 0.85)).toFixed(1),
       ),
       ownerTag: clone.type,
     });
@@ -294,19 +364,27 @@ export class TimeFishSystem {
     );
   }
 
-  // AI CHỌN MỤC TIÊU THÔNG MINH THEO ĐẲNG CẤP CỦA TỪNG PHÂN THÂN
   findBestTargetForClone(
     clone,
     player,
     enemies,
     remotePlayers,
+    boss,
     reservedTargets,
   ) {
-    const searchRange = clone.type === "future" ? 1150 : 750;
+    const t = calcLevelProgress(player.level);
+    const searchRange = (clone.type === "future" ? 1350 : 900) + t * 650;
     let bestTarget = null;
     let bestScore = Infinity;
 
-    // 1. Người chơi đối địch (Bản Thể Tương Lai 2.0x cực kỳ ưu tiên săn Player đối địch)
+    if (boss && boss.hp > 0) {
+      const distBoss = Math.hypot(boss.x - clone.x, boss.y - clone.y);
+      if (distBoss <= searchRange) {
+        bestScore = distBoss * 0.7 - (clone.type === "future" ? 420 : 120);
+        bestTarget = { kind: "boss", id: "boss", entity: boss };
+      }
+    }
+
     Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
       const distFromClone = Math.hypot(rp.x - clone.x, rp.y - clone.y);
@@ -323,7 +401,6 @@ export class TimeFishSystem {
       }
     });
 
-    // 2. Cá / Quái vật xung quanh
     for (let i = 0; i < enemies.length; i++) {
       const e = enemies[i];
       if (!e || e.radius <= 8) continue;
@@ -332,7 +409,6 @@ export class TimeFishSystem {
       if (distFromPlayer > searchRange && distFromClone > searchRange) continue;
 
       const penalty = reservedTargets.has(e) ? 260 : 0;
-      // Bản thể Tương Lai 2x thích săn con mồi to nhất; Bản thể Quá Khứ 0.5x thích dọn cá nhỏ/gần nhất
       const sizePreference =
         clone.type === "future" ? -e.radius * 2.2 : e.radius * 0.8;
       const score =
@@ -352,7 +428,7 @@ export class TimeFishSystem {
     return bestTarget;
   }
 
-  // SKILL 2 [Q]: CẦU NGƯNG ĐỌNG & LỒNG GIAM THỜI GIAN (BẢN GỐC 1.0x)
+  // SKILL 2 [Q]: CẦU NGƯNG ĐỌNG & LỒNG GIAM THỜI GIAN (Phạm vi tăng theo cấp Lv.1 -> Lv.100)
   triggerSkill2(player, context) {
     if (!player || player.skill2CooldownTimer > 0) return;
     const { particleSystem, camera, input, width, height } = context;
@@ -364,23 +440,24 @@ export class TimeFishSystem {
 
     player.skill2CooldownTimer = 8.5 * player.cdrMult * synCdr * domainCdr;
 
-    const lvl = Math.min(100, Math.max(1, player.level));
+    const t = calcLevelProgress(player.level);
     const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
     const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
     const aimAngle = input.isJoystickModeActive
       ? player.angle
       : Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-    const maxRange = 460 + lvl * 4.5;
-    const cageRadius = Math.round(165 + lvl * 1.55);
-    const cageDuration = Number((3.2 + lvl * 0.025).toFixed(1));
+    // Tầm bay & bán kính Lồng Giam tăng theo cấp: Lv.1 = 220px -> Lv.100 = 820px
+    const maxRange = Math.round(540 + t * 1100);
+    const cageRadius = Math.round(220 + t * 600);
+    const cageDuration = Number((3.4 + t * 2.6).toFixed(1));
 
     this.stasisOrbs.push({
       x: player.x + Math.cos(aimAngle) * (player.radius + 14),
       y: player.y + Math.sin(aimAngle) * (player.radius + 14),
       angle: aimAngle,
-      speed: 11.5,
-      r: 18,
+      speed: 12.5,
+      r: Math.round(18 + t * 16),
       traveled: 0,
       maxRange,
       cageRadius,
@@ -388,19 +465,18 @@ export class TimeFishSystem {
       ownerTag: "main",
     });
 
-    // Các phân thân đang tồn tại cũng đồng loạt bắn Cầu Ngưng Đọng theo đúng quy mô 0.5x / 2.0x của mình!
     this.clones.forEach((c) => {
       this.stasisOrbs.push({
         x: c.x,
         y: c.y,
         angle: aimAngle,
-        speed: 12.0,
+        speed: 12.5,
         r: Math.max(10, Math.round(16 * c.scaleMult)),
         traveled: 0,
         maxRange: Math.round(maxRange * (c.scaleMult === 2.0 ? 1.25 : 0.85)),
         cageRadius: Math.round(cageRadius * c.scaleMult),
         cageDuration: Number(
-          (cageDuration * (c.scaleMult === 2.0 ? 1.15 : 0.8)).toFixed(1),
+          (cageDuration * (c.scaleMult === 2.0 ? 1.15 : 0.85)).toFixed(1),
         ),
         ownerTag: c.type,
       });
@@ -412,13 +488,24 @@ export class TimeFishSystem {
       player.x,
       player.y - player.radius - 22,
       this.clones.length > 0
-        ? "⌛ ĐỒNG LOẠT CẦU NGƯNG ĐỌNG ĐA CHIỀU!"
-        : "⌛ CẦU NGƯNG ĐỌNG THỜI GIAN!",
+        ? `⌛ ĐỒNG LOẠT LỒNG GIAM ĐA CHIỀU (R=${cageRadius})!`
+        : `⌛ CẦU NGƯNG ĐỌNG THỜI GIAN (R=${cageRadius})!`,
       "#2dd4bf",
     );
+
+    eventBus.emit("SKILL_BROADCAST", {
+      type: "time_stasis_orb",
+      x: player.x,
+      y: player.y,
+      angle: aimAngle,
+      maxRange,
+      maxR: cageRadius,
+      duration: cageDuration,
+      color: "#2dd4bf",
+    });
   }
 
-  // SKILL 3 [R]: BÀNH TRƯỚNG LÃNH ĐỊA: TRƯỜNG THỜI GIAN BẬC CAO / TÁI LẬP TUA NGƯỢC
+  // SKILL 3 [R]: BÀNH TRƯỚNG LÃNH ĐỊA: TRƯỜNG THỜI GIAN (Cấp 100 đạt 1/2 Map!) / TUA NGƯỢC 3S
   triggerSkill3(player, context) {
     if (!player) return;
     const { particleSystem, camera } = context;
@@ -434,9 +521,15 @@ export class TimeFishSystem {
     const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
     player.skill3CooldownTimer = 16.0 * player.cdrMult * synCdr;
 
-    const lvl = Math.min(100, Math.max(1, player.level));
-    const domainRadius = Math.round(330 + lvl * 5.8 + player.radius * 1.5);
-    const domainDuration = Number((7.5 + lvl * 0.085).toFixed(1));
+    // Quy luật tỷ lệ theo cấp độ: Lv.1 = 380px -> Lv.100 = 1/2 Map (worldSize * 0.5)
+    const worldSize = getWorldSize(player.selectedMap);
+    const maxHalfMapRadius = worldSize * 0.5;
+    const minDomainRadius = 380;
+    const t = calcLevelProgress(player.level);
+    const domainRadius = Math.round(
+      minDomainRadius + (maxHalfMapRadius - minDomainRadius) * t,
+    );
+    const domainDuration = Number((8.0 + t * 9.0).toFixed(1));
 
     this.domain = {
       x: player.x,
@@ -463,14 +556,17 @@ export class TimeFishSystem {
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 30,
-      `🕰️ LÃNH ĐỊA TRƯỜNG THỜI GIAN (${domainDuration}s)!`,
+      `🕰️ TRƯỜNG THỜI GIAN R=${domainRadius} (${domainDuration}s)!`,
       "#fef08a",
     );
 
+    // Đồng bộ Lãnh Địa Trường Thời Gian sang toàn bộ người chơi Online
     eventBus.emit("SKILL_BROADCAST", {
+      type: "time_domain",
       x: player.x,
       y: player.y,
       maxR: domainRadius,
+      duration: domainDuration,
       color: "#f59e0b",
     });
   }
@@ -522,6 +618,16 @@ export class TimeFishSystem {
       `⏪ TUA NGƯỢC 3 GIÂY (+${healedAmt} HP & XÓA BẤT LỢI)!`,
       "#2dd4bf",
     );
+
+    eventBus.emit("SKILL_BROADCAST", {
+      type: "time_rewind",
+      fromX: oldX,
+      fromY: oldY,
+      x: player.x,
+      y: player.y,
+      maxR: player.radius * 4,
+      color: "#2dd4bf",
+    });
     eventBus.emit("FORCE_SYNC_PLAYER");
   }
 
@@ -540,13 +646,13 @@ export class TimeFishSystem {
   }
 
   update(dt, state) {
-    const { player, enemies, remotePlayers, particleSystem, camera } = state;
+    const { player, enemies, remotePlayers, boss, particleSystem, camera } =
+      state;
     if (!player || player.species !== "time") return;
 
     const frameScale = dt * 60;
     const now = performance.now();
 
-    // 1. Ghi lịch sử vị trí cho Tua Ngược 3s
     this.recordTimer += dt;
     if (this.recordTimer >= 0.05) {
       this.recordTimer = 0;
@@ -567,7 +673,6 @@ export class TimeFishSystem {
       }
     }
 
-    // 2. Cập nhật Lãnh Địa Trường Thời Gian Bậc Cao
     const insideDomain = this.isInsideDomain(player);
     player.timeDomainActive = insideDomain;
     if (insideDomain) {
@@ -583,6 +688,16 @@ export class TimeFishSystem {
         player.hp <= player.maxHp * 0.22
       ) {
         this.executeTimeRewind(player, particleSystem, camera);
+      }
+
+      if (
+        boss &&
+        boss.hp > 0 &&
+        Math.hypot(boss.x - this.domain.x, boss.y - this.domain.y) <=
+          this.domain.radius + boss.radius
+      ) {
+        boss.x -= Math.cos(boss.angle) * 1.4 * frameScale;
+        boss.y -= Math.sin(boss.angle) * 1.4 * frameScale;
       }
 
       enemies.forEach((e) => {
@@ -606,7 +721,6 @@ export class TimeFishSystem {
       }
     }
 
-    // 3. CẬP NHẬT AI SĂN MỒI DỨT KHOÁT & TỰ DÙNG KỸ NĂNG CỦA PHÂN THÂN (0.5x & 2.0x)
     const reservedTargets = new Set();
     for (let i = this.clones.length - 1; i >= 0; i--) {
       const c = this.clones[i];
@@ -615,7 +729,6 @@ export class TimeFishSystem {
       if (c.skillCd > 0) c.skillCd -= dt;
       if (c.backOffTimer > 0) c.backOffTimer -= dt;
 
-      // Đồng bộ kích thước theo cấp độ hiện tại của chủ nhân (0.5x cho Quá Khứ, 2.0x cho Tương Lai)
       c.radius =
         c.type === "past"
           ? Math.max(16, player.radius * 0.5)
@@ -626,6 +739,7 @@ export class TimeFishSystem {
         player,
         enemies,
         remotePlayers,
+        boss,
         reservedTargets,
       );
 
@@ -636,13 +750,11 @@ export class TimeFishSystem {
         const tgt = targetInfo.entity;
         const distToTgt = Math.hypot(tgt.x - c.x, tgt.y - c.y);
 
-        // Tự động dùng kỹ năng Cầu Ngưng Đọng & Lồng Giam của bản gốc khi trong tầm
-        if (c.skillCd <= 0 && distToTgt <= 520) {
+        if (c.skillCd <= 0 && distToTgt <= 620) {
           c.skillCd = c.type === "future" ? 3.8 : 4.6;
           this.castCloneStasisSkill(c, player, tgt, particleSystem);
         }
 
-        // Nếu vừa cắn mục tiêu lớn chưa chết -> lùi nhịp ngắn để lấy đà lao thẳng, tuyệt đối không xoay vòng tròn
         if (c.backOffTimer > 0) {
           const awayAngle = Math.atan2(c.y - tgt.y, c.x - tgt.x);
           c.angle = smoothRotate(c.angle, awayAngle, 0.25);
@@ -650,7 +762,6 @@ export class TimeFishSystem {
           desiredVx = Math.cos(c.angle) * retreatSpeed;
           desiredVy = Math.sin(c.angle) * retreatSpeed;
         } else {
-          // Lao thẳng vào tâm mục tiêu (đón đầu nhẹ chuyển động của mồi)
           const leadX =
             tgt.x +
             Math.cos(tgt.angle || 0) * Math.min(28, (tgt.radius || 20) * 0.5);
@@ -680,7 +791,6 @@ export class TimeFishSystem {
           }
         }
       } else {
-        // Hộ tống 2 bên cánh chủ nhân mượt mà khi không có địch
         const wingAngle = player.angle + c.sideSign * 1.15;
         const wingDist = player.radius * (c.type === "future" ? 2.8 : 2.1);
         const guardX = player.x + Math.cos(wingAngle) * wingDist;
@@ -709,12 +819,34 @@ export class TimeFishSystem {
       c.x += c.vx * frameScale;
       c.y += c.vy * frameScale;
 
-      // Xử lý nuốt chửng / gây sát thương chuẩn như bản gốc
       const eatReach = c.radius * 1.12;
       let hitSomeone = false;
 
+      // 0. Tấn công Boss Leviathan
+      if (
+        c.biteCd <= 0 &&
+        boss &&
+        boss.hp > 0 &&
+        Math.hypot(boss.x - c.x, boss.y - c.y) <= eatReach + boss.radius * 0.85
+      ) {
+        c.biteCd = 0.55;
+        c.backOffTimer = 0.26;
+        hitSomeone = true;
+        const bossDmg = Math.round(38 * player.bitePower * c.damageRatio);
+        this.damageBossIfHit(
+          boss,
+          c.x,
+          c.y,
+          eatReach + 30,
+          bossDmg,
+          player,
+          particleSystem,
+          camera,
+        );
+      }
+
       // 1. Tấn công Người Chơi đối địch
-      if (c.biteCd <= 0) {
+      if (!hitSomeone && c.biteCd <= 0) {
         for (const [id, rp] of Object.entries(remotePlayers || {})) {
           if (!rp || rp.isStealthed || rp.invincibleTimer > 0) continue;
           if (
@@ -722,7 +854,7 @@ export class TimeFishSystem {
             eatReach + rp.radius * 0.85
           ) {
             c.biteCd = 0.55;
-            c.backOffTimer = 0.26; // Lùi lấy đà cho cú đớp tiếp theo, không xoay vòng
+            c.backOffTimer = 0.26;
             hitSomeone = true;
 
             const mult = getCounterMultiplier(player.species, rp.species);
@@ -748,13 +880,12 @@ export class TimeFishSystem {
         }
       }
 
-      // 2. Nuốt chửng hoặc cắn Bot / Cá hoang dã (Cá nhỏ hơn phân thân -> 1 HIT NUỐT CHỬNG NGAY!)
+      // 2. Nuốt chửng hoặc cắn Bot / Cá hoang dã
       if (!hitSomeone) {
         for (let k = enemies.length - 1; k >= 0; k--) {
           const e = enemies[k];
           if (!e) continue;
           if (Math.hypot(e.x - c.x, e.y - c.y) <= eatReach + e.radius * 0.85) {
-            // Nếu phân thân to hơn hoặc ngang tầm con mồi -> NUỐT CHỬNG 1 HIT NHƯ BẢN GỐC!
             if (c.radius >= e.radius * 0.88) {
               const pts = Math.max(8, Math.ceil(e.radius * 1.6 * c.scaleMult));
               player.addScore(
@@ -775,9 +906,7 @@ export class TimeFishSystem {
                 c.type === "future" ? "#2dd4bf" : "#f59e0b",
               );
               enemies.splice(k, 1);
-              // Nuốt gọn xong không cần backOff, lao sang con tiếp theo ngay!
             } else if (c.biteCd <= 0) {
-              // Gặp cá khổng lồ to hơn cả phân thân -> Cắn cấu máu theo tỉ lệ 0.5x / 2.0x và lùi nhịp
               c.biteCd = 0.5;
               c.backOffTimer = 0.25;
               const damageRadius = Math.max(
@@ -819,7 +948,6 @@ export class TimeFishSystem {
       }
     }
 
-    // 4. Cập nhật Dấu Ấn Tương Lai
     for (let i = this.futureMarks.length - 1; i >= 0; i--) {
       const m = this.futureMarks[i];
       m.life -= dt;
@@ -847,7 +975,6 @@ export class TimeFishSystem {
       if (m.life <= 0) this.futureMarks.splice(i, 1);
     }
 
-    // 5. Cập nhật Quả Cầu Ngưng Đọng -> Lồng Giam Thời Gian
     for (let i = this.stasisOrbs.length - 1; i >= 0; i--) {
       const orb = this.stasisOrbs[i];
       const step = orb.speed * frameScale;
@@ -855,6 +982,10 @@ export class TimeFishSystem {
       orb.y += Math.sin(orb.angle) * step;
       orb.traveled += step;
 
+      const hitBoss =
+        boss &&
+        boss.hp > 0 &&
+        Math.hypot(boss.x - orb.x, boss.y - orb.y) <= orb.r + boss.radius;
       const hitBot = enemies.some(
         (e) => Math.hypot(e.x - orb.x, e.y - orb.y) <= orb.r + e.radius,
       );
@@ -865,7 +996,7 @@ export class TimeFishSystem {
           Math.hypot(rp.x - orb.x, rp.y - orb.y) <= orb.r + rp.radius,
       );
 
-      if (hitBot || hitPlayer || orb.traveled >= orb.maxRange) {
+      if (hitBoss || hitBot || hitPlayer || orb.traveled >= orb.maxRange) {
         this.stasisCages.push({
           x: orb.x,
           y: orb.y,
@@ -882,14 +1013,30 @@ export class TimeFishSystem {
           orb.cageRadius,
           orb.ownerTag === "past" ? "#f59e0b" : "#2dd4bf",
         );
+        eventBus.emit("SKILL_BROADCAST", {
+          type: "time_cage",
+          x: orb.x,
+          y: orb.y,
+          maxR: orb.cageRadius,
+          duration: orb.cageDuration,
+          color: orb.ownerTag === "past" ? "#f59e0b" : "#2dd4bf",
+        });
         this.stasisOrbs.splice(i, 1);
       }
     }
 
-    // 6. Cập nhật Lồng Giam Ngưng Đọng & Bùng Nổ Nghịch Lý
     for (let i = this.stasisCages.length - 1; i >= 0; i--) {
       const cage = this.stasisCages[i];
       cage.timer -= dt;
+
+      if (
+        boss &&
+        boss.hp > 0 &&
+        Math.hypot(boss.x - cage.x, boss.y - cage.y) <=
+          cage.radius + boss.radius * 0.5
+      ) {
+        boss.stunTimer = Math.max(boss.stunTimer || 0, 0.3);
+      }
 
       enemies.forEach((e) => {
         if (
@@ -900,8 +1047,48 @@ export class TimeFishSystem {
         }
       });
 
+      // Giữ chân & làm chậm đối thủ PvP trong Lồng Giam Thời Gian
+      Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+        if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
+        if (
+          Math.hypot(rp.x - cage.x, rp.y - cage.y) <=
+          cage.radius + rp.radius * 0.6
+        ) {
+          if (!cage.tickCd) cage.tickCd = 0;
+          cage.tickCd -= dt;
+          if (cage.tickCd <= 0) {
+            cage.tickCd = 0.65;
+            const tickDmg = Math.round(18 * player.bitePower);
+            eventBus.emit("PVP_ATTACK", {
+              targetId: id,
+              dmg: tickDmg,
+              isCrit: false,
+              fromX: cage.x,
+              fromY: cage.y,
+              attackerName: `${player.name} (Ngưng Đọng)`,
+              targetX: rp.x,
+              targetY: rp.y,
+            });
+          }
+        }
+      });
+
       if (cage.timer <= 0) {
         const paradoxMult = player.evoStage >= 6 ? 1.3 : 1.0;
+        const burstBaseDmg = Math.round(
+          (55 + player.level * 1.4) * player.bitePower * paradoxMult,
+        );
+
+        this.damageBossIfHit(
+          boss,
+          cage.x,
+          cage.y,
+          cage.radius,
+          burstBaseDmg * 1.8,
+          player,
+          particleSystem,
+          camera,
+        );
 
         enemies.forEach((e) => {
           if (
@@ -914,13 +1101,38 @@ export class TimeFishSystem {
           }
         });
 
+        // Gây sát thương bùng nổ Nghịch Lý lên cả mục tiêu tích lũy lẫn toàn bộ kẻ địch trong lồng
+        const damagedIds = new Set();
         cage.storedDamage.forEach((entry, targetId) => {
           const rp = remotePlayers?.[targetId];
           if (rp && entry.dmg > 0) {
-            const burstDmg = Math.round(entry.dmg * paradoxMult);
+            damagedIds.add(targetId);
+            const burstDmg = Math.round(entry.dmg * paradoxMult + burstBaseDmg * 0.5);
             eventBus.emit("PVP_ATTACK", {
               targetId,
               dmg: burstDmg,
+              isCrit: true,
+              fromX: cage.x,
+              fromY: cage.y,
+              attackerName: `${player.name} (Nghịch Lý)`,
+              targetX: rp.x,
+              targetY: rp.y,
+            });
+          }
+        });
+
+        Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+          if (
+            !damagedIds.has(id) &&
+            rp &&
+            !rp.isStealthed &&
+            !rp.invincibleTimer &&
+            Math.hypot(rp.x - cage.x, rp.y - cage.y) <= cage.radius + rp.radius
+          ) {
+            const mult = getCounterMultiplier(player.species, rp.species);
+            eventBus.emit("PVP_ATTACK", {
+              targetId: id,
+              dmg: Math.round(burstBaseDmg * mult),
               isCrit: true,
               fromX: cage.x,
               fromY: cage.y,
@@ -945,6 +1157,13 @@ export class TimeFishSystem {
           "💥 BÙNG NỔ NGHỊCH LÝ THỜI GIAN!",
           "#f59e0b",
         );
+        eventBus.emit("SKILL_BROADCAST", {
+          type: "time_paradox_burst",
+          x: cage.x,
+          y: cage.y,
+          maxR: cage.radius * 1.25,
+          color: "#f59e0b",
+        });
         this.stasisCages.splice(i, 1);
       }
     }
@@ -1102,7 +1321,6 @@ export class TimeFishSystem {
       ctx.save();
       ctx.translate(c.x, c.y);
 
-      // Nhãn hiển thị cấp độ quy mô trên đầu phân thân (0.5x / 2.0x)
       ctx.font = "900 11px Segoe UI, sans-serif";
       ctx.textAlign = "center";
       ctx.fillStyle = c.type === "future" ? "#2dd4bf" : "#fbbf24";

@@ -275,3 +275,4 @@ export class InputManager {
     zone.addEventListener("touchcancel", resetStick);
   }
 }
+

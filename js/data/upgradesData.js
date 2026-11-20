@@ -21,3 +21,4 @@ export const META_SHOP_ITEMS = [
     maxLevel: 5,
   },
 ];
+

@@ -220,3 +220,4 @@ export function getSynergyCounts(superAugmentIds = []) {
   });
   return { empowerment, elemental };
 }
+

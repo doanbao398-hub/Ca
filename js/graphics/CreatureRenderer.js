@@ -413,3 +413,4 @@ export function renderCreatureBody(ctx, creature, r, wag, activeColors = null) {
   const renderer = SPECIES_RENDERERS[creature.species] || drawDetailedSwordfish;
   renderer(ctx, creature, r, wag, activeColors || creature.colors);
 }
+

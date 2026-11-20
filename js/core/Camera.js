@@ -61,3 +61,4 @@ export class Camera {
     ctx.translate(-this.x, -this.y);
   }
 }
+

@@ -339,3 +339,4 @@ export function renderCreatureEffects(
     ctx.restore();
   }
 }
+

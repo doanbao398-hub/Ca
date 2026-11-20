@@ -57,3 +57,4 @@ export class BossLeviathan extends Creature {
     ctx.restore();
   }
 }
+

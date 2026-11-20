@@ -240,3 +240,4 @@ export function drawMinimap(
 
   miniCtx.restore();
 }
+

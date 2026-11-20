@@ -97,3 +97,4 @@ export class EnemyBot extends Creature {
     if (this.eatAnim > 0) this.eatAnim = Math.max(0, this.eatAnim - 0.05);
   }
 }
+

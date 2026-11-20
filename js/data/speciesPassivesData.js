@@ -185,3 +185,4 @@ export function getUnlockedPassives(species, evoStage) {
   const list = SPECIES_EVOLUTION_PASSIVES[species] || [];
   return list.filter((p) => evoStage >= p.stage);
 }
+

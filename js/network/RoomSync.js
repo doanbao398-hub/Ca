@@ -34,8 +34,8 @@ export class RoomSync {
       }
     });
 
-    eventBus.on("SKILL_BROADCAST", ({ x, y, maxR, color }) => {
-      this.broadcastSkill(x, y, maxR, color);
+    eventBus.on("SKILL_BROADCAST", (payload) => {
+      this.broadcastSkill(payload);
     });
 
     eventBus.on("EMOTE_BROADCAST", (emoji) => {
@@ -267,21 +267,45 @@ export class RoomSync {
     }).catch(() => {});
   }
 
-  broadcastSkill(x, y, maxR, color) {
-    if (!this.currentRoomPath) return;
+  broadcastSkill(payload) {
+    if (!this.currentRoomPath || !payload) return;
     const id =
       "sk_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const skRef = ref(db, `${this.currentRoomPath}/skills/${id}`);
-    set(skRef, {
-      type: "wave",
+
+    const cleanData = {
+      type: payload.type || "wave",
       sender: myPlayerId,
-      x: Math.round(x),
-      y: Math.round(y),
-      maxR: Math.round(maxR),
-      color,
+      x: Math.round(payload.x || 0),
+      y: Math.round(payload.y || 0),
+      maxR: Math.round(payload.maxR || 150),
+      color: payload.color || "#00f5d4",
       ts: serverTimestamp(),
-    }).catch(() => {});
-    setTimeout(() => remove(skRef).catch(() => {}), 2000);
+    };
+
+    if (typeof payload.fromX === "number")
+      cleanData.fromX = Math.round(payload.fromX);
+    if (typeof payload.fromY === "number")
+      cleanData.fromY = Math.round(payload.fromY);
+    if (typeof payload.angle === "number")
+      cleanData.angle = Number(payload.angle.toFixed(3));
+    if (typeof payload.size === "number")
+      cleanData.size = Math.round(payload.size);
+    if (typeof payload.maxRange === "number")
+      cleanData.maxRange = Math.round(payload.maxRange);
+    if (typeof payload.duration === "number")
+      cleanData.duration = Number(payload.duration.toFixed(1));
+    if (Array.isArray(payload.clones)) {
+      cleanData.clones = payload.clones.slice(0, 4);
+    }
+
+    set(skRef, cleanData).catch(() => {});
+
+    const ttl =
+      typeof payload.duration === "number"
+        ? Math.min(20000, Math.max(2500, Math.round(payload.duration * 1000)))
+        : 3000;
+    setTimeout(() => remove(skRef).catch(() => {}), ttl);
   }
 
   broadcastEmote(emoji) {
@@ -312,7 +336,7 @@ export class RoomSync {
       "h_" + Date.now() + "_" + Math.random().toString(36).substring(2, 6);
     const hitRef = ref(db, `${this.currentRoomPath}/hits/${targetId}/${id}`);
     set(hitRef, {
-      dmg: Math.min(120, Math.max(1, Math.round(dmg))),
+      dmg: Math.min(280, Math.max(1, Math.round(dmg))),
       isCrit: !!isCrit,
       fromX: Math.round(fromX),
       fromY: Math.round(fromY),

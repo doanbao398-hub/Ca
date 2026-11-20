@@ -21,6 +21,14 @@ const DEFAULT_SAVE = {
     maxHpBonus: 0,
     gemMagnet: 0,
   },
+  unlockedEpics: {
+    space: false,
+    time: false,
+  },
+  rebirthCount: {
+    space: 0,
+    time: 0,
+  },
   speciesProgress: {},
 };
 
@@ -75,6 +83,14 @@ class StorageManager {
             ...DEFAULT_SAVE.upgrades,
             ...(cloudData.upgrades || {}),
           },
+          unlockedEpics: {
+            ...DEFAULT_SAVE.unlockedEpics,
+            ...(cloudData.unlockedEpics || {}),
+          },
+          rebirthCount: {
+            ...DEFAULT_SAVE.rebirthCount,
+            ...(cloudData.rebirthCount || {}),
+          },
           speciesProgress: cloudData.speciesProgress || {},
         };
       } else {
@@ -101,6 +117,56 @@ class StorageManager {
       );
       this.updateGlobalLeaderboardEntry(this.currentUser);
     }
+  }
+
+  isEpicUnlocked(speciesKey) {
+    if (speciesKey === "space") return !!this.data?.unlockedEpics?.space;
+    if (speciesKey === "time") return !!this.data?.unlockedEpics?.time;
+    return true;
+  }
+
+  getFishLevel() {
+    return this.data?.speciesProgress?.fish?.level || 1;
+  }
+
+  canRebirthUnlockEpic(speciesKey) {
+    const fishLevel = this.getFishLevel();
+    if (speciesKey === "space") {
+      return !this.isEpicUnlocked("space") && fishLevel >= 50;
+    }
+    if (speciesKey === "time") {
+      return (
+        !this.isEpicUnlocked("time") &&
+        this.isEpicUnlocked("space") &&
+        fishLevel >= 75
+      );
+    }
+    return false;
+  }
+
+  rebirthUnlockEpic(speciesKey) {
+    if (!this.canRebirthUnlockEpic(speciesKey)) {
+      return { ok: false, reason: "NOT_ELIGIBLE" };
+    }
+
+    if (!this.data.unlockedEpics) {
+      this.data.unlockedEpics = { space: false, time: false };
+    }
+    if (!this.data.rebirthCount) {
+      this.data.rebirthCount = { space: 0, time: 0 };
+    }
+
+    // Trùng sinh: Reset toàn bộ chỉ số đã cày của Cá Kiếm Hoàng Kim về cấp 1
+    if (this.data.speciesProgress && this.data.speciesProgress.fish) {
+      delete this.data.speciesProgress.fish;
+    }
+
+    this.data.unlockedEpics[speciesKey] = true;
+    this.data.rebirthCount[speciesKey] =
+      (this.data.rebirthCount[speciesKey] || 0) + 1;
+
+    this.save();
+    return { ok: true };
   }
 
   saveSpeciesRun(player, quests) {

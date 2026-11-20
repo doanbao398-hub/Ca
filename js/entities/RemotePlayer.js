@@ -60,3 +60,4 @@ export class RemotePlayer extends Creature {
     }
   }
 }
+

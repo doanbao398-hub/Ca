@@ -88,3 +88,4 @@ export class SettingsManager {
 }
 
 export const settings = new SettingsManager();
+

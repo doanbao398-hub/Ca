@@ -414,6 +414,55 @@
       </div>
     </div>
 
+    <!-- MODAL XÁC NHẬN TRÙNG SINH MỞ KHÓA CÁ SỬ THI -->
+    <div id="rebirth-epic-modal" class="modal-screen hidden" style="z-index: 250">
+      <div
+        class="lobby-container"
+        style="
+          width: 480px;
+          text-align: center;
+          border: 2px solid #fee440;
+          box-shadow: 0 0 35px rgba(254, 228, 64, 0.35);
+        "
+      >
+        <h2
+          id="rebirth-modal-title"
+          style="font-size: 20px; color: #fee440; font-weight: 900"
+        >
+          🌌 TRÙNG SINH MỞ KHÓA CÁ SỬ THI
+        </h2>
+        <p
+          id="rebirth-modal-desc"
+          style="
+            font-size: 13px;
+            color: #e0fbfc;
+            line-height: 1.6;
+            background: rgba(0, 0, 0, 0.45);
+            padding: 14px;
+            border-radius: 12px;
+          "
+        ></p>
+        <div style="display: flex; gap: 12px; justify-content: center">
+          <button
+            type="button"
+            id="btn-cancel-rebirth"
+            class="btn-hud"
+            style="padding: 10px 20px; border-color: #ff4d6d; color: #ff758f"
+          >
+            ✖ Hủy Bỏ
+          </button>
+          <button
+            type="button"
+            id="btn-confirm-rebirth"
+            class="btn-play"
+            style="margin: 0; padding: 10px 24px; font-size: 14px"
+          >
+            🔥 XÁC NHẬN TRÙNG SINH
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- MODAL CHỌN LÕI SIÊU CẤP & LÕI THƯỜNG -->
     <div id="upgrade-screen" class="modal-screen hidden">
       <div class="lobby-container" style="width: 780px; text-align: center">
@@ -789,32 +838,8 @@
               </div>
             </div>
             <div
-              class="card-option"
-              data-species="time"
-              style="
-                border-color: #f59e0b;
-                background: linear-gradient(
-                  145deg,
-                  rgba(120, 53, 15, 0.45),
-                  rgba(15, 23, 42, 0.88)
-                );
-              "
-            >
-              <div class="saved-run-tag hidden" id="saved-tag-time"></div>
-              <div class="card-icon">⏳</div>
-              <div class="card-title" style="color: #fef08a">
-                Cá Thời Gian
-                <span style="font-size: 10px; color: #2dd4bf">[SỬ THI]</span>
-              </div>
-              <div class="card-skill">Skill [E/Q/R]: Bản Thể & Tua Ngược</div>
-              <div class="card-desc">
-                <b>Đa Chiều:</b> Triệu hồi Bản Thể Quá Khứ & Tương Lai, Lồng
-                Giam Ngưng Đọng & Tua Ngược 3s.
-              </div>
-            </div>
-            <div
-              class="card-option hidden"
-              id="admin-species-space"
+              class="card-option locked-epic"
+              id="epic-card-space"
               data-species="space"
               style="
                 border-color: #9d4edd;
@@ -833,8 +858,39 @@
               </div>
               <div class="card-skill">Skill [E/Q/R]: Lãnh Địa & Hạ Cấp</div>
               <div class="card-desc">
-                <b>Độc quyền Admin:</b> Kiến tạo Lãnh Địa Vũ Trụ, dịch chuyển
-                tức thời & giam cầm D'arcy.
+                Kiến tạo Lãnh Địa Vũ Trụ (Max 1/2 Map), dịch chuyển tức thời &
+                nghiền ép không gian.
+              </div>
+              <div class="epic-lock-badge" id="lock-status-space">
+                🔒 Cần Cá Kiếm Lv.50 + Trùng Sinh
+              </div>
+            </div>
+            <div
+              class="card-option locked-epic"
+              id="epic-card-time"
+              data-species="time"
+              style="
+                border-color: #f59e0b;
+                background: linear-gradient(
+                  145deg,
+                  rgba(120, 53, 15, 0.45),
+                  rgba(15, 23, 42, 0.88)
+                );
+              "
+            >
+              <div class="saved-run-tag hidden" id="saved-tag-time"></div>
+              <div class="card-icon">⏳</div>
+              <div class="card-title" style="color: #fef08a">
+                Cá Thời Gian
+                <span style="font-size: 10px; color: #2dd4bf">[SỬ THI]</span>
+              </div>
+              <div class="card-skill">Skill [E/Q/R]: Bản Thể & Tua Ngược</div>
+              <div class="card-desc">
+                Triệu hồi Bản Thể Quá Khứ & Tương Lai, Lồng Giam Ngưng Đọng &
+                Trường Thời Gian (Max 1/2 Map).
+              </div>
+              <div class="epic-lock-badge" id="lock-status-time">
+                🔒 Cần Cá Không Gian & Cá Kiếm Lv.75
               </div>
             </div>
           </div>

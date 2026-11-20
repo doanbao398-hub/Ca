@@ -93,3 +93,4 @@ export class DroppedItem {
     ctx.restore();
   }
 }
+

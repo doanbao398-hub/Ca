@@ -730,3 +730,4 @@ export class Player extends Creature {
     }
   }
 }
+

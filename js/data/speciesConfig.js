@@ -69,8 +69,9 @@ export const SPECIES_CONFIG = {
   },
   space: {
     name: "Cá Không Gian",
-    rarity: "SỬ THI (ADMIN)",
-    adminOnly: true,
+    rarity: "SỬ THI (VŨ TRỤ)",
+    epicUnlockType: "space",
+    requiredFishLevel: 50,
     skillId: "space_domain",
     skillName: "Bành Trướng",
     skill2Name: "Lát Cắt",
@@ -91,6 +92,8 @@ export const SPECIES_CONFIG = {
   time: {
     name: "Cá Thời Gian",
     rarity: "SỬ THI (ĐA CHIỀU)",
+    epicUnlockType: "time",
+    requiredFishLevel: 75,
     skillId: "time_clones",
     skillName: "Dòng Chảy",
     skill2Name: "Lồng Giam",

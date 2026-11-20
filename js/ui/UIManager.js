@@ -24,8 +24,6 @@ import {
   myPlayerId,
 } from "../network/FirebaseClient.js";
 
-const ADMIN_EMAILS = ["doanbao398@gmail.com"];
-
 export class UIManager {
   constructor() {
     this.dom = {
@@ -35,11 +33,13 @@ export class UIManager {
       pauseScreen: document.getElementById("pause-screen"),
       gameoverScreen: document.getElementById("gameover-screen"),
       settingsScreen: document.getElementById("settings-screen"),
+      rebirthModal: document.getElementById("rebirth-epic-modal"),
     };
 
     this.isRegisterMode = false;
     this.unreadChatCount = 0;
     this.currentSettingsTab = "general";
+    this.pendingRebirthSpecies = null;
 
     this.augmentQueue = [];
     this.isAugmentChoosing = false;
@@ -52,8 +52,143 @@ export class UIManager {
     this.bindChatAndMobileEvents();
     this.bindHudPanelToggles();
     this.bindSettingsEvents();
+    this.bindRebirthModalEvents();
     this.bindBusEvents();
     this.renderMetaShop();
+  }
+
+  bindRebirthModalEvents() {
+    const closeRebirth = () => {
+      this.pendingRebirthSpecies = null;
+      this.dom.rebirthModal?.classList.add("hidden");
+    };
+
+    document
+      .getElementById("btn-cancel-rebirth")
+      ?.addEventListener("click", closeRebirth);
+
+    document
+      .getElementById("btn-confirm-rebirth")
+      ?.addEventListener("click", () => {
+        if (!this.pendingRebirthSpecies) return;
+        const target = this.pendingRebirthSpecies;
+        const res = storage.rebirthUnlockEpic(target);
+        if (res.ok) {
+          sound.playEvolution();
+          closeRebirth();
+          this.refreshEpicCardsState();
+          this.renderSavedSpeciesBadges();
+          eventBus.emit("EPIC_UNLOCKED", target);
+        } else {
+          alert("❌ Chưa đủ điều kiện Trùng Sinh để mở khóa!");
+        }
+      });
+  }
+
+  openRebirthModal(speciesKey) {
+    const fishLvl = storage.getFishLevel();
+    const spaceUnlocked = storage.isEpicUnlocked("space");
+    const timeUnlocked = storage.isEpicUnlocked("time");
+
+    if (speciesKey === "space") {
+      if (spaceUnlocked) return true;
+      if (fishLvl < 50) {
+        alert(
+          `🔒 KHÓA SỬ THI: CÁ KHÔNG GIAN
+
+Điều kiện mở khóa:
+• Cá Kiếm Hoàng Kim đạt Cấp 50 (Hiện tại: Lv.${fishLvl}/50)
+• Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
+        );
+        return false;
+      }
+      this.pendingRebirthSpecies = "space";
+      const titleEl = document.getElementById("rebirth-modal-title");
+      const descEl = document.getElementById("rebirth-modal-desc");
+      if (titleEl) titleEl.textContent = "🌌 TRÙNG SINH MỞ KHÓA: CÁ KHÔNG GIAN";
+      if (descEl) {
+        descEl.innerHTML = `
+          Cá Kiếm Hoàng Kim của bạn đã đạt <b>Cấp ${fishLvl}</b> (đủ điều kiện Lv.50)!<br/><br/>
+          ⚠️ <b>LƯU Ý QUAN TRỌNG:</b> Khi xác nhận Trùng Sinh, <b>toàn bộ cấp độ, điểm XP, dạng tiến hóa và lõi đã cày của Cá Kiếm Hoàng Kim sẽ được Reset về Cấp 1</b> để giải phong ấn <b>Cá Không Gian [SỬ THI]</b> vĩnh viễn!
+        `;
+      }
+      this.dom.rebirthModal?.classList.remove("hidden");
+      return false;
+    }
+
+    if (speciesKey === "time") {
+      if (timeUnlocked) return true;
+      if (!spaceUnlocked || fishLvl < 75) {
+        alert(
+          `🔒 KHÓA SỬ THI: CÁ THỜI GIAN
+
+Điều kiện mở khóa bắt buộc:
+1. Đã mở khóa Cá Không Gian: ${spaceUnlocked ? "✅ Đã mở" : "❌ Chưa mở"}
+2. Cá Kiếm Hoàng Kim đạt Cấp 75 (Hiện tại: Lv.${fishLvl}/75)
+3. Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
+        );
+        return false;
+      }
+      this.pendingRebirthSpecies = "time";
+      const titleEl = document.getElementById("rebirth-modal-title");
+      const descEl = document.getElementById("rebirth-modal-desc");
+      if (titleEl) titleEl.textContent = "⏳ TRÙNG SINH MỞ KHÓA: CÁ THỜI GIAN";
+      if (descEl) {
+        descEl.innerHTML = `
+          Bạn đã sở hữu <b>Cá Không Gian</b> và Cá Kiếm Hoàng Kim đạt <b>Cấp ${fishLvl}</b> (đủ điều kiện Lv.75)!<br/><br/>
+          ⚠️ <b>LƯU Ý QUAN TRỌNG:</b> Khi xác nhận Trùng Sinh, <b>toàn bộ cấp độ, điểm XP, dạng tiến hóa và lõi đã cày của Cá Kiếm Hoàng Kim sẽ được Reset về Cấp 1</b> để giải phong ấn <b>Cá Thời Gian [SỬ THI]</b> vĩnh viễn!
+        `;
+      }
+      this.dom.rebirthModal?.classList.remove("hidden");
+      return false;
+    }
+
+    return true;
+  }
+
+  refreshEpicCardsState() {
+    const fishLvl = storage.getFishLevel();
+    const spaceUnlocked = storage.isEpicUnlocked("space");
+    const timeUnlocked = storage.isEpicUnlocked("time");
+
+    const spaceCard = document.getElementById("epic-card-space");
+    const spaceLockEl = document.getElementById("lock-status-space");
+    if (spaceCard && spaceLockEl) {
+      if (spaceUnlocked) {
+        spaceCard.classList.remove("locked-epic");
+        spaceLockEl.textContent = "✅ ĐÃ MỞ KHÓA VĨNH VIỄN";
+        spaceLockEl.style.color = "#06d6a0";
+      } else {
+        spaceCard.classList.add("locked-epic");
+        if (fishLvl >= 50) {
+          spaceLockEl.textContent = `✨ ĐỦ ĐIỀU KIỆN! BẤM ĐỂ TRÙNG SINH (Cá Kiếm Lv.${fishLvl}/50)`;
+          spaceLockEl.style.color = "#fee440";
+        } else {
+          spaceLockEl.textContent = `🔒 Cần Cá Kiếm Lv.50 + Trùng Sinh (Hiện tại: Lv.${fishLvl}/50)`;
+          spaceLockEl.style.color = "#ff758f";
+        }
+      }
+    }
+
+    const timeCard = document.getElementById("epic-card-time");
+    const timeLockEl = document.getElementById("lock-status-time");
+    if (timeCard && timeLockEl) {
+      if (timeUnlocked) {
+        timeCard.classList.remove("locked-epic");
+        timeLockEl.textContent = "✅ ĐÃ MỞ KHÓA VĨNH VIỄN";
+        timeLockEl.style.color = "#06d6a0";
+      } else {
+        timeCard.classList.add("locked-epic");
+        if (spaceUnlocked && fishLvl >= 75) {
+          timeLockEl.textContent = `✨ ĐỦ ĐIỀU KIỆN! BẤM ĐỂ TRÙNG SINH (Cá Kiếm Lv.${fishLvl}/75)`;
+          timeLockEl.style.color = "#fee440";
+        } else {
+          const spaceTxt = spaceUnlocked ? "Đã có Cá Không Gian" : "Cần Cá Không Gian";
+          timeLockEl.textContent = `🔒 ${spaceTxt} & Cá Kiếm Lv.75 (Lv.${fishLvl}/75)`;
+          timeLockEl.style.color = "#ff758f";
+        }
+      }
+    }
   }
 
   bindHudPanelToggles() {
@@ -405,13 +540,10 @@ export class UIManager {
 
   bindBusEvents() {
     eventBus.on("AUTH_STATE_CHANGED", (user) => {
-      const adminCard = document.getElementById("admin-species-space");
       if (user) {
         this.dom.authScreen?.classList.add("hidden");
         this.dom.lobbyScreen?.classList.remove("hidden");
-        const email = user.email?.toLowerCase() || "";
-        const isAdmin = ADMIN_EMAILS.includes(email);
-        adminCard?.classList.toggle("hidden", !isAdmin);
+        this.refreshEpicCardsState();
 
         const disp =
           user.displayName ||
@@ -421,10 +553,10 @@ export class UIManager {
         const nameInput = document.getElementById("player-name-input");
         if (nameInput && disp) nameInput.value = disp.slice(0, 16);
       } else {
-        adminCard?.classList.add("hidden");
         this.dom.lobbyScreen?.classList.add("hidden");
         this.dom.gameoverScreen?.classList.add("hidden");
         this.dom.pauseScreen?.classList.add("hidden");
+        this.dom.rebirthModal?.classList.add("hidden");
         this.dom.authScreen?.classList.remove("hidden");
       }
     });
@@ -448,6 +580,7 @@ export class UIManager {
       if (bk) bk.textContent = data.bossKills ?? 0;
       this.renderMetaShop();
       this.renderSavedSpeciesBadges();
+      this.refreshEpicCardsState();
     });
 
     eventBus.on("BAG_UPDATED", (inv) => {

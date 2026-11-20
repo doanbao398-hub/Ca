@@ -71,3 +71,4 @@ onValue(ref(db, ".info/connected"), (snap) => {
 export function getServerNow() {
   return Date.now() + serverTimeOffset;
 }
+

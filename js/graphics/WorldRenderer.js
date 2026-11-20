@@ -352,3 +352,4 @@ export class WorldRenderer {
     ctx.strokeRect(0, 0, worldSize, worldSize);
   }
 }
+
