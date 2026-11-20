@@ -2,21 +2,29 @@ import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 import { getCounterMultiplier } from "../data/speciesConfig.js";
 import { getWorldSize } from "../data/mapsConfig.js";
+import { BOSS_SKILL_CORES } from "../data/bossSkillsData.js";
 
 function calcLevelProgress(level) {
   const lvl = Math.min(100, Math.max(1, level || 1));
-  return (lvl - 1) / 99; // 0.0 tại Lv.1 -> 1.0 tại Lv.100
+  return (lvl - 1) / 99;
 }
+
+const V2_PALETTE = {
+  border: "#ff006e",
+  accent: "#fee440",
+  glow: "#00f5d4",
+  fill: "rgba(180, 15, 65, 0.34)",
+};
 
 export class SpaceFishSystem {
   constructor() {
-    this.domain = null; // { x, y, radius, timer, maxTimer, teleportCd }
-    this.slashes = []; // Lát cắt ngoài lãnh địa
-    this.riftSlashes = []; // Vết nứt chém tức thì trong lãnh địa
-    this.orbs = []; // Quả cầu bán lãnh địa (Skill 3 ngoài lãnh địa)
-    this.semiDomains = []; // Lồng giam không gian (Cơ chế D'arcy)
-    this.implosions = []; // Hiệu ứng sụp đổ / nghiền ép không gian
-    this.teleportPortals = []; // Hiệu ứng cổng dịch chuyển
+    this.domain = null;
+    this.slashes = [];
+    this.riftSlashes = [];
+    this.orbs = [];
+    this.semiDomains = [];
+    this.implosions = [];
+    this.teleportPortals = [];
   }
 
   clear() {
@@ -43,45 +51,109 @@ export class SpaceFishSystem {
     target.spatialRiftWobble = Math.random() * Math.PI * 2;
   }
 
-  damageBossIfHit(boss, cx, cy, hitRadius, dmg, player, particleSystem, camera) {
-    if (!boss || boss.hp <= 0) return false;
-    if (Math.hypot(boss.x - cx, boss.y - cy) <= hitRadius + boss.radius) {
-      boss.hp -= dmg;
-      boss.stunTimer = Math.max(boss.stunTimer || 0, 0.7);
-      this.applySpatialRift(boss, 4.5);
-      particleSystem.addFloatingText(
-        boss.x,
-        boss.y - boss.radius - 14,
-        `🌌 -${Math.round(dmg)} BOSS!`,
-        "#e0aaff",
-      );
-      if (boss.hp <= 0) {
-        player.addScore(
-          2500,
-          null,
-          player.selectedMap,
-          particleSystem,
-          camera,
-        );
-        sound.playEvolution();
-        particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
-        eventBus.emit(
-          "SHOW_BANNER",
-          "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN BẰNG QUYỀN NĂNG KHÔNG GIAN (+2500 XP)!",
-        );
-        eventBus.emit("BOSS_KILLED");
-      }
-      return true;
+  damageBossIfHit(
+    boss,
+    cx,
+    cy,
+    hitRadius,
+    dmg,
+    player,
+    particleSystem,
+    camera,
+    epicBoss = null,
+    epicBossSystem = null,
+  ) {
+    let hitAny = false;
+
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - cx, epicBoss.y - cy) <=
+        hitRadius + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(epicBoss, dmg, player, particleSystem);
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 0.65);
+      this.applySpatialRift(epicBoss, 4.0);
+      hitAny = true;
     }
-    return false;
+
+    if (boss && boss.hp > 0) {
+      if (Math.hypot(boss.x - cx, boss.y - cy) <= hitRadius + boss.radius) {
+        boss.hp -= dmg;
+        boss.stunTimer = Math.max(boss.stunTimer || 0, 0.7);
+        this.applySpatialRift(boss, 4.5);
+        particleSystem.addFloatingText(
+          boss.x,
+          boss.y - boss.radius - 14,
+          `🌌 -${Math.round(dmg)} BOSS!`,
+          "#e0aaff",
+        );
+        if (boss.hp <= 0) {
+          player.addScore(
+            2500,
+            null,
+            player.selectedMap,
+            particleSystem,
+            camera,
+          );
+          sound.playEvolution();
+          particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
+          eventBus.emit(
+            "SHOW_BANNER",
+            "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN BẰNG QUYỀN NĂNG KHÔNG GIAN (+2500 XP)!",
+          );
+          eventBus.emit("BOSS_KILLED");
+        }
+        hitAny = true;
+      }
+    }
+    return hitAny;
   }
 
-  // SKILL 1 [E]: BÀNH TRƯỚNG LÃNH ĐỊA (Cấp 100 đạt bán kính = 1/2 Map!) / BƯỚC NHẢY KHÔNG GIAN
-  triggerSkill1(player, context) {
+  triggerBossSkill(skillId, player, context) {
+    if (!player || player.bossSkillCooldowns?.[skillId] > 0) return;
+    const profile = player.getEffectiveBossSkillProfile(skillId);
+    if (!profile) return;
+
+    const core = BOSS_SKILL_CORES[skillId];
+    const syn = player.getSynergies();
+    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+
+    if (skillId === "boss_space_1") {
+      const ok = this.triggerSkill1(player, context, {
+        ...profile,
+        useBossSlotCd: skillId,
+        baseCd: core.cooldown * player.cdrMult * synCdr * profile.cdMult,
+      });
+      if (!ok) return;
+    } else if (skillId === "boss_space_2") {
+      player.bossSkillCooldowns[skillId] =
+        core.cooldown * player.cdrMult * synCdr * profile.cdMult;
+      this.triggerSkill2(player, context, {
+        ...profile,
+        skipNativeCd: true,
+      });
+    } else if (skillId === "boss_space_3") {
+      player.bossSkillCooldowns[skillId] =
+        core.cooldown * player.cdrMult * synCdr * profile.cdMult;
+      this.triggerSkill3(player, context, {
+        ...profile,
+        skipNativeCd: true,
+      });
+    }
+  }
+
+  // SKILL 1 [E]: BÀNH TRƯỚNG LÃNH ĐỊA / BƯỚC NHẢY KHÔNG GIAN
+  triggerSkill1(player, context, customProfile = null) {
     const { particleSystem, camera, input, width, height } = context;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_space_1");
+    const isV2 = profile.v2Mode !== "none";
+    const isTrueV2 = profile.v2Mode === "true";
 
     if (this.isInsideDomain(player)) {
-      if (this.domain.teleportCd > 0) return;
+      if (this.domain.teleportCd > 0) return false;
 
       const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
       const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
@@ -100,6 +172,7 @@ export class SpaceFishSystem {
           worldMouseY,
           particleSystem,
           camera,
+          isV2,
         );
       } else {
         player.spaceTeleportAiming = !player.spaceTeleportAiming;
@@ -109,28 +182,37 @@ export class SpaceFishSystem {
           player.spaceTeleportAiming
             ? "🌀 CHẠM / CLICK ĐIỂM TRONG LÃNH ĐỊA ĐỂ DỊCH CHUYỂN!"
             : "❌ HỦY CHỌN ĐIỂM DỊCH CHUYỂN",
-          "#c77dff",
+          isV2 ? V2_PALETTE.accent : "#c77dff",
         );
       }
-      return;
+      return false;
     }
 
-    if (player.skillCooldownTimer > 0) return;
+    if (customProfile?.useBossSlotCd) {
+      player.bossSkillCooldowns[customProfile.useBossSlotCd] =
+        customProfile.baseCd;
+    } else {
+      if (player.skillCooldownTimer > 0) return false;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      player.skillCooldownTimer =
+        player.cfg.skillCooldown * player.cdrMult * synCdr * profile.cdMult;
+    }
 
-    const syn = player.getSynergies();
-    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    player.skillCooldownTimer =
-      player.cfg.skillCooldown * player.cdrMult * synCdr;
-
-    // Quy luật tỷ lệ theo cấp độ: Lv.1 = 360px -> Lv.100 = 1/2 Map (worldSize * 0.5)
     const worldSize = getWorldSize(player.selectedMap);
     const maxHalfMapRadius = worldSize * 0.5;
-    const minDomainRadius = 360;
-    const t = calcLevelProgress(player.level);
-    const domainRadius = Math.round(
-      minDomainRadius + (maxHalfMapRadius - minDomainRadius) * t,
+    const minDomainRadius = 340;
+    const t = calcLevelProgress(profile.effectiveLevel);
+    const domainRadius = Math.min(
+      maxHalfMapRadius,
+      Math.round(
+        (minDomainRadius + (maxHalfMapRadius - minDomainRadius) * t) *
+          profile.radiusMult,
+      ),
     );
-    const domainDuration = Number((7.5 + t * 8.5).toFixed(1));
+    const domainDuration = Number(
+      ((7.5 + t * 8.5) * (isTrueV2 ? 1.15 : 1.0)).toFixed(1),
+    );
 
     this.domain = {
       x: player.x,
@@ -139,33 +221,50 @@ export class SpaceFishSystem {
       timer: domainDuration,
       maxTimer: domainDuration,
       teleportCd: 0.25,
+      v2Mode: profile.v2Mode,
     };
     player.spaceTeleportAiming = false;
 
     sound.playEvolution();
     camera.shake = 14;
     eventBus.emit("HIT_STOP", 0.04);
-    particleSystem.addShockwave(player.x, player.y, domainRadius, "#9d4edd");
+    particleSystem.addShockwave(
+      player.x,
+      player.y,
+      domainRadius,
+      isV2 ? V2_PALETTE.border : "#9d4edd",
+    );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 28,
-      `🌌 BÀNH TRƯỚNG KHÔNG GIAN R=${domainRadius} (${domainDuration}s)!`,
-      "#e0aaff",
+      isTrueV2
+        ? `🌌 [V2 THỨC TỈNH] BÀNH TRƯỚNG TINH VÂN R=${domainRadius}!`
+        : isV2
+          ? `🌌 [V2 GIỚI HẠN] BÀNH TRƯỚNG R=${domainRadius}!`
+          : `🌌 BÀNH TRƯỚNG KHÔNG GIAN R=${domainRadius}!`,
+      isV2 ? V2_PALETTE.accent : "#e0aaff",
     );
 
-    // Đồng bộ Lãnh Địa Không Gian sang màn hình của toàn bộ người chơi Online
     eventBus.emit("SKILL_BROADCAST", {
       type: "space_domain",
       x: player.x,
       y: player.y,
       maxR: domainRadius,
       duration: domainDuration,
-      color: "#9d4edd",
+      color: isV2 ? V2_PALETTE.border : "#9d4edd",
     });
     eventBus.emit("SKILL_USED_FOR_QUEST");
+    return true;
   }
 
-  executeTeleport(player, targetX, targetY, particleSystem, camera) {
+  executeTeleport(
+    player,
+    targetX,
+    targetY,
+    particleSystem,
+    camera,
+    isV2 = false,
+  ) {
     if (!this.domain || this.domain.teleportCd > 0) return;
 
     const dx = targetX - this.domain.x;
@@ -187,10 +286,17 @@ export class SpaceFishSystem {
 
     const fromX = player.x;
     const fromY = player.y;
+    const v2Active = isV2 || this.domain.v2Mode !== "none";
 
     this.teleportPortals.push(
-      { x: fromX, y: fromY, r: player.radius * 1.4, life: 0.45 },
-      { x: finalX, y: finalY, r: player.radius * 1.6, life: 0.55 },
+      { x: fromX, y: fromY, r: player.radius * 1.4, life: 0.45, v2: v2Active },
+      {
+        x: finalX,
+        y: finalY,
+        r: player.radius * 1.7,
+        life: 0.55,
+        v2: v2Active,
+      },
     );
 
     player.x = finalX;
@@ -201,7 +307,12 @@ export class SpaceFishSystem {
 
     sound.playSkill();
     camera.shake = 7;
-    particleSystem.addShockwave(finalX, finalY, player.radius * 2.6, "#00f5d4");
+    particleSystem.addShockwave(
+      finalX,
+      finalY,
+      player.radius * (v2Active ? 3.2 : 2.6),
+      v2Active ? V2_PALETTE.accent : "#00f5d4",
+    );
 
     eventBus.emit("SKILL_BROADCAST", {
       type: "space_teleport",
@@ -210,18 +321,30 @@ export class SpaceFishSystem {
       x: finalX,
       y: finalY,
       maxR: player.radius * 2.6,
-      color: "#00f5d4",
+      color: v2Active ? V2_PALETTE.accent : "#00f5d4",
     });
     eventBus.emit("FORCE_SYNC_PLAYER");
   }
 
-  // SKILL 2 [Q]: LÁT CẮT KHÔNG GIAN (Tăng phạm vi & tầm xa theo cấp Lv.1 -> Lv.100)
-  triggerSkill2(player, context) {
-    if (!player || player.skill2CooldownTimer > 0) return;
+  // SKILL 2 [Q]: LÁT CẮT KHÔNG GIAN
+  triggerSkill2(player, context, customProfile = null) {
+    if (!player) return;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_space_2");
+    if (!customProfile?.skipNativeCd) {
+      if (player.skill2CooldownTimer > 0) return;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      player.skill2CooldownTimer =
+        4.2 * player.cdrMult * synCdr * profile.cdMult;
+    }
+
     const {
       enemies,
       remotePlayers,
       boss,
+      epicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
       input,
@@ -229,17 +352,17 @@ export class SpaceFishSystem {
       height,
     } = context;
 
-    const syn = player.getSynergies();
-    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    player.skill2CooldownTimer = 4.2 * player.cdrMult * synCdr;
-
     const inside = this.isInsideDomain(player);
-    const t = calcLevelProgress(player.level);
-    const levelFactor = Math.min(100, Math.max(1, player.level));
-    const baseDmg = Math.round((38 + levelFactor * 1.1) * player.bitePower);
+    const isV2 = profile.v2Mode !== "none";
+    const isTrueV2 = profile.v2Mode === "true";
+    const t = calcLevelProgress(profile.effectiveLevel);
+    const levelFactor = Math.min(100, Math.max(1, profile.effectiveLevel));
+    const baseDmg = Math.round(
+      (38 + levelFactor * 1.1) * player.bitePower * profile.powerMult,
+    );
 
     sound.playSkill();
-    camera.shake = 9;
+    camera.shake = isV2 ? 12 : 9;
 
     const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
     const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
@@ -249,28 +372,43 @@ export class SpaceFishSystem {
         ? player.angle
         : Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-      // Quy mô lưỡi liềm & tầm bay tăng mạnh theo cấp (Lv.1 -> Lv.100)
-      const slashSize = Math.round(player.radius * 1.2 + 36 + t * 240);
-      const slashRange = Math.round(620 + t * 1450);
+      const slashSize = Math.round(
+        (player.radius * 1.2 + 36 + t * 240) * profile.radiusMult,
+      );
+      const slashRange = Math.round((620 + t * 1450) * profile.radiusMult);
 
-      this.slashes.push({
-        x: player.x + Math.cos(aimAngle) * player.radius,
-        y: player.y + Math.sin(aimAngle) * player.radius,
-        angle: aimAngle,
-        speed: 15.5 + t * 4.5,
-        size: slashSize,
-        traveled: 0,
-        maxRange: slashRange,
-        dmg: baseDmg,
-        hitIds: new Set(),
-        hitBoss: false,
+      // True V2 bắn 3 lưỡi liềm hình quạt; Limited V2 bắn 2 lưỡi liềm; Thường bắn 1 lưỡi liềm
+      const fanAngles = isTrueV2
+        ? [aimAngle - 0.28, aimAngle, aimAngle + 0.28]
+        : isV2
+          ? [aimAngle - 0.16, aimAngle + 0.16]
+          : [aimAngle];
+
+      fanAngles.forEach((ang) => {
+        this.slashes.push({
+          x: player.x + Math.cos(ang) * player.radius,
+          y: player.y + Math.sin(ang) * player.radius,
+          angle: ang,
+          speed: 15.5 + t * 4.5,
+          size: slashSize,
+          traveled: 0,
+          maxRange: slashRange,
+          dmg: baseDmg,
+          hitIds: new Set(),
+          hitBoss: false,
+          v2Mode: profile.v2Mode,
+        });
       });
 
       particleSystem.addFloatingText(
         player.x,
         player.y - player.radius - 20,
-        "🌙 LÁT CẮT KHÔNG GIAN!",
-        "#c77dff",
+        isTrueV2
+          ? "🌙 [V2] TAM TRẢM HƯ KHÔNG!"
+          : isV2
+            ? "🌙 [V2] SONG TRẢM KHÔNG GIAN!"
+            : "🌙 LÁT CẮT KHÔNG GIAN!",
+        isV2 ? V2_PALETTE.accent : "#c77dff",
       );
 
       eventBus.emit("SKILL_BROADCAST", {
@@ -280,7 +418,7 @@ export class SpaceFishSystem {
         angle: aimAngle,
         size: slashSize,
         maxRange: slashRange,
-        color: "#e0aaff",
+        color: isV2 ? V2_PALETTE.border : "#e0aaff",
       });
     } else {
       let target = null;
@@ -289,18 +427,20 @@ export class SpaceFishSystem {
       const refX = input.isJoystickModeActive ? player.x : worldMouseX;
       const refY = input.isJoystickModeActive ? player.y : worldMouseY;
 
-      if (
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - this.domain.x, boss.y - this.domain.y) <=
-          this.domain.radius + boss.radius
-      ) {
-        const d = Math.hypot(boss.x - refX, boss.y - refY);
-        if (d < bestDist) {
-          bestDist = d;
-          target = { type: "boss", entity: boss, x: boss.x, y: boss.y };
+      [boss, epicBoss].forEach((b) => {
+        if (
+          b &&
+          b.hp > 0 &&
+          Math.hypot(b.x - this.domain.x, b.y - this.domain.y) <=
+            this.domain.radius + b.radius
+        ) {
+          const d = Math.hypot(b.x - refX, b.y - refY);
+          if (d < bestDist) {
+            bestDist = d;
+            target = { x: b.x, y: b.y };
+          }
         }
-      }
+      });
 
       enemies.forEach((e) => {
         if (
@@ -310,12 +450,12 @@ export class SpaceFishSystem {
           const d = Math.hypot(e.x - refX, e.y - refY);
           if (d < bestDist) {
             bestDist = d;
-            target = { type: "bot", entity: e, x: e.x, y: e.y };
+            target = { x: e.x, y: e.y };
           }
         }
       });
 
-      Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
+      Object.entries(remotePlayers || {}).forEach(([, rp]) => {
         if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
         if (
           Math.hypot(rp.x - this.domain.x, rp.y - this.domain.y) <=
@@ -324,7 +464,7 @@ export class SpaceFishSystem {
           const d = Math.hypot(rp.x - refX, rp.y - refY);
           if (d < bestDist) {
             bestDist = d;
-            target = { type: "player", id, entity: rp, x: rp.x, y: rp.y };
+            target = { x: rp.x, y: rp.y };
           }
         }
       });
@@ -342,8 +482,7 @@ export class SpaceFishSystem {
             Math.max(this.domain.y - this.domain.radius * 0.85, refY),
           );
 
-      // Bán kính Vết Nứt Tuyệt Đối tăng theo cấp (115px -> 360px)
-      const strikeR = Math.round(115 + t * 245);
+      const strikeR = Math.round((115 + t * 245) * profile.radiusMult);
       const strikeAngle = Math.random() * Math.PI;
 
       this.riftSlashes.push({
@@ -351,15 +490,31 @@ export class SpaceFishSystem {
         y: strikeY,
         r: strikeR,
         angle: strikeAngle,
-        life: 0.55,
+        life: 0.6,
+        v2Mode: profile.v2Mode,
       });
+      if (isV2) {
+        this.riftSlashes.push({
+          x: strikeX,
+          y: strikeY,
+          r: strikeR * 1.15,
+          angle: strikeAngle + Math.PI * 0.5,
+          life: 0.65,
+          v2Mode: profile.v2Mode,
+        });
+      }
 
-      particleSystem.addShockwave(strikeX, strikeY, strikeR * 1.3, "#ff006e");
+      particleSystem.addShockwave(
+        strikeX,
+        strikeY,
+        strikeR * 1.3,
+        isV2 ? V2_PALETTE.accent : "#ff006e",
+      );
       particleSystem.addFloatingText(
         strikeX,
         strikeY - 24,
-        "⚡ VẾT NỨT TUYỆT ĐỐI!",
-        "#ff006e",
+        isV2 ? "⚡ [V2] CHỮ THẬP TUYỆT ĐỐI!" : "⚡ VẾT NỨT TUYỆT ĐỐI!",
+        isV2 ? V2_PALETTE.accent : "#ff006e",
       );
 
       eventBus.emit("SKILL_BROADCAST", {
@@ -368,7 +523,7 @@ export class SpaceFishSystem {
         y: strikeY,
         maxR: strikeR,
         angle: strikeAngle,
-        color: "#ff006e",
+        color: isV2 ? V2_PALETTE.accent : "#ff006e",
       });
 
       const sureHitDmg = Math.round(baseDmg * 1.3);
@@ -381,11 +536,13 @@ export class SpaceFishSystem {
         player,
         particleSystem,
         camera,
+        epicBoss,
+        epicBossSystem,
       );
 
       enemies.forEach((e) => {
         if (Math.hypot(e.x - strikeX, e.y - strikeY) <= strikeR + e.radius) {
-          e.radius = Math.max(10, e.radius * 0.74);
+          e.radius = Math.max(10, e.radius * (isTrueV2 ? 0.65 : 0.74));
           e.stunTimer = Math.max(e.stunTimer, 0.9);
           this.applySpatialRift(e, 4.5);
           player.addScore(
@@ -419,13 +576,25 @@ export class SpaceFishSystem {
     }
   }
 
-  // SKILL 3 [R]: HẠ CẤP & BÓP MÉO KHÔNG GIAN (Tăng bán kính giam cầm & bóp méo theo cấp)
-  triggerSkill3(player, context) {
-    if (!player || player.skill3CooldownTimer > 0) return;
+  // SKILL 3 [R]: HẠ CẤP & BÓP MÉO KHÔNG GIAN
+  triggerSkill3(player, context, customProfile = null) {
+    if (!player) return;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_space_3");
+    if (!customProfile?.skipNativeCd) {
+      if (player.skill3CooldownTimer > 0) return;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      player.skill3CooldownTimer =
+        11.0 * player.cdrMult * synCdr * profile.cdMult;
+    }
+
     const {
       enemies,
       remotePlayers,
       boss,
+      epicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
       input,
@@ -433,18 +602,15 @@ export class SpaceFishSystem {
       height,
     } = context;
 
-    const syn = player.getSynergies();
-    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    player.skill3CooldownTimer = 11.0 * player.cdrMult * synCdr;
-
     const inside = this.isInsideDomain(player);
-    const t = calcLevelProgress(player.level);
-    const levelFactor = Math.min(100, Math.max(1, player.level));
+    const isV2 = profile.v2Mode !== "none";
+    const t = calcLevelProgress(profile.effectiveLevel);
+    const levelFactor = Math.min(100, Math.max(1, profile.effectiveLevel));
     const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
     const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
 
     sound.playEvolution();
-    camera.shake = 16;
+    camera.shake = isV2 ? 20 : 16;
     eventBus.emit("HIT_STOP", 0.045);
 
     if (!inside) {
@@ -452,10 +618,11 @@ export class SpaceFishSystem {
         ? player.angle
         : Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-      // Bán kính Bán Lãnh Địa tăng theo cấp: Lv.1 = 260px -> Lv.100 = 850px
-      const cageRadius = Math.round(260 + t * 590);
-      const maxDist = Math.round(620 + t * 900);
-      const crushDmg = Math.round((56 + levelFactor * 1.45) * player.bitePower);
+      const cageRadius = Math.round((260 + t * 590) * profile.radiusMult);
+      const maxDist = Math.round((620 + t * 900) * profile.radiusMult);
+      const crushDmg = Math.round(
+        (56 + levelFactor * 1.45) * player.bitePower * profile.powerMult,
+      );
 
       this.orbs.push({
         x: player.x + Math.cos(aimAngle) * (player.radius + 14),
@@ -468,13 +635,16 @@ export class SpaceFishSystem {
         maxDist,
         cageRadius,
         crushDmg,
+        v2Mode: profile.v2Mode,
       });
 
       particleSystem.addFloatingText(
         player.x,
         player.y - player.radius - 26,
-        `🔮 QUẢ CẦU BÁN LÃNH ĐỊA (R=${cageRadius})!`,
-        "#ffbe0b",
+        isV2
+          ? `🔮 [V2] HỐ ĐEN BÁN LÃNH ĐỊA (R=${cageRadius})!`
+          : `🔮 QUẢ CẦU BÁN LÃNH ĐỊA (R=${cageRadius})!`,
+        isV2 ? V2_PALETTE.border : "#ffbe0b",
       );
 
       eventBus.emit("SKILL_BROADCAST", {
@@ -484,26 +654,29 @@ export class SpaceFishSystem {
         angle: aimAngle,
         maxRange: maxDist,
         maxR: cageRadius,
-        color: "#ffbe0b",
+        color: isV2 ? V2_PALETTE.border : "#ffbe0b",
       });
     } else {
       let targetX = input.isJoystickModeActive ? player.x : worldMouseX;
       let targetY = input.isJoystickModeActive ? player.y : worldMouseY;
 
       let bestDist = 360;
-      if (
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - this.domain.x, boss.y - this.domain.y) <=
-          this.domain.radius
-      ) {
-        const d = Math.hypot(boss.x - targetX, boss.y - targetY);
-        if (d < bestDist) {
-          bestDist = d;
-          targetX = boss.x;
-          targetY = boss.y;
+      [boss, epicBoss].forEach((b) => {
+        if (
+          b &&
+          b.hp > 0 &&
+          Math.hypot(b.x - this.domain.x, b.y - this.domain.y) <=
+            this.domain.radius
+        ) {
+          const d = Math.hypot(b.x - targetX, b.y - targetY);
+          if (d < bestDist) {
+            bestDist = d;
+            targetX = b.x;
+            targetY = b.y;
+          }
         }
-      }
+      });
+
       enemies.forEach((e) => {
         if (
           Math.hypot(e.x - this.domain.x, e.y - this.domain.y) <=
@@ -517,6 +690,7 @@ export class SpaceFishSystem {
           }
         }
       });
+
       Object.values(remotePlayers || {}).forEach((rp) => {
         if (!rp || rp.isStealthed) return;
         if (
@@ -532,10 +706,9 @@ export class SpaceFishSystem {
         }
       });
 
-      // Bán kính Bóp Méo Tức Thì tăng theo cấp: Lv.1 = 230px -> Lv.100 = 780px
-      const crushRadius = Math.round(230 + t * 550);
+      const crushRadius = Math.round((230 + t * 550) * profile.radiusMult);
       const instantDmg = Math.round(
-        (68 + levelFactor * 1.75) * player.bitePower,
+        (68 + levelFactor * 1.75) * player.bitePower * profile.powerMult,
       );
 
       this.triggerDimensionalCrush(
@@ -549,13 +722,18 @@ export class SpaceFishSystem {
         boss,
         particleSystem,
         camera,
+        epicBoss,
+        epicBossSystem,
+        profile.v2Mode,
       );
 
       particleSystem.addFloatingText(
         targetX,
         targetY - 30,
-        "💥 HẠ CẤP KHÔNG GIAN TỨC THÌ!",
-        "#ff006e",
+        isV2
+          ? "💥 [V2] SỤP ĐỔ HỐ ĐEN TỨC THÌ!"
+          : "💥 HẠ CẤP KHÔNG GIAN TỨC THÌ!",
+        isV2 ? V2_PALETTE.accent : "#ff006e",
       );
     }
   }
@@ -571,19 +749,33 @@ export class SpaceFishSystem {
     boss,
     particleSystem,
     camera,
+    epicBoss = null,
+    epicBossSystem = null,
+    v2Mode = "none",
   ) {
-    this.implosions.push({ x: cx, y: cy, r: radius, life: 0.65 });
+    const isV2 = v2Mode !== "none";
+    this.implosions.push({ x: cx, y: cy, r: radius, life: 0.65, v2Mode });
     sound.playEvolution();
-    camera.shake = 18;
-    particleSystem.addShockwave(cx, cy, radius * 1.35, "#ff006e");
-    particleSystem.addShockwave(cx, cy, radius * 0.85, "#fee440");
+    camera.shake = isV2 ? 22 : 18;
+    particleSystem.addShockwave(
+      cx,
+      cy,
+      radius * 1.35,
+      isV2 ? V2_PALETTE.accent : "#ff006e",
+    );
+    particleSystem.addShockwave(
+      cx,
+      cy,
+      radius * 0.85,
+      isV2 ? V2_PALETTE.border : "#fee440",
+    );
 
     eventBus.emit("SKILL_BROADCAST", {
       type: "space_crush",
       x: cx,
       y: cy,
       maxR: radius,
-      color: "#ff006e",
+      color: isV2 ? V2_PALETTE.accent : "#ff006e",
     });
 
     this.damageBossIfHit(
@@ -595,6 +787,8 @@ export class SpaceFishSystem {
       player,
       particleSystem,
       camera,
+      epicBoss,
+      epicBossSystem,
     );
 
     enemies.forEach((e) => {
@@ -635,9 +829,17 @@ export class SpaceFishSystem {
   }
 
   update(dt, state) {
-    const { player, enemies, remotePlayers, boss, particleSystem, camera } =
-      state;
-    if (!player || player.species !== "space") return;
+    const {
+      player,
+      enemies,
+      remotePlayers,
+      boss,
+      epicBoss,
+      epicBossSystem,
+      particleSystem,
+      camera,
+    } = state;
+    if (!player) return;
 
     const frameScale = dt * 60;
 
@@ -677,9 +879,9 @@ export class SpaceFishSystem {
         }
       }
     });
-    player.spatialHuntBonus = nearRiftedEnemy ? 0.35 : 0;
+    player.spatialHuntBonus =
+      player.species === "space" && nearRiftedEnemy ? 0.35 : 0;
 
-    // Cập nhật Lát Cắt Không Gian (Skill 2 Ngoài Lãnh Địa)
     for (let i = this.slashes.length - 1; i >= 0; i--) {
       const s = this.slashes[i];
       const step = s.speed * frameScale;
@@ -687,9 +889,8 @@ export class SpaceFishSystem {
       s.y += Math.sin(s.angle) * step;
       s.traveled += step;
 
-      if (!s.hitBoss && boss && boss.hp > 0) {
-        if (Math.hypot(boss.x - s.x, boss.y - s.y) < s.size + boss.radius) {
-          s.hitBoss = true;
+      if (!s.hitBoss) {
+        if (
           this.damageBossIfHit(
             boss,
             s.x,
@@ -699,7 +900,11 @@ export class SpaceFishSystem {
             player,
             particleSystem,
             camera,
-          );
+            epicBoss,
+            epicBossSystem,
+          )
+        ) {
+          s.hitBoss = true;
         }
       }
 
@@ -717,7 +922,7 @@ export class SpaceFishSystem {
             e.x,
             e.y - 16,
             "🌙 RẠN NỨT!",
-            "#c77dff",
+            s.v2Mode !== "none" ? V2_PALETTE.accent : "#c77dff",
           );
         }
       });
@@ -750,7 +955,6 @@ export class SpaceFishSystem {
       }
     }
 
-    // Cập nhật Quả Cầu Không Gian -> Bán Lãnh Địa (Skill 3 Ngoài Lãnh Địa)
     for (let i = this.orbs.length - 1; i >= 0; i--) {
       const o = this.orbs[i];
       const step = o.speed * frameScale;
@@ -760,9 +964,13 @@ export class SpaceFishSystem {
       o.r = Math.min(o.maxOrbR, o.r + 0.45 * frameScale);
 
       const hitBoss =
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - o.x, boss.y - o.y) < o.r + boss.radius;
+        (boss &&
+          boss.hp > 0 &&
+          Math.hypot(boss.x - o.x, boss.y - o.y) < o.r + boss.radius) ||
+        (epicBoss &&
+          epicBoss.hp > 0 &&
+          Math.hypot(epicBoss.x - o.x, epicBoss.y - o.y) <
+            o.r + epicBoss.radius);
       const hitBot = enemies.some(
         (e) => Math.hypot(e.x - o.x, e.y - o.y) < o.r + e.radius,
       );
@@ -803,22 +1011,27 @@ export class SpaceFishSystem {
           crushDmg: o.crushDmg,
           markedBots,
           markedPlayers,
+          v2Mode: o.v2Mode,
         });
 
-        particleSystem.addShockwave(o.x, o.y, o.cageRadius, "#ffbe0b");
+        particleSystem.addShockwave(
+          o.x,
+          o.y,
+          o.cageRadius,
+          o.v2Mode !== "none" ? V2_PALETTE.border : "#ffbe0b",
+        );
         eventBus.emit("SKILL_BROADCAST", {
           type: "space_semi_domain",
           x: o.x,
           y: o.y,
           maxR: o.cageRadius,
           duration: 1.35,
-          color: "#ffbe0b",
+          color: o.v2Mode !== "none" ? V2_PALETTE.border : "#ffbe0b",
         });
         this.orbs.splice(i, 1);
       }
     }
 
-    // Cập nhật Ma Trận Giam Cầm Bán Lãnh Địa
     for (let i = this.semiDomains.length - 1; i >= 0; i--) {
       const sd = this.semiDomains[i];
       sd.timer -= dt;
@@ -850,6 +1063,8 @@ export class SpaceFishSystem {
           player,
           particleSystem,
           camera,
+          epicBoss,
+          epicBossSystem,
         );
 
         sd.markedBots.forEach((e) => {
@@ -885,15 +1100,21 @@ export class SpaceFishSystem {
           y: sd.y,
           r: sd.radius * 0.85,
           life: 0.65,
+          v2Mode: sd.v2Mode,
         });
         sound.playEvolution();
         camera.shake = 18;
-        particleSystem.addShockwave(sd.x, sd.y, sd.radius * 1.15, "#ff006e");
+        particleSystem.addShockwave(
+          sd.x,
+          sd.y,
+          sd.radius * 1.15,
+          sd.v2Mode !== "none" ? V2_PALETTE.accent : "#ff006e",
+        );
         particleSystem.addFloatingText(
           sd.x,
           sd.y - 25,
           "🌀 GIẬT NGƯỢC & HẠ CẤP KHÔNG GIAN!",
-          "#ffbe0b",
+          sd.v2Mode !== "none" ? V2_PALETTE.accent : "#ffbe0b",
         );
 
         eventBus.emit("SKILL_BROADCAST", {
@@ -901,7 +1122,7 @@ export class SpaceFishSystem {
           x: sd.x,
           y: sd.y,
           maxR: sd.radius,
-          color: "#ff006e",
+          color: sd.v2Mode !== "none" ? V2_PALETTE.accent : "#ff006e",
         });
 
         this.semiDomains.splice(i, 1);
@@ -925,6 +1146,7 @@ export class SpaceFishSystem {
   drawWorldEffects(ctx, time, enemies = [], remotePlayers = {}) {
     if (this.domain) {
       const d = this.domain;
+      const isV2 = d.v2Mode !== "none";
       ctx.save();
       ctx.translate(d.x, d.y);
 
@@ -936,9 +1158,15 @@ export class SpaceFishSystem {
         0,
         d.radius,
       );
-      spaceGrad.addColorStop(0, "rgba(16, 0, 43, 0.35)");
-      spaceGrad.addColorStop(0.7, "rgba(60, 9, 108, 0.45)");
-      spaceGrad.addColorStop(1, "rgba(157, 78, 221, 0.68)");
+      if (isV2) {
+        spaceGrad.addColorStop(0, "rgba(40, 0, 20, 0.35)");
+        spaceGrad.addColorStop(0.68, V2_PALETTE.fill);
+        spaceGrad.addColorStop(1, "rgba(254, 228, 64, 0.68)");
+      } else {
+        spaceGrad.addColorStop(0, "rgba(16, 0, 43, 0.35)");
+        spaceGrad.addColorStop(0.7, "rgba(60, 9, 108, 0.45)");
+        spaceGrad.addColorStop(1, "rgba(157, 78, 221, 0.68)");
+      }
       ctx.fillStyle = spaceGrad;
       ctx.beginPath();
       ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
@@ -946,8 +1174,8 @@ export class SpaceFishSystem {
 
       ctx.save();
       ctx.rotate(time * 0.0012);
-      ctx.strokeStyle = "#e0aaff";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = isV2 ? V2_PALETTE.accent : "#e0aaff";
+      ctx.lineWidth = isV2 ? 5 : 4;
       ctx.setLineDash([24, 12]);
       ctx.beginPath();
       ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
@@ -956,8 +1184,8 @@ export class SpaceFishSystem {
 
       ctx.save();
       ctx.rotate(-time * 0.002);
-      ctx.strokeStyle = "rgba(0, 245, 212, 0.55)";
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = isV2 ? V2_PALETTE.border : "rgba(0, 245, 212, 0.55)";
+      ctx.lineWidth = 2.5;
       ctx.setLineDash([10, 14]);
       ctx.beginPath();
       ctx.arc(0, 0, d.radius * 0.72, 0, Math.PI * 2);
@@ -967,12 +1195,18 @@ export class SpaceFishSystem {
       for (let s = 0; s < 14; s++) {
         const ang = (s * Math.PI * 2) / 14 + time * 0.0005;
         const dist = d.radius * (0.25 + ((s * 37) % 65) / 100);
-        ctx.fillStyle = s % 2 === 0 ? "#00f5d4" : "#fee440";
+        ctx.fillStyle = isV2
+          ? s % 2 === 0
+            ? "#ff006e"
+            : "#fee440"
+          : s % 2 === 0
+            ? "#00f5d4"
+            : "#fee440";
         ctx.beginPath();
         ctx.arc(
           Math.cos(ang) * dist,
           Math.sin(ang) * dist,
-          2.5,
+          isV2 ? 3.5 : 2.5,
           0,
           Math.PI * 2,
         );
@@ -983,12 +1217,15 @@ export class SpaceFishSystem {
     }
 
     this.slashes.forEach((s) => {
+      const isV2 = s.v2Mode !== "none";
       ctx.save();
       ctx.translate(s.x, s.y);
       ctx.rotate(s.angle);
-      ctx.strokeStyle = "#e0aaff";
-      ctx.fillStyle = "rgba(157, 78, 221, 0.55)";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = isV2 ? V2_PALETTE.accent : "#e0aaff";
+      ctx.fillStyle = isV2
+        ? "rgba(255, 0, 110, 0.65)"
+        : "rgba(157, 78, 221, 0.55)";
+      ctx.lineWidth = isV2 ? 5 : 4;
       ctx.beginPath();
       ctx.arc(0, 0, s.size, -Math.PI * 0.42, Math.PI * 0.42);
       ctx.quadraticCurveTo(
@@ -1003,18 +1240,19 @@ export class SpaceFishSystem {
     });
 
     this.riftSlashes.forEach((rs) => {
+      const isV2 = rs.v2Mode !== "none";
       ctx.save();
       ctx.translate(rs.x, rs.y);
       ctx.rotate(rs.angle);
       ctx.globalAlpha = Math.min(1, rs.life * 2.5);
-      ctx.strokeStyle = "#ff006e";
-      ctx.lineWidth = 6;
+      ctx.strokeStyle = isV2 ? V2_PALETTE.accent : "#ff006e";
+      ctx.lineWidth = isV2 ? 8 : 6;
       ctx.beginPath();
       ctx.moveTo(-rs.r, 0);
       ctx.lineTo(rs.r, 0);
       ctx.stroke();
 
-      ctx.strokeStyle = "#ffffff";
+      ctx.strokeStyle = isV2 ? V2_PALETTE.border : "#ffffff";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.moveTo(-rs.r * 0.85, 0);
@@ -1024,11 +1262,12 @@ export class SpaceFishSystem {
     });
 
     this.orbs.forEach((o) => {
+      const isV2 = o.v2Mode !== "none";
       ctx.save();
       ctx.translate(o.x, o.y);
       const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, o.r);
       grad.addColorStop(0, "#ffffff");
-      grad.addColorStop(0.45, "#9d4edd");
+      grad.addColorStop(0.45, isV2 ? V2_PALETTE.border : "#9d4edd");
       grad.addColorStop(1, "rgba(16, 0, 43, 0.85)");
       ctx.fillStyle = grad;
       ctx.beginPath();
@@ -1041,17 +1280,20 @@ export class SpaceFishSystem {
     });
 
     this.semiDomains.forEach((sd) => {
+      const isV2 = sd.v2Mode !== "none";
       ctx.save();
       const progress = 1 - sd.timer / sd.maxTimer;
-      ctx.fillStyle = "rgba(114, 9, 183, 0.25)";
-      ctx.strokeStyle = "#ffbe0b";
+      ctx.fillStyle = isV2
+        ? "rgba(255, 0, 110, 0.25)"
+        : "rgba(114, 9, 183, 0.25)";
+      ctx.strokeStyle = isV2 ? V2_PALETTE.accent : "#ffbe0b";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(sd.x, sd.y, sd.radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      ctx.strokeStyle = "#ff006e";
+      ctx.strokeStyle = isV2 ? V2_PALETTE.glow : "#ff006e";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(sd.x, sd.y, sd.radius * (1 - progress), 0, Math.PI * 2);
@@ -1079,10 +1321,11 @@ export class SpaceFishSystem {
     });
 
     this.implosions.forEach((imp) => {
+      const isV2 = imp.v2Mode !== "none";
       ctx.save();
       ctx.globalAlpha = Math.min(1, imp.life * 1.8);
-      ctx.fillStyle = "rgba(16, 0, 43, 0.78)";
-      ctx.strokeStyle = "#ff006e";
+      ctx.fillStyle = isV2 ? "rgba(120, 0, 40, 0.78)" : "rgba(16, 0, 43, 0.78)";
+      ctx.strokeStyle = isV2 ? V2_PALETTE.accent : "#ff006e";
       ctx.lineWidth = 5;
       ctx.beginPath();
       ctx.arc(imp.x, imp.y, imp.r * imp.life, 0, Math.PI * 2);
@@ -1094,7 +1337,7 @@ export class SpaceFishSystem {
     this.teleportPortals.forEach((pt) => {
       ctx.save();
       ctx.globalAlpha = Math.min(1, pt.life * 2);
-      ctx.strokeStyle = "#00f5d4";
+      ctx.strokeStyle = pt.v2 ? V2_PALETTE.accent : "#00f5d4";
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(pt.x, pt.y, pt.r, 0, Math.PI * 2);

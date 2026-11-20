@@ -117,6 +117,18 @@ export class AdminPanel {
             <button type="button" id="btn-adm-spawn-boss" class="btn-hud" style="grid-column: span 2; border-color:#ff006e; color:#ff758f;">
               🐉 Triệu Hồi Siêu Boss Leviathan
             </button>
+            <button type="button" id="btn-adm-spawn-space-boss" class="btn-hud" style="border-color:#c77dff; color:#e0aaff;">
+              🌌 Spawn Boss Không Gian (Lv.50)
+            </button>
+            <button type="button" id="btn-adm-spawn-time-boss" class="btn-hud" style="border-color:#fbbf24; color:#fef08a;">
+              ⏳ Spawn Boss Thời Gian (Lv.75)
+            </button>
+            <button type="button" id="btn-adm-drop-space-core" class="btn-hud" style="border-color:#9d4edd; color:#e0aaff;">
+              💠 Test Rớt Lõi Không Gian
+            </button>
+            <button type="button" id="btn-adm-drop-time-core" class="btn-hud" style="border-color:#f59e0b; color:#fef08a;">
+              💠 Test Rớt Lõi Thời Gian
+            </button>
           </div>
         </div>
       </div>
@@ -268,6 +280,46 @@ export class AdminPanel {
         eventBus.emit("ADMIN_SPAWN_BOSS");
         this.panelEl.classList.add("hidden");
       });
+
+    document
+      .getElementById("btn-adm-spawn-space-boss")
+      .addEventListener("click", () => {
+        const p = this.getPlayerFn();
+        if (!this.isAdmin || !p)
+          return alert("Bạn cần vào trong phòng chơi trước!");
+        eventBus.emit("ADMIN_SPAWN_EPIC_BOSS", "space");
+        this.panelEl.classList.add("hidden");
+      });
+
+    document
+      .getElementById("btn-adm-spawn-time-boss")
+      .addEventListener("click", () => {
+        const p = this.getPlayerFn();
+        if (!this.isAdmin || !p)
+          return alert("Bạn cần vào trong phòng chơi trước!");
+        eventBus.emit("ADMIN_SPAWN_EPIC_BOSS", "time");
+        this.panelEl.classList.add("hidden");
+      });
+
+    document
+      .getElementById("btn-adm-drop-space-core")
+      .addEventListener("click", () => {
+        const p = this.getPlayerFn();
+        if (!this.isAdmin || !p)
+          return alert("Bạn cần vào trong phòng chơi trước!");
+        eventBus.emit("ADMIN_TEST_BOSS_CORE", "space");
+        this.panelEl.classList.add("hidden");
+      });
+
+    document
+      .getElementById("btn-adm-drop-time-core")
+      .addEventListener("click", () => {
+        const p = this.getPlayerFn();
+        if (!this.isAdmin || !p)
+          return alert("Bạn cần vào trong phòng chơi trước!");
+        eventBus.emit("ADMIN_TEST_BOSS_CORE", "time");
+        this.panelEl.classList.add("hidden");
+      });
   }
 
   toggle() {
@@ -291,4 +343,3 @@ export class AdminPanel {
     }
   }
 }
-

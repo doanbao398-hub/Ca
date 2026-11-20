@@ -16,6 +16,8 @@ export class PassiveAndAugmentSystem {
       enemies,
       remotePlayers,
       boss,
+      epicBoss,
+      epicBossSystem,
       pearls,
       particleSystem,
       camera,
@@ -227,9 +229,16 @@ export class PassiveAndAugmentSystem {
         ps.orbitalTimer += dt;
         if (ps.orbitalTimer >= 2.2) {
           ps.orbitalTimer = 0;
-          const targetBossOrBot = boss || enemies[0];
+          const targetBossOrBot = epicBoss || boss || enemies[0];
           if (targetBossOrBot) {
-            if (targetBossOrBot === boss) {
+            if (targetBossOrBot === epicBoss && epicBossSystem) {
+              epicBossSystem.damageBoss(
+                epicBoss,
+                55 * player.bitePower,
+                player,
+                particleSystem,
+              );
+            } else if (targetBossOrBot === boss) {
               boss.hp -= 55 * player.bitePower;
             } else {
               targetBossOrBot.radius *= 0.7;
@@ -353,4 +362,3 @@ export class PassiveAndAugmentSystem {
     ctx.restore();
   }
 }
-

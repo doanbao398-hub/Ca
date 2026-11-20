@@ -45,7 +45,9 @@
   justify-content: center;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(0, 245, 212, 0.35);
-  transition: transform 0.15s, border-color 0.2s;
+  transition:
+    transform 0.15s,
+    border-color 0.2s;
 }
 
 .chat-floating-btn:active {
@@ -59,8 +61,12 @@
 }
 
 @keyframes chatPulse {
-  from { transform: scale(1); }
-  to { transform: scale(1.08); }
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.08);
+  }
 }
 
 .chat-unread-badge {
@@ -120,7 +126,7 @@
 }
 
 .chat-messages {
-  max-height: 110px;
+  max-height: 120px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -133,6 +139,19 @@
 .chat-msg-row {
   word-break: break-word;
   color: #e0fbfc;
+}
+
+.chat-msg-row.boss-spawn-msg {
+  background: linear-gradient(
+    90deg,
+    rgba(157, 78, 221, 0.28),
+    rgba(255, 0, 110, 0.22)
+  );
+  border-left: 3px solid #fee440;
+  padding: 4px 6px;
+  border-radius: 6px;
+  color: #fef08a;
+  font-weight: 800;
 }
 
 .chat-form {
@@ -227,7 +246,15 @@
 }
 
 .evo-badge.rainbow-badge {
-  background: linear-gradient(90deg, #ff006e, #ffbe0b, #06d6a0, #00bbf9, #8338ec, #ff006e);
+  background: linear-gradient(
+    90deg,
+    #ff006e,
+    #ffbe0b,
+    #06d6a0,
+    #00bbf9,
+    #8338ec,
+    #ff006e
+  );
   background-size: 300% 100%;
   color: #fff;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
@@ -235,8 +262,12 @@
 }
 
 @keyframes rainbowShift {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 300% 50%;
+  }
 }
 
 .bar-wrap {
@@ -296,8 +327,12 @@
 }
 
 @keyframes pulseBanner {
-  from { transform: translateX(-50%) scale(0.98); }
-  to { transform: translateX(-50%) scale(1.03); }
+  from {
+    transform: translateX(-50%) scale(0.98);
+  }
+  to {
+    transform: translateX(-50%) scale(1.03);
+  }
 }
 
 .hud-right-col {
@@ -361,7 +396,6 @@
   box-shadow: 0 0 12px rgba(0, 245, 212, 0.35);
 }
 
-/* PANEL THU GỌN / MỞ RỘNG TOP & NHIỆM VỤ */
 .leaderboard-panel,
 .quest-panel {
   width: 245px;
@@ -469,7 +503,6 @@
   gap: 6px;
 }
 
-/* CẦN GẠT CẢM ỨNG ĐIỆN THOẠI (VIRTUAL JOYSTICK) */
 .mobile-joystick-zone {
   display: none;
   pointer-events: auto;
@@ -549,7 +582,6 @@
   min-width: 0;
 }
 
-/* TÚI ĐỒ NHANH 3 Ô */
 .quick-bag-bar {
   display: flex;
   align-items: center;
@@ -572,7 +604,9 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.12s, border-color 0.2s;
+  transition:
+    transform 0.12s,
+    border-color 0.2s;
 }
 
 .bag-slot:hover {
@@ -601,14 +635,77 @@
   font-size: 19px;
 }
 
-/* CỤM NÚT KỸ NĂNG & TĂNG TỐC BÊN PHẢI */
+/* CỤM NÚT KỸ NĂNG, SKILL BOSS & TĂNG TỐC BÊN PHẢI */
 .action-cluster-right {
   display: flex;
+  flex-direction: column;
   align-items: flex-end;
-  gap: 8px;
+  gap: 6px;
   pointer-events: auto;
   flex-shrink: 0;
-  max-width: 52vw;
+  box-sizing: border-box;
+  max-width: calc(100vw - 160px);
+}
+
+.native-skills-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.boss-skills-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 5px;
+  max-width: 100%;
+}
+
+.boss-skill-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-radius: 11px;
+  background: rgba(16, 0, 43, 0.9);
+  border: 1.8px solid #c77dff;
+  color: #fff;
+  cursor: pointer;
+  font-size: 10.5px;
+  font-weight: 800;
+  box-shadow: 0 0 12px rgba(157, 78, 221, 0.35);
+}
+
+.boss-skill-btn.v2-awakened {
+  border-color: #fee440;
+  background: linear-gradient(
+    135deg,
+    rgba(90, 10, 45, 0.92),
+    rgba(20, 6, 36, 0.95)
+  );
+  box-shadow: 0 0 14px rgba(254, 228, 64, 0.55);
+}
+
+.boss-skill-btn.cooldown {
+  opacity: 0.62;
+  border-color: rgba(255, 255, 255, 0.25);
+  box-shadow: none;
+}
+
+.boss-skill-key {
+  padding: 2px 5px;
+  border-radius: 5px;
+  background: #c77dff;
+  color: #10002b;
+  font-weight: 900;
+  font-size: 10px;
+}
+
+.boss-skill-btn.v2-awakened .boss-skill-key {
+  background: #fee440;
 }
 
 .skill-box {
@@ -794,9 +891,19 @@
     height: 38px;
   }
   .action-cluster-right {
-    gap: 6px;
+    max-width: 54vw;
+    gap: 4px;
+  }
+  .native-skills-row {
+    gap: 5px;
     align-items: center;
-    max-width: 55vw;
+  }
+  .boss-skills-bar {
+    gap: 4px;
+  }
+  .boss-skill-btn {
+    padding: 4px 6px;
+    font-size: 9.5px;
   }
   .skill-box {
     padding: 6px 8px;
@@ -810,8 +917,8 @@
     display: none;
   }
   #mobile-boost-btn {
-    width: 62px;
-    height: 62px;
+    width: 60px;
+    height: 60px;
     font-size: 9px;
   }
   .bag-slot {
@@ -886,7 +993,7 @@
     gap: 4px;
   }
   .hud-bottom-left {
-    max-width: 44vw;
+    max-width: 42vw;
   }
   .hud-radar-emote-row {
     flex-direction: column;
@@ -894,8 +1001,8 @@
     gap: 4px;
   }
   .minimap-wrap {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
   }
   .emote-bar {
     flex-direction: row;
@@ -907,16 +1014,16 @@
     font-size: 12px;
   }
   .mobile-joystick-zone {
-    width: 104px;
-    height: 104px;
+    width: 98px;
+    height: 98px;
   }
   .mobile-joystick-base {
-    width: 90px;
-    height: 90px;
+    width: 86px;
+    height: 86px;
   }
   .mobile-joystick-stick {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
   }
   .controls-center {
     margin: 0 2px;
@@ -927,21 +1034,37 @@
     gap: 4px;
   }
   .bag-slot {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
   }
   .bag-slot .slot-icon {
-    font-size: 14px;
+    font-size: 13px;
   }
   .action-cluster-right {
+    max-width: 43vw;
+    gap: 5px;
+  }
+  .boss-skills-bar {
+    display: grid;
+    grid-template-columns: repeat(2, auto);
+    gap: 4px;
+    justify-content: end;
+  }
+  .boss-skill-btn {
+    padding: 4px 5px;
+    font-size: 9px;
+  }
+  .boss-skill-btn .boss-skill-name {
+    display: none;
+  }
+  .native-skills-row {
     flex-direction: column;
     align-items: flex-end;
-    gap: 6px;
-    max-width: 40vw;
+    gap: 5px;
   }
   .skill-box {
-    padding: 6px 8px;
-    min-width: 92px;
+    padding: 5px 7px;
+    min-width: 88px;
     max-width: 100%;
     justify-content: flex-start;
     gap: 5px;
@@ -961,9 +1084,8 @@
     font-size: 8.5px !important;
   }
   #mobile-boost-btn {
-    width: 64px;
-    height: 64px;
+    width: 60px;
+    height: 60px;
     font-size: 9px;
   }
 }
-

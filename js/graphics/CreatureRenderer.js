@@ -27,6 +27,196 @@ function drawPufferfish(ctx, creature, r) {
   drawDetailedEye(ctx, r * 0.45, -r * 0.25, r * 0.22);
 }
 
+function drawCuteOctopus(ctx, creature, r, wag, colors) {
+  const { animPhase } = creature;
+
+  // 6 xúc tu uốn lượn phía sau dễ thương
+  ctx.strokeStyle = colors.secondary;
+  ctx.lineWidth = Math.max(3, r * 0.22);
+  ctx.lineCap = "round";
+  for (let t = -2; t <= 2; t++) {
+    const swing = Math.sin(animPhase + t * 0.9) * (r * 0.3);
+    ctx.beginPath();
+    ctx.moveTo(-r * 0.35, t * r * 0.24);
+    ctx.quadraticCurveTo(
+      -r * 1.1,
+      t * r * 0.34 + swing,
+      -r * 1.65,
+      t * r * 0.4 + swing * 1.3,
+    );
+    ctx.stroke();
+  }
+
+  // Đầu tròn bầu bĩnh
+  const headGrad = ctx.createRadialGradient(
+    r * 0.2,
+    -r * 0.2,
+    r * 0.1,
+    0,
+    0,
+    r * 1.0,
+  );
+  headGrad.addColorStop(0, colors.accent);
+  headGrad.addColorStop(0.55, colors.primary);
+  headGrad.addColorStop(1, colors.secondary);
+  ctx.fillStyle = headGrad;
+  ctx.beginPath();
+  ctx.ellipse(r * 0.08, 0, r * 0.92, r * 0.84, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Má hồng đáng yêu
+  ctx.fillStyle = "rgba(255, 77, 109, 0.5)";
+  ctx.beginPath();
+  ctx.ellipse(r * 0.35, -r * 0.34, r * 0.14, r * 0.09, 0, 0, Math.PI * 2);
+  ctx.ellipse(r * 0.35, r * 0.34, r * 0.14, r * 0.09, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Đôi mắt to long lanh
+  drawDetailedEye(ctx, r * 0.45, -r * 0.22, r * 0.19);
+  drawDetailedEye(ctx, r * 0.45, r * 0.22, r * 0.19);
+  ctx.fillStyle = "#fff";
+  ctx.beginPath();
+  ctx.arc(r * 0.48, -r * 0.26, r * 0.06, 0, Math.PI * 2);
+  ctx.arc(r * 0.48, r * 0.18, r * 0.06, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawMermaid(ctx, creature, r, wag, colors) {
+  // Đuôi cá lấp lánh
+  const tailGrad = ctx.createLinearGradient(-r * 1.8, 0, r * 0.2, 0);
+  tailGrad.addColorStop(0, colors.accent);
+  tailGrad.addColorStop(0.5, colors.primary);
+  tailGrad.addColorStop(1, colors.secondary);
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.2, -r * 0.34);
+  ctx.quadraticCurveTo(-r * 1.1, wag * 0.6, -r * 1.65, wag);
+  ctx.lineTo(-r * 2.15, -r * 0.58 + wag);
+  ctx.quadraticCurveTo(-r * 1.65, wag, -r * 1.65, wag);
+  ctx.lineTo(-r * 2.15, r * 0.58 + wag);
+  ctx.quadraticCurveTo(-r * 1.1, wag * 0.6, -r * 0.2, r * 0.34);
+  ctx.fill();
+
+  // Thân trên & áo vỏ sò
+  ctx.fillStyle = "#ffe5d9";
+  ctx.beginPath();
+  ctx.ellipse(r * 0.28, 0, r * 0.45, r * 0.32, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = colors.secondary;
+  ctx.beginPath();
+  ctx.arc(r * 0.2, -r * 0.14, r * 0.14, 0, Math.PI * 2);
+  ctx.arc(r * 0.2, r * 0.14, r * 0.14, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mái tóc bồng bềnh
+  ctx.fillStyle = "#ffd166";
+  ctx.beginPath();
+  ctx.ellipse(r * 0.65, 0, r * 0.55, r * 0.44, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Khuôn mặt & vương miện san hô
+  ctx.fillStyle = "#ffe5d9";
+  ctx.beginPath();
+  ctx.arc(r * 0.78, 0, r * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#00f5d4";
+  ctx.beginPath();
+  ctx.moveTo(r * 0.78, -r * 0.35);
+  ctx.lineTo(r * 0.94, -r * 0.52);
+  ctx.lineTo(r * 1.02, -r * 0.32);
+  ctx.closePath();
+  ctx.fill();
+
+  drawDetailedEye(ctx, r * 0.9, -r * 0.1, r * 0.1);
+}
+
+function drawSeahorse(ctx, creature, r, wag, colors) {
+  ctx.fillStyle = colors.secondary;
+  ctx.beginPath();
+  ctx.ellipse(
+    -r * 0.3,
+    -r * 0.55 + wag * 0.3,
+    r * 0.28,
+    r * 0.42,
+    -0.3,
+    0,
+    Math.PI * 2,
+  );
+  ctx.fill();
+
+  const bodyGrad = ctx.createLinearGradient(-r, 0, r, 0);
+  bodyGrad.addColorStop(0, colors.secondary);
+  bodyGrad.addColorStop(0.5, colors.primary);
+  bodyGrad.addColorStop(1, colors.accent);
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 0.95, r * 0.52, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Mõm dài đặc trưng
+  ctx.fillStyle = colors.accent;
+  ctx.beginPath();
+  ctx.roundRect(r * 0.7, -r * 0.14, r * 0.62, r * 0.24, 5);
+  ctx.fill();
+
+  drawDetailedEye(ctx, r * 0.5, -r * 0.16, r * 0.14);
+}
+
+function drawAnglerfish(ctx, creature, r, wag, colors) {
+  // Đuôi
+  ctx.fillStyle = colors.secondary;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.75, 0);
+  ctx.lineTo(-r * 1.5, -r * 0.55 + wag);
+  ctx.lineTo(-r * 1.5, r * 0.55 + wag);
+  ctx.closePath();
+  ctx.fill();
+
+  // Thân gai góc
+  ctx.fillStyle = colors.primary;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.0, r * 0.72, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Cần câu & Đèn lồng phát sáng phía trước
+  ctx.strokeStyle = "#90e0ef";
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(r * 0.45, -r * 0.55);
+  ctx.quadraticCurveTo(r * 1.1, -r * 1.1, r * 1.45, -r * 0.4);
+  ctx.stroke();
+
+  const glow = ctx.createRadialGradient(
+    r * 1.45,
+    -r * 0.4,
+    2,
+    r * 1.45,
+    -r * 0.4,
+    r * 0.55,
+  );
+  glow.addColorStop(0, "#ffffff");
+  glow.addColorStop(0.4, "#00f5d4");
+  glow.addColorStop(1, "rgba(0, 245, 212, 0)");
+  ctx.fillStyle = glow;
+  ctx.beginPath();
+  ctx.arc(r * 1.45, -r * 0.4, r * 0.55, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Răng nhọn
+  ctx.fillStyle = "#ffffff";
+  for (let i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(r * (0.4 + i * 0.14), r * 0.25);
+    ctx.lineTo(r * (0.46 + i * 0.14), r * 0.05);
+    ctx.lineTo(r * (0.52 + i * 0.14), r * 0.25);
+    ctx.fill();
+  }
+
+  drawDetailedEye(ctx, r * 0.48, -r * 0.2, r * 0.16);
+}
+
 function drawDetailedSwordfish(ctx, creature, r, wag, colors) {
   const { isPlayer, evoStage } = creature;
   ctx.fillStyle = colors.secondary;
@@ -290,7 +480,6 @@ function drawDetailedSpaceFish(ctx, creature, r, wag, colors) {
 function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   const spin = Date.now() * 0.003;
 
-  // 1. Vòng hào quang bánh răng thiên văn sau lưng
   ctx.save();
   ctx.translate(-r * 0.15, 0);
   ctx.rotate(spin);
@@ -310,7 +499,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   }
   ctx.restore();
 
-  // 2. Đuôi đồng hồ cát phát sáng hổ phách & ngọc bích
   const tailGrad = ctx.createLinearGradient(-r * 0.75, 0, -r * 2.25, 0);
   tailGrad.addColorStop(0, colors.primary);
   tailGrad.addColorStop(0.55, colors.accent);
@@ -324,7 +512,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   ctx.quadraticCurveTo(-r * 1.55, r * 1.0 + wag, -r * 0.75, 0);
   ctx.fill();
 
-  // 3. Cánh vây kim đồng hồ sắc bén 2 bên
   ctx.fillStyle = "rgba(245, 158, 11, 0.75)";
   ctx.strokeStyle = "#fef08a";
   ctx.lineWidth = 2;
@@ -344,7 +531,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   ctx.fill();
   ctx.stroke();
 
-  // 4. Thân cá giáp vàng cổ điển & xanh ngọc ánh kim
   const bodyGrad = ctx.createLinearGradient(
     -r * 1.1,
     -r * 0.6,
@@ -363,7 +549,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   ctx.lineWidth = 2.4;
   ctx.stroke();
 
-  // 5. Biểu tượng Đồng Hồ Cát Thời Gian khắc trên thân
   ctx.save();
   ctx.translate(-r * 0.1, 0);
   ctx.strokeStyle = "#0f172a";
@@ -379,7 +564,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   ctx.stroke();
   ctx.restore();
 
-  // 6. Mũi kiếm kim đồng hồ phía trước
   ctx.fillStyle = "#fef08a";
   ctx.beginPath();
   ctx.moveTo(r * 1.05, -r * 0.11);
@@ -388,7 +572,6 @@ function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
   ctx.closePath();
   ctx.fill();
 
-  // 7. Mắt ngọc thời gian phát sáng
   ctx.fillStyle = "#2dd4bf";
   ctx.beginPath();
   ctx.arc(r * 0.68, -r * 0.16, r * 0.17, 0, Math.PI * 2);
@@ -407,10 +590,13 @@ const SPECIES_RENDERERS = {
   space: drawDetailedSpaceFish,
   time: drawDetailedTimeFish,
   puffer: drawPufferfish,
+  octopus: drawCuteOctopus,
+  mermaid: drawMermaid,
+  seahorse: drawSeahorse,
+  angler: drawAnglerfish,
 };
 
 export function renderCreatureBody(ctx, creature, r, wag, activeColors = null) {
   const renderer = SPECIES_RENDERERS[creature.species] || drawDetailedSwordfish;
   renderer(ctx, creature, r, wag, activeColors || creature.colors);
 }
-

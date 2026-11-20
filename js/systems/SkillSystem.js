@@ -12,7 +12,10 @@ function getScaledSkillRadius(player, baseMult) {
 }
 
 const SKILL_HANDLERS = {
-  dash_stun: (player, { enemies, remotePlayers, boss, particleSystem }) => {
+  dash_stun: (
+    player,
+    { enemies, remotePlayers, boss, epicBoss, epicBossSystem, particleSystem },
+  ) => {
     const skillR = getScaledSkillRadius(player, 5);
     player.dashTimer = 0.45;
     particleSystem.addShockwave(player.x, player.y, skillR, "#00f5d4");
@@ -29,6 +32,21 @@ const SKILL_HANDLERS = {
     ) {
       boss.hp -= 45 * player.bitePower;
       boss.stunTimer = 2.0;
+    }
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - player.x, epicBoss.y - player.y) <
+        skillR + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(
+        epicBoss,
+        45 * player.bitePower,
+        player,
+        particleSystem,
+      );
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 1.5);
     }
     enemies.forEach((e) => {
       if (Math.hypot(e.x - player.x, e.y - player.y) < skillR) {
@@ -58,7 +76,10 @@ const SKILL_HANDLERS = {
     return skillR;
   },
 
-  fortress_shield: (player, { enemies, remotePlayers, boss, particleSystem }) => {
+  fortress_shield: (
+    player,
+    { enemies, remotePlayers, boss, epicBoss, epicBossSystem, particleSystem },
+  ) => {
     const skillR = getScaledSkillRadius(player, 5.5);
     player.invincibleTimer = 3.5;
     eventBus.emit("FORCE_SYNC_PLAYER");
@@ -76,6 +97,21 @@ const SKILL_HANDLERS = {
     ) {
       boss.hp -= 38 * player.bitePower;
       boss.stunTimer = 1.8;
+    }
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - player.x, epicBoss.y - player.y) <
+        skillR + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(
+        epicBoss,
+        38 * player.bitePower,
+        player,
+        particleSystem,
+      );
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 1.4);
     }
     enemies.forEach((e) => {
       const d = Math.hypot(e.x - player.x, e.y - player.y);
@@ -106,7 +142,10 @@ const SKILL_HANDLERS = {
     return skillR;
   },
 
-  whirlpool_pull: (player, { enemies, remotePlayers, boss, particleSystem }) => {
+  whirlpool_pull: (
+    player,
+    { enemies, remotePlayers, boss, epicBoss, epicBossSystem, particleSystem },
+  ) => {
     const skillR = getScaledSkillRadius(player, 6.5);
     particleSystem.addShockwave(player.x, player.y, skillR, "#52b788");
     particleSystem.addFloatingText(
@@ -122,6 +161,21 @@ const SKILL_HANDLERS = {
     ) {
       boss.hp -= 48 * player.bitePower;
       boss.stunTimer = 1.5;
+    }
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - player.x, epicBoss.y - player.y) <
+        skillR + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(
+        epicBoss,
+        48 * player.bitePower,
+        player,
+        particleSystem,
+      );
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 1.2);
     }
     enemies.forEach((e) => {
       const d = Math.hypot(e.x - player.x, e.y - player.y);
@@ -151,7 +205,10 @@ const SKILL_HANDLERS = {
     return skillR;
   },
 
-  emp_pulse: (player, { enemies, remotePlayers, boss, particleSystem }) => {
+  emp_pulse: (
+    player,
+    { enemies, remotePlayers, boss, epicBoss, epicBossSystem, particleSystem },
+  ) => {
     const skillR = getScaledSkillRadius(player, 7);
     particleSystem.addShockwave(player.x, player.y, skillR, "#fee440");
     particleSystem.addFloatingText(
@@ -167,6 +224,21 @@ const SKILL_HANDLERS = {
     ) {
       boss.hp -= 50 * player.bitePower;
       boss.stunTimer = 2.8;
+    }
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - player.x, epicBoss.y - player.y) <
+        skillR + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(
+        epicBoss,
+        50 * player.bitePower,
+        player,
+        particleSystem,
+      );
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 2.0);
     }
     enemies.forEach((e) => {
       if (Math.hypot(e.x - player.x, e.y - player.y) < skillR) {
@@ -200,7 +272,8 @@ export function triggerPlayerSkill(player, context) {
   const syn = player.getSynergies();
   const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
 
-  player.skillCooldownTimer = player.cfg.skillCooldown * player.cdrMult * synCdr;
+  player.skillCooldownTimer =
+    player.cfg.skillCooldown * player.cdrMult * synCdr;
   sound.playSkill();
   context.camera.shake = 10;
   eventBus.emit("HIT_STOP", 0.035);

@@ -15,6 +15,7 @@ import {
 } from "./graphics/MinimapRenderer.js";
 import { Player } from "./entities/Player.js";
 import { EnemyBot } from "./entities/EnemyBot.js";
+import { OceanNPC } from "./entities/OceanNPC.js";
 import { BossLeviathan } from "./entities/BossLeviathan.js";
 import { Pearl, DroppedItem } from "./entities/Pickups.js";
 import { triggerPlayerSkill } from "./systems/SkillSystem.js";
@@ -22,6 +23,7 @@ import { CombatSystem } from "./systems/CombatSystem.js";
 import { PassiveAndAugmentSystem } from "./systems/PassiveAndAugmentSystem.js";
 import { SpaceFishSystem } from "./systems/SpaceFishSystem.js";
 import { TimeFishSystem } from "./systems/TimeFishSystem.js";
+import { EpicBossSystem } from "./systems/EpicBossSystem.js";
 import { RoomSync } from "./network/RoomSync.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AdminPanel } from "./ui/AdminPanel.js";
@@ -47,6 +49,7 @@ const combatSystem = new CombatSystem();
 const passiveAndAugmentSystem = new PassiveAndAugmentSystem();
 const spaceFishSystem = new SpaceFishSystem();
 const timeFishSystem = new TimeFishSystem();
+const epicBossSystem = new EpicBossSystem();
 const roomSync = new RoomSync();
 const ui = new UIManager();
 const adminPanel = new AdminPanel(() => player, particleSystem, camera);
@@ -63,6 +66,7 @@ let player = null;
 let boss = null;
 let bossSpawned = false;
 let enemies = [];
+let npcs = [];
 let pearls = [];
 let meatChunks = [];
 let droppedItems = [];
@@ -194,6 +198,12 @@ function startGame() {
     enemies.push(e);
   }
 
+  npcs = [];
+  const npcCount = selectedMap === "hybrid" ? 6 : 4;
+  for (let i = 0; i < npcCount; i++) {
+    npcs.push(new OceanNPC(selectedMap, i % 2 === 0 ? "mermaid" : "octopus"));
+  }
+
   pearls = [];
   const pearlCount = selectedMap === "hybrid" ? 36 : 22;
   for (let i = 0; i < pearlCount; i++)
@@ -217,6 +227,7 @@ function startGame() {
   passiveAndAugmentSystem.clear();
   spaceFishSystem.clear();
   timeFishSystem.clear();
+  epicBossSystem.clearMatchEffects();
 
   quests = createInitialQuests();
   if (savedRun && Array.isArray(savedRun.quests)) {
@@ -246,6 +257,7 @@ function triggerGameOver(killerName = "") {
   roomSync.leaveRoom();
   spaceFishSystem.clear();
   timeFishSystem.clear();
+  epicBossSystem.clearMatchEffects();
 
   const earnedGems = Math.floor(player.score / 25) + player.evoStage * 20;
   storage.data.gems += earnedGems;
@@ -345,6 +357,29 @@ eventBus.on("ADMIN_SPAWN_BOSS", () => {
   camera.shake = 22;
 });
 
+eventBus.on("ADMIN_SPAWN_EPIC_BOSS", (bossType) => {
+  if (!player) return;
+  const worldSize = getWorldSize(selectedMap);
+  const b = epicBossSystem.spawnEpicBoss(bossType, selectedMap);
+  b.x = Math.min(worldSize - 300, player.x + 420);
+  b.y = player.y;
+  camera.shake = 20;
+});
+
+eventBus.on("ADMIN_TEST_BOSS_CORE", (bossType) => {
+  if (!player) return;
+  epicBossSystem.triggerBossCoreDrop(bossType, player);
+});
+
+eventBus.on("BOSS_CORE_DROPPED", (payload) => {
+  if (!player || gameState === "GAMEOVER") return;
+  gameState = "UPGRADE";
+  ui.enqueueBossCore(payload, player, particleSystem, () => {
+    if (player) storage.saveSpeciesRun(player, quests);
+    if (gameState === "UPGRADE") gameState = "PLAYING";
+  });
+});
+
 eventBus.on("PLAYER_LEVEL_UP", (level) => {
   if (player) storage.saveSpeciesRun(player, quests);
   if (level % 2 === 0 && player && gameState !== "GAMEOVER") {
@@ -394,114 +429,86 @@ eventBus.on("SKILL_USED_FOR_QUEST", () => {
   }
 });
 
+function buildSkillContext() {
+  return {
+    enemies,
+    remotePlayers: roomSync.remotePlayers,
+    boss,
+    epicBoss: epicBossSystem.getActiveBossInMap(selectedMap),
+    epicBossSystem,
+    particleSystem,
+    camera,
+    input,
+    width,
+    height,
+  };
+}
+
 // SKILL 1 [E]
 eventBus.on("INPUT_SKILL", () => {
   if (gameState !== "PLAYING" || !player) return;
+  const ctxObj = buildSkillContext();
   if (player.species === "space") {
-    spaceFishSystem.triggerSkill1(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    spaceFishSystem.triggerSkill1(player, ctxObj);
   } else if (player.species === "time") {
-    timeFishSystem.triggerSkill1(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    timeFishSystem.triggerSkill1(player, ctxObj);
   } else {
-    triggerPlayerSkill(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-    });
+    triggerPlayerSkill(player, ctxObj);
   }
 });
 
 // SKILL 2 [Q]
 eventBus.on("INPUT_SKILL_2", () => {
   if (gameState !== "PLAYING" || !player) return;
+  const ctxObj = buildSkillContext();
   if (player.species === "space") {
-    spaceFishSystem.triggerSkill2(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    spaceFishSystem.triggerSkill2(player, ctxObj);
   } else if (player.species === "time") {
-    timeFishSystem.triggerSkill2(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    timeFishSystem.triggerSkill2(player, ctxObj);
   }
 });
 
 // SKILL 3 / ULTIMATE [R]
 eventBus.on("INPUT_ULTIMATE", () => {
   if (gameState !== "PLAYING" || !player) return;
+  const ctxObj = buildSkillContext();
   if (player.species === "space") {
-    spaceFishSystem.triggerSkill3(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    spaceFishSystem.triggerSkill3(player, ctxObj);
   } else if (player.species === "time") {
-    timeFishSystem.triggerSkill3(player, {
-      enemies,
-      remotePlayers: roomSync.remotePlayers,
-      boss,
-      particleSystem,
-      camera,
-      input,
-      width,
-      height,
-    });
+    timeFishSystem.triggerSkill3(player, ctxObj);
   } else {
     player.useUltimate(particleSystem, camera);
   }
 });
 
-// XỬ LÝ CLICK / CHẠM ĐỂ DỊCH CHUYỂN TỨC THỜI TRONG LÃNH ĐỊA KHÔNG GIAN
+// BOSS SKILL MỞ KHÓA (Dùng phím tùy chỉnh hoặc chạm nút trên HUD)
+eventBus.on("INPUT_BOSS_SKILL", (skillId) => {
+  if (gameState !== "PLAYING" || !player) return;
+  const ctxObj = buildSkillContext();
+  if (skillId.startsWith("boss_space_")) {
+    spaceFishSystem.triggerBossSkill(skillId, player, ctxObj);
+  } else if (skillId.startsWith("boss_time_")) {
+    timeFishSystem.triggerBossSkill(skillId, player, ctxObj);
+  }
+});
+
+// CLICK / CHẠM ĐỂ DỊCH CHUYỂN TỨC THỜI TRONG LÃNH ĐỊA KHÔNG GIAN
 eventBus.on("CANVAS_POINTER_TAP", ({ clientX, clientY }) => {
-  if (gameState !== "PLAYING" || !player || player.species !== "space") return;
+  if (gameState !== "PLAYING" || !player) return;
   if (!player.spaceTeleportAiming || !spaceFishSystem.isInsideDomain(player))
     return;
 
   const tapWorldX = (clientX - width / 2) / camera.zoom + camera.x;
   const tapWorldY = (clientY - height / 2) / camera.zoom + camera.y;
+  const isV2 =
+    spaceFishSystem.domain?.v2Mode && spaceFishSystem.domain.v2Mode !== "none";
   spaceFishSystem.executeTeleport(
     player,
     tapWorldX,
     tapWorldY,
     particleSystem,
     camera,
+    isV2,
   );
 });
 
@@ -598,6 +605,7 @@ document.getElementById("btn-quit-lobby").addEventListener("click", () => {
   roomSync.leaveRoom();
   spaceFishSystem.clear();
   timeFishSystem.clear();
+  epicBossSystem.clearMatchEffects();
   player = null;
   ui.dom.pauseScreen.classList.add("hidden");
   ui.dom.lobbyScreen.classList.remove("hidden");
@@ -664,6 +672,8 @@ function gameLoop(time) {
 
   ctx.clearRect(0, 0, width, height);
 
+  const activeEpicBoss = epicBossSystem.getActiveBossInMap(selectedMap);
+
   if (gameState === "PLAYING" && player) {
     player.update(dt, {
       input,
@@ -678,11 +688,22 @@ function gameLoop(time) {
       zoneRadius,
       particleSystem,
     });
+    epicBossSystem.update(dt, {
+      player,
+      selectedMap,
+      droppedItems,
+      particleSystem,
+      camera,
+      worldEvent,
+    });
+    npcs.forEach((n) => n.update(player, dt, particleSystem));
     passiveAndAugmentSystem.update(dt, {
       player,
       enemies,
       remotePlayers: roomSync.remotePlayers,
       boss,
+      epicBoss: activeEpicBoss,
+      epicBossSystem,
       pearls,
       particleSystem,
       camera,
@@ -693,6 +714,8 @@ function gameLoop(time) {
       enemies,
       remotePlayers: roomSync.remotePlayers,
       boss,
+      epicBoss: activeEpicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
     });
@@ -701,6 +724,8 @@ function gameLoop(time) {
       enemies,
       remotePlayers: roomSync.remotePlayers,
       boss,
+      epicBoss: activeEpicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
     });
@@ -753,12 +778,15 @@ function gameLoop(time) {
   pearls.forEach((p) => p.draw(ctx));
   meatChunks.forEach((m) => m.draw(ctx));
   droppedItems.forEach((it) => it.draw(ctx));
+  npcs.forEach((n) => n.draw(ctx, time, false));
 
   if (boss && gameState === "PLAYING" && player) {
     boss.update(player, dt);
     boss.draw(ctx, time, true);
     boss.drawBossBar(ctx);
   }
+
+  epicBossSystem.drawWorldEffects(ctx, selectedMap, time);
 
   const targetCount = MAP_CONFIG[selectedMap].enemyCount;
   if (enemies.length < targetCount) {
@@ -800,6 +828,8 @@ function gameLoop(time) {
       enemies,
       remotePlayers: roomSync.remotePlayers,
       boss,
+      epicBoss: activeEpicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
       worldEvent,
@@ -822,13 +852,24 @@ function gameLoop(time) {
       width,
       height,
     });
+    epicBossSystem.drawBossDirectionArrow(
+      ctx,
+      player,
+      selectedMap,
+      camera,
+      width,
+      height,
+      time,
+    );
     drawMinimap(miniCtx, {
       player,
       enemies,
+      npcs,
       pearls,
       droppedItems,
       shrines: worldRenderer.shrines,
       boss,
+      epicBoss: activeEpicBoss,
       remotePlayers: roomSync.remotePlayers,
       selectedMap,
       selectedGameMode,

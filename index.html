@@ -281,73 +281,77 @@
           </div>
         </div>
 
-        <!-- Cụm Nút Kỹ Năng & Tăng Tốc Góc Phải -->
+        <!-- Cụm Nút Kỹ Năng, Skill Boss & Tăng Tốc Góc Phải -->
         <div class="action-cluster-right">
-          <div class="skill-box" id="skill-box">
-            <div class="skill-key">E</div>
-            <div>
-              <div
-                class="skill-title-text"
-                style="font-size: 12px; font-weight: 800; color: #fff"
-                id="hud-skill-name"
-              >
-                Xung Kích
-              </div>
-              <div
-                class="skill-subtext"
-                style="font-size: 10px; color: #00f5d4"
-                id="hud-skill-status"
-              >
-                Sẵn Sàng [E]
+          <div id="boss-skills-bar" class="boss-skills-bar"></div>
+
+          <div class="native-skills-row">
+            <div class="skill-box" id="skill-box">
+              <div class="skill-key">E</div>
+              <div>
+                <div
+                  class="skill-title-text"
+                  style="font-size: 12px; font-weight: 800; color: #fff"
+                  id="hud-skill-name"
+                >
+                  Xung Kích
+                </div>
+                <div
+                  class="skill-subtext"
+                  style="font-size: 10px; color: #00f5d4"
+                  id="hud-skill-status"
+                >
+                  Sẵn Sàng [E]
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="skill-box hidden" id="skill2-box">
-            <div class="skill-key">Q</div>
-            <div>
-              <div
-                class="skill-title-text"
-                style="font-size: 12px; font-weight: 800; color: #fff"
-                id="hud-skill2-name"
-              >
-                Lát Cắt
-              </div>
-              <div
-                class="skill-subtext"
-                style="font-size: 10px; color: #e0aaff"
-                id="hud-skill2-status"
-              >
-                Sẵn Sàng [Q]
+            <div class="skill-box hidden" id="skill2-box">
+              <div class="skill-key">Q</div>
+              <div>
+                <div
+                  class="skill-title-text"
+                  style="font-size: 12px; font-weight: 800; color: #fff"
+                  id="hud-skill2-name"
+                >
+                  Lát Cắt
+                </div>
+                <div
+                  class="skill-subtext"
+                  style="font-size: 10px; color: #e0aaff"
+                  id="hud-skill2-status"
+                >
+                  Sẵn Sàng [Q]
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="skill-box cooldown" id="ult-box">
-            <div class="skill-key">R</div>
-            <div>
-              <div
-                class="skill-title-text"
-                id="hud-ult-name"
-                style="font-size: 12px; font-weight: 800; color: #fff"
-              >
-                Hóa Thần
-              </div>
-              <div
-                class="skill-subtext"
-                style="font-size: 10px; color: #adb5bd"
-                id="hud-ult-status"
-              >
-                Nộ: 0%
+            <div class="skill-box cooldown" id="ult-box">
+              <div class="skill-key">R</div>
+              <div>
+                <div
+                  class="skill-title-text"
+                  id="hud-ult-name"
+                  style="font-size: 12px; font-weight: 800; color: #fff"
+                >
+                  Hóa Thần
+                </div>
+                <div
+                  class="skill-subtext"
+                  style="font-size: 10px; color: #adb5bd"
+                  id="hud-ult-status"
+                >
+                  Nộ: 0%
+                </div>
               </div>
             </div>
-          </div>
 
-          <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
-          <button type="button" id="mobile-boost-btn">
-            <span style="font-size: 16px">⚡</span>
-            <span>BƠI NHANH</span>
-          </button>
+            <!-- Nút Tăng Tốc Cảm Ứng Cho Mobile -->
+            <button type="button" id="mobile-boost-btn">
+              <span style="font-size: 16px">⚡</span>
+              <span>BƠI NHANH</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -415,7 +419,11 @@
     </div>
 
     <!-- MODAL XÁC NHẬN TRÙNG SINH MỞ KHÓA CÁ SỬ THI -->
-    <div id="rebirth-epic-modal" class="modal-screen hidden" style="z-index: 250">
+    <div
+      id="rebirth-epic-modal"
+      class="modal-screen hidden"
+      style="z-index: 250"
+    >
       <div
         class="lobby-container"
         style="
@@ -463,7 +471,7 @@
       </div>
     </div>
 
-    <!-- MODAL CHỌN LÕI SIÊU CẤP & LÕI THƯỜNG -->
+    <!-- MODAL CHỌN LÕI SIÊU CẤP, LÕI THƯỜNG & LÕI SKILL BOSS -->
     <div id="upgrade-screen" class="modal-screen hidden">
       <div class="lobby-container" style="width: 780px; text-align: center">
         <h2
@@ -497,7 +505,7 @@
 
     <!-- MODAL CÀI ĐẶT PC & MOBILE -->
     <div id="settings-screen" class="modal-screen hidden">
-      <div class="lobby-container" style="width: 540px">
+      <div class="lobby-container" style="width: 560px">
         <div
           style="
             display: flex;
@@ -531,7 +539,10 @@
             🔊 Âm Thanh & Đồ Họa
           </button>
           <button type="button" class="settings-tab-btn" data-tab="controls">
-            🎮 Điều Khiển & Giao Diện
+            🎮 Điều Khiển & HUD
+          </button>
+          <button type="button" class="settings-tab-btn" data-tab="keybinds">
+            ⌨️ Phím Skill
           </button>
         </div>
 
@@ -602,8 +613,13 @@
                 <b>Bơi nhanh:</b> Giữ Chuột Trái hoặc phím <code>Space</code>
               </div>
               <div>
-                <b>Kỹ năng loài:</b> Phím <code>E</code> / <code>Q</code> |
+                <b>Kỹ năng gốc:</b> Phím <code>E</code> / <code>Q</code> |
                 <b>Chiêu cuối:</b> Phím <code>R</code>
+              </div>
+              <div>
+                <b>Skill Boss Sử Thi:</b> Mặc định <code>Z</code>,
+                <code>X</code>, <code>C</code>, <code>V</code>, <code>B</code>,
+                <code>F</code> (đổi tại tab <b>Phím Skill</b>)
               </div>
               <div>
                 <b>Túi đồ nhanh:</b> Phím <code>1</code>, <code>2</code>,
@@ -667,6 +683,24 @@
           </div>
         </div>
 
+        <!-- TAB 3: GÁN PHÍM SKILL BOSS (PC) -->
+        <div id="settings-tab-keybinds" class="settings-body hidden">
+          <div style="font-size: 12px; color: #90e0ef">
+            Gán phím cho kỹ năng Boss Sử Thi (không được trùng phím skill gốc
+            <b>E / Q / R</b> hoặc phím hệ thống).
+          </div>
+          <div class="keybind-error" id="keybind-error-msg"></div>
+          <div id="keybind-list" class="keybind-list"></div>
+          <button
+            type="button"
+            id="btn-reset-keybinds"
+            class="btn-hud"
+            style="align-self: flex-start"
+          >
+            🔄 Mặc Định Phím Skill
+          </button>
+        </div>
+
         <div style="display: flex; justify-content: space-between; gap: 10px">
           <button type="button" id="btn-reset-settings" class="btn-hud">
             🔄 Khôi Phục Mặc Định
@@ -727,8 +761,7 @@
         <div class="lobby-header">
           <h1>OCEAN ODYSSEY: EVOLUTION ONLINE</h1>
           <p>
-            100 Cấp Độ • 8 Chuẩn Tiến Hóa • 4 Bản Đồ Sinh Thái • Túi Đồ Chiến
-            Thuật
+            100 Cấp Độ • 8 Chuẩn Tiến Hóa • 4 Bản Đồ Sinh Thái • Boss Sử Thi
           </p>
         </div>
 

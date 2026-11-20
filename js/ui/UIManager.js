@@ -7,6 +7,11 @@ import { EVOLUTION_FORMS } from "../data/evolutionTrees.js";
 import { META_SHOP_ITEMS } from "../data/upgradesData.js";
 import { TACTICAL_ITEMS } from "../data/itemsData.js";
 import {
+  BOSS_SKILL_CORES,
+  ALL_BOSS_SKILL_IDS,
+  getKeyLabel,
+} from "../data/bossSkillsData.js";
+import {
   COMMON_AUGMENTS,
   SUPER_AUGMENTS,
   MAX_SUPER_AUGMENTS,
@@ -41,10 +46,15 @@ export class UIManager {
     this.currentSettingsTab = "general";
     this.pendingRebirthSpecies = null;
 
+    this.listeningKeybindId = null;
+    this.keybindErrorMsg = "";
+    this.lastBossSkillsSignature = "";
+
     this.augmentQueue = [];
     this.isAugmentChoosing = false;
     this.currentAugmentType = null;
     this.currentAugmentPlayer = null;
+    this.currentBossCoreData = null;
     this.superRerollLeft = 0;
     this.onAllAugmentsDone = null;
 
@@ -94,11 +104,7 @@ export class UIManager {
       if (spaceUnlocked) return true;
       if (fishLvl < 50) {
         alert(
-          `🔒 KHÓA SỬ THI: CÁ KHÔNG GIAN
-
-Điều kiện mở khóa:
-• Cá Kiếm Hoàng Kim đạt Cấp 50 (Hiện tại: Lv.${fishLvl}/50)
-• Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
+          `🔒 KHÓA SỬ THI: CÁ KHÔNG GIAN\n\nĐiều kiện mở khóa:\n• Cá Kiếm Hoàng Kim đạt Cấp 50 (Hiện tại: Lv.${fishLvl}/50)\n• Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
         );
         return false;
       }
@@ -120,12 +126,7 @@ export class UIManager {
       if (timeUnlocked) return true;
       if (!spaceUnlocked || fishLvl < 75) {
         alert(
-          `🔒 KHÓA SỬ THI: CÁ THỜI GIAN
-
-Điều kiện mở khóa bắt buộc:
-1. Đã mở khóa Cá Không Gian: ${spaceUnlocked ? "✅ Đã mở" : "❌ Chưa mở"}
-2. Cá Kiếm Hoàng Kim đạt Cấp 75 (Hiện tại: Lv.${fishLvl}/75)
-3. Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
+          `🔒 KHÓA SỬ THI: CÁ THỜI GIAN\n\nĐiều kiện mở khóa bắt buộc:\n1. Đã mở khóa Cá Không Gian: ${spaceUnlocked ? "✅ Đã mở" : "❌ Chưa mở"}\n2. Cá Kiếm Hoàng Kim đạt Cấp 75 (Hiện tại: Lv.${fishLvl}/75)\n3. Xác nhận TRÙNG SINH (Reset toàn bộ chỉ số đã cày của Cá Kiếm về Lv.1).`,
         );
         return false;
       }
@@ -183,7 +184,9 @@ export class UIManager {
           timeLockEl.textContent = `✨ ĐỦ ĐIỀU KIỆN! BẤM ĐỂ TRÙNG SINH (Cá Kiếm Lv.${fishLvl}/75)`;
           timeLockEl.style.color = "#fee440";
         } else {
-          const spaceTxt = spaceUnlocked ? "Đã có Cá Không Gian" : "Cần Cá Không Gian";
+          const spaceTxt = spaceUnlocked
+            ? "Đã có Cá Không Gian"
+            : "Cần Cá Không Gian";
           timeLockEl.textContent = `🔒 ${spaceTxt} & Cá Kiếm Lv.75 (Lv.${fishLvl}/75)`;
           timeLockEl.style.color = "#ff758f";
         }
@@ -343,6 +346,11 @@ export class UIManager {
       });
   }
 
+  stopKeybindCapture() {
+    this.listeningKeybindId = null;
+    eventBus.emit("KEYBIND_CAPTURE_STATE", false);
+  }
+
   bindSettingsEvents() {
     const openBtns = [
       "btn-settings",
@@ -355,7 +363,11 @@ export class UIManager {
         ?.addEventListener("click", () => this.openSettingsModal());
     });
 
-    const closeModal = () => this.dom.settingsScreen?.classList.add("hidden");
+    const closeModal = () => {
+      this.stopKeybindCapture();
+      this.keybindErrorMsg = "";
+      this.dom.settingsScreen?.classList.add("hidden");
+    };
     document
       .getElementById("btn-close-settings")
       ?.addEventListener("click", closeModal);
@@ -366,15 +378,51 @@ export class UIManager {
     document
       .getElementById("btn-reset-settings")
       ?.addEventListener("click", () => {
+        this.stopKeybindCapture();
+        this.keybindErrorMsg = "";
         settings.reset();
         this.renderSettingsModal();
       });
 
+    document
+      .getElementById("btn-reset-keybinds")
+      ?.addEventListener("click", () => {
+        this.stopKeybindCapture();
+        this.keybindErrorMsg = "";
+        settings.resetKeybinds();
+        this.renderKeybindsTab();
+      });
+
     document.querySelectorAll(".settings-tab-btn").forEach((btn) => {
       btn.addEventListener("click", () => {
+        this.stopKeybindCapture();
+        this.keybindErrorMsg = "";
         this.currentSettingsTab = btn.dataset.tab;
         this.renderSettingsModal();
       });
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (!this.listeningKeybindId) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.code === "Escape") {
+        this.stopKeybindCapture();
+        this.renderKeybindsTab();
+        return;
+      }
+
+      const res = settings.setSkillKeybind(this.listeningKeybindId, e.code);
+      if (res.ok) {
+        this.keybindErrorMsg = "";
+        this.stopKeybindCapture();
+        this.lastBossSkillsSignature = "";
+      } else {
+        this.keybindErrorMsg = res.msg;
+        this.stopKeybindCapture();
+      }
+      this.renderKeybindsTab();
     });
 
     document
@@ -448,8 +496,51 @@ export class UIManager {
   }
 
   openSettingsModal() {
+    this.stopKeybindCapture();
+    this.keybindErrorMsg = "";
     this.renderSettingsModal();
     this.dom.settingsScreen?.classList.remove("hidden");
+  }
+
+  renderKeybindsTab() {
+    const listEl = document.getElementById("keybind-list");
+    const errEl = document.getElementById("keybind-error-msg");
+    if (errEl) errEl.textContent = this.keybindErrorMsg || "";
+    if (!listEl) return;
+
+    const lockedNativeHtml = `
+      <div class="keybind-row locked-key">
+        <span>🔒 <b>Skill Gốc Loài [E / Q / R]</b> (Được bảo vệ, không thể ghi đè)</span>
+        <span style="color:#fee440;font-weight:900;">E / Q / R</span>
+      </div>
+    `;
+
+    const bossRowsHtml = ALL_BOSS_SKILL_IDS.map((id) => {
+      const cfg = BOSS_SKILL_CORES[id];
+      const isListening = this.listeningKeybindId === id;
+      const keyTxt = isListening
+        ? "Nhấn phím..."
+        : getKeyLabel(settings.getKeybind(id));
+      return `
+        <div class="keybind-row">
+          <span>${cfg.icon} <b>${cfg.name}</b> <small style="color:#90e0ef;">(${cfg.bossType === "space" ? "Boss KG" : "Boss TG"})</small></span>
+          <button type="button" class="keybind-btn ${isListening ? "listening" : ""}" data-skill-id="${id}">
+            ${keyTxt}
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    listEl.innerHTML = lockedNativeHtml + bossRowsHtml;
+
+    listEl.querySelectorAll(".keybind-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        this.listeningKeybindId = btn.dataset.skillId;
+        this.keybindErrorMsg = "";
+        eventBus.emit("KEYBIND_CAPTURE_STATE", true);
+        this.renderKeybindsTab();
+      });
+    });
   }
 
   renderSettingsModal() {
@@ -469,6 +560,13 @@ export class UIManager {
     document
       .getElementById("settings-tab-controls")
       ?.classList.toggle("hidden", this.currentSettingsTab !== "controls");
+    document
+      .getElementById("settings-tab-keybinds")
+      ?.classList.toggle("hidden", this.currentSettingsTab !== "keybinds");
+
+    if (this.currentSettingsTab === "keybinds") {
+      this.renderKeybindsTab();
+    }
 
     const badge = document.getElementById("settings-device-badge");
     if (badge) {
@@ -587,6 +685,15 @@ export class UIManager {
       this.renderQuickBag(inv);
     });
 
+    eventBus.on("BOSS_SKILLS_UPDATED", (player) => {
+      this.lastBossSkillsSignature = "";
+      this.renderBossSkillsHUD(player);
+    });
+
+    eventBus.on("SETTINGS_CHANGED", () => {
+      this.lastBossSkillsSignature = "";
+    });
+
     eventBus.on("GLOBAL_LB_UPDATED", (list) => {
       const box = document.getElementById("global-leaderboard-list");
       if (!box) return;
@@ -611,7 +718,28 @@ export class UIManager {
       if (el) el.textContent = `${count} Online`;
     });
 
-    eventBus.on("SHOW_BANNER", (text) => this.showEventBanner(text, 4500));
+    eventBus.on("SHOW_BANNER", (text) => this.showEventBanner(text, 5500));
+
+    eventBus.on("CHAT_BOSS_SPAWN", ({ text }) => {
+      const list = document.getElementById("chat-messages");
+      if (list) {
+        const row = document.createElement("div");
+        row.className = "chat-msg-row boss-spawn-msg";
+        row.textContent = text;
+        list.appendChild(row);
+        list.scrollTop = list.scrollHeight;
+      }
+      const chatBox = document.getElementById("chat-box");
+      if (chatBox?.classList.contains("collapsed")) {
+        this.unreadChatCount++;
+        const badge = document.getElementById("chat-unread-badge");
+        if (badge) {
+          badge.textContent = String(this.unreadChatCount);
+          badge.classList.remove("hidden");
+        }
+        document.getElementById("btn-toggle-chat")?.classList.add("has-unread");
+      }
+    });
 
     eventBus.on("FOCUS_CHAT", () => {
       const chatBox = document.getElementById("chat-box");
@@ -668,6 +796,61 @@ export class UIManager {
     });
   }
 
+  renderBossSkillsHUD(player) {
+    const bar = document.getElementById("boss-skills-bar");
+    if (!bar || !player) return;
+
+    const unlocked = player.getUnlockedBossSkillList();
+    const sig = unlocked
+      .map(
+        (id) =>
+          `${id}:${player.getBossSkillTier(id)}:${settings.getKeybind(id)}`,
+      )
+      .join("|");
+
+    if (sig !== this.lastBossSkillsSignature) {
+      this.lastBossSkillsSignature = sig;
+      bar.innerHTML = "";
+      unlocked.forEach((id) => {
+        const cfg = BOSS_SKILL_CORES[id];
+        if (!cfg) return;
+        const tier = player.getBossSkillTier(id);
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = `boss-skill-btn ${tier >= 2 ? "v2-awakened" : ""}`;
+        btn.dataset.bossSkillId = id;
+        btn.title =
+          tier >= 2
+            ? `${cfg.v2Name} (V2 Giới Hạn): ${cfg.v2Desc}`
+            : `${cfg.name} (50% Sức Mạnh): ${cfg.desc}`;
+        btn.innerHTML = `
+          <span class="boss-skill-key">${getKeyLabel(settings.getKeybind(id))}</span>
+          <span>${cfg.icon}</span>
+          <span class="boss-skill-name">${cfg.shortName}${tier >= 2 ? " V2" : ""}</span>
+          <span class="boss-skill-cd" style="font-size:9.5px;color:#fee440;"></span>
+        `;
+        btn.addEventListener("click", () => {
+          eventBus.emit("INPUT_BOSS_SKILL", id);
+        });
+        bar.appendChild(btn);
+      });
+    }
+
+    // Cập nhật hồi chiêu tại chỗ mà không phá DOM
+    bar.querySelectorAll(".boss-skill-btn").forEach((btn) => {
+      const id = btn.dataset.bossSkillId;
+      const cd = player.bossSkillCooldowns?.[id] || 0;
+      const cdEl = btn.querySelector(".boss-skill-cd");
+      if (cd > 0) {
+        btn.classList.add("cooldown");
+        if (cdEl) cdEl.textContent = `${cd.toFixed(1)}s`;
+      } else {
+        btn.classList.remove("cooldown");
+        if (cdEl) cdEl.textContent = "";
+      }
+    });
+  }
+
   renderMetaShop() {
     const grid = document.getElementById("meta-shop-grid");
     if (!grid) return;
@@ -717,9 +900,11 @@ export class UIManager {
       if (ultNameEl) ultNameEl.textContent = "Hóa Thần";
     }
 
+    this.lastBossSkillsSignature = "";
     settings.applyToDOM();
     this.renderAugmentAndPassiveHUD(player);
     this.renderQuickBag(player.inventory);
+    this.renderBossSkillsHUD(player);
   }
 
   enqueueAugment(type, player, particleSystem, onAllDoneCallback) {
@@ -733,10 +918,31 @@ export class UIManager {
     }
   }
 
+  enqueueBossCore(
+    { bossType, skillId, rewardMode },
+    player,
+    particleSystem,
+    onAllDoneCallback,
+  ) {
+    if (onAllDoneCallback) this.onAllAugmentsDone = onAllDoneCallback;
+    this.augmentQueue.push({
+      type: "boss_core",
+      bossType,
+      skillId,
+      rewardMode,
+      player,
+      particleSystem,
+    });
+    if (!this.isAugmentChoosing) {
+      this.processNextAugment();
+    }
+  }
+
   processNextAugment() {
     if (this.augmentQueue.length === 0) {
       this.isAugmentChoosing = false;
       this.currentAugmentType = null;
+      this.currentBossCoreData = null;
       this.dom.upgradeScreen?.classList.add("hidden");
       if (this.onAllAugmentsDone) {
         const cb = this.onAllAugmentsDone;
@@ -759,12 +965,23 @@ export class UIManager {
     this.currentAugmentType = next.type;
     this.currentAugmentPlayer = next.player;
     this.currentParticleSystem = next.particleSystem;
+    this.currentBossCoreData = next.type === "boss_core" ? next : null;
     this.superRerollLeft = next.type === "super" ? 1 : 0;
 
     const titleEl = document.getElementById("augment-modal-title");
     const subEl = document.getElementById("augment-modal-sub");
 
-    if (next.type === "super") {
+    if (next.type === "boss_core") {
+      const bossLabel =
+        next.bossType === "space" ? "KHÔNG GIAN" : "THỜI GIAN";
+      if (titleEl) {
+        titleEl.textContent = `💠 RỚT LÕI SKILL BOSS ${bossLabel}! 💠`;
+      }
+      if (subEl) {
+        subEl.textContent =
+          "Lõi kỹ năng hiếm duy nhất — bấm vào thẻ để hấp thụ sức mạnh!";
+      }
+    } else if (next.type === "super") {
       if (titleEl)
         titleEl.textContent = `🌟 ĐỘT PHÁ TIẾN HÓA! CHỌN LÕI SIÊU CẤP (${next.player.superAugments.length + 1}/${MAX_SUPER_AUGMENTS}) 🌟`;
       if (subEl)
@@ -788,6 +1005,7 @@ export class UIManager {
     if (!container || !this.currentAugmentPlayer) return;
 
     container.innerHTML = "";
+    container.classList.remove("single-core-grid");
     const player = this.currentAugmentPlayer;
 
     if (rerollBtn) {
@@ -801,6 +1019,76 @@ export class UIManager {
       } else {
         rerollBtn.classList.add("hidden");
       }
+    }
+
+    // CHỈ HIỂN THỊ DUY NHẤT 1 LÕI SKILL KHI RỚT TỪ BOSS SỬ THI
+    if (this.currentAugmentType === "boss_core" && this.currentBossCoreData) {
+      container.classList.add("single-core-grid");
+      const { bossType, skillId, rewardMode } = this.currentBossCoreData;
+      const core = skillId ? BOSS_SKILL_CORES[skillId] : null;
+      const card = document.createElement("div");
+
+      if (rewardMode === "mastery" || !core) {
+        card.className = "upgrade-card boss-core-card boss-core-v2";
+        card.innerHTML = `
+          <div class="aug-system-tag">👑 TINH THÔNG TỐI THƯỢNG</div>
+          <div style="font-size:44px;margin:6px 0;">✨</div>
+          <div style="font-weight:900;color:#fee440;font-size:16px;">Hấp Thụ Tinh Hoa Boss</div>
+          <div style="font-size:12.5px;color:#e0fbfc;margin-top:8px;line-height:1.45;">
+            Bạn đã thức tỉnh V2 toàn bộ kỹ năng Boss này! Nhận ngay <b>+10% Sát Thương</b> & <b>+2.500 XP</b>.
+          </div>
+        `;
+        card.addEventListener("click", () => {
+          player.bitePower += 0.1;
+          player.addScore(
+            2500,
+            null,
+            player.selectedMap,
+            this.currentParticleSystem,
+            null,
+          );
+          sound.playEvolution();
+          this.processNextAugment();
+        });
+        container.appendChild(card);
+        return;
+      }
+
+      const isV2 = rewardMode === "true_v2" || rewardMode === "limited_v2";
+      const isTrueV2 = rewardMode === "true_v2";
+      const tagText = isTrueV2
+        ? "🔥 THỨC TỈNH V2 CÙNG HỆ"
+        : rewardMode === "limited_v2"
+          ? "⚡ THỨC TỈNH V2 (GIỚI HẠN KHÁC HỆ)"
+          : "💠 LÕI SKILL BOSS MỚI (50% SỨC MẠNH)";
+
+      const noteHtml = isTrueV2
+        ? `<span style="color:#06d6a0;font-weight:800;">• Cùng hệ: Nâng cấp màu sắc mới, hiệu ứng V2 mạnh mẽ & giảm hồi chiêu!</span>`
+        : rewardMode === "limited_v2"
+          ? `<span style="color:#ffbe0b;font-weight:800;">• Khác hệ (Đã mở full 3/3): Kích hoạt V2 Giới Hạn (màu & hiệu ứng mới, yếu hơn cùng hệ).</span>`
+          : `<span style="color:#90e0ef;font-weight:800;">• Khác hệ: Thi triển với 50% sức mạnh cấp độ hiện tại (Lv.${player.level} → Lv.${Math.max(1, Math.round(player.level * 0.5))}).</span>`;
+
+      card.className = `upgrade-card boss-core-card ${isV2 ? "boss-core-v2" : ""}`;
+      card.innerHTML = `
+        <div class="aug-system-tag">${tagText}</div>
+        <div style="font-size:42px;margin:6px 0;">${core.icon}</div>
+        <div style="font-weight:900;color:#fee440;font-size:16px;">${isV2 ? core.v2Name : core.name}</div>
+        <div style="font-size:12px;color:#e0fbfc;margin-top:6px;line-height:1.45;">
+          ${isV2 ? core.v2Desc : core.desc}<br/><br/>
+          ${noteHtml}
+        </div>
+        <div style="margin-top:10px;font-size:11px;color:#00f5d4;font-weight:800;">
+          Boss ${bossType === "space" ? "Không Gian" : "Thời Gian"} • Phím [${getKeyLabel(settings.getKeybind(skillId))}]
+        </div>
+      `;
+      card.addEventListener("click", () => {
+        player.unlockOrUpgradeBossSkill(skillId, rewardMode);
+        sound.playEvolution();
+        this.renderBossSkillsHUD(player);
+        this.processNextAugment();
+      });
+      container.appendChild(card);
+      return;
     }
 
     if (this.currentAugmentType === "super") {
@@ -927,6 +1215,26 @@ export class UIManager {
         synHtml += `<div class="syn-active">🔮 <b>${t.title}:</b> ${t.desc}</div>`;
     }
 
+    const bossSkillEntries = ALL_BOSS_SKILL_IDS.filter(
+      (id) => player.getBossSkillTier(id) > 0,
+    );
+    const bossHtml = bossSkillEntries.length
+      ? bossSkillEntries
+          .map((id) => {
+            const cfg = BOSS_SKILL_CORES[id];
+            const tier = player.getBossSkillTier(id);
+            const isTrueV2 = player.isBossSkillTrueV2(id);
+            const badge =
+              tier >= 2
+                ? isTrueV2
+                  ? "[V2 CÙNG HỆ]"
+                  : "[V2 GIỚI HẠN]"
+                : "[50% SỨC MẠNH]";
+            return `<div class="build-item unlocked"><b>${cfg.icon} ${tier >= 2 ? cfg.v2Name : cfg.name}</b> ${badge}</div>`;
+          })
+          .join("")
+      : `<div class="build-item locked">Chưa có Lõi Skill Boss Sử Thi (Rớt 1–2% khi hạ Boss KG/TG)</div>`;
+
     const allPassives = SPECIES_EVOLUTION_PASSIVES[player.species] || [];
     const passivesHtml = allPassives
       .map((p) => {
@@ -941,6 +1249,8 @@ export class UIManager {
       <div class="build-section-title">🌟 Lõi Siêu Cấp (${player.superAugments.length}/4) & Lõi Thường (x${player.commonAugments.length})</div>
       ${synHtml}
       ${superHtml}
+      <div class="build-section-title" style="margin-top:8px;">💠 Lõi Skill Boss Sử Thi & Thức Tỉnh V2</div>
+      ${bossHtml}
       <div class="build-section-title" style="margin-top:8px;">🧬 Nội Tại Tiến Hóa Đặc Thù</div>
       ${passivesHtml}
     `;
@@ -999,14 +1309,18 @@ export class UIManager {
 
     if (player.species === "space" && spaceSystem) {
       const inside = spaceSystem.isInsideDomain(player);
+      const s1V2 = player.getBossSkillTier("boss_space_1") >= 2 ? " V2" : "";
+      const s2V2 = player.getBossSkillTier("boss_space_2") >= 2 ? " V2" : "";
+      const s3V2 = player.getBossSkillTier("boss_space_3") >= 2 ? " V2" : "";
+
       if (inside) {
         skillBox?.classList.remove("cooldown");
-        if (skillNameEl) skillNameEl.textContent = "Bước Nhảy";
+        if (skillNameEl) skillNameEl.textContent = `Bước Nhảy${s1V2}`;
         if (skillSub) {
           skillSub.textContent = `${spaceSystem.domain.timer.toFixed(1)}s [E/Chạm]`;
         }
       } else {
-        if (skillNameEl) skillNameEl.textContent = "Bành Trướng";
+        if (skillNameEl) skillNameEl.textContent = `Bành Trướng${s1V2}`;
         if (player.skillCooldownTimer > 0) {
           skillBox?.classList.add("cooldown");
           if (skillSub)
@@ -1020,7 +1334,8 @@ export class UIManager {
       const sk2Box = document.getElementById("skill2-box");
       const sk2Name = document.getElementById("hud-skill2-name");
       const sk2Sub = document.getElementById("hud-skill2-status");
-      if (sk2Name) sk2Name.textContent = inside ? "Chém Tuyệt Đối" : "Lát Cắt";
+      if (sk2Name)
+        sk2Name.textContent = (inside ? "Chém Tuyệt Đối" : "Lát Cắt") + s2V2;
       if (player.skill2CooldownTimer > 0) {
         sk2Box?.classList.add("cooldown");
         if (sk2Sub)
@@ -1034,7 +1349,8 @@ export class UIManager {
       const ultName = document.getElementById("hud-ult-name");
       const ultSub = document.getElementById("hud-ult-status");
       if (ultName)
-        ultName.textContent = inside ? "Bóp Méo Ngay" : "Bán Lãnh Địa";
+        ultName.textContent =
+          (inside ? "Bóp Méo Ngay" : "Bán Lãnh Địa") + s3V2;
       if (player.skill3CooldownTimer > 0) {
         ultBox?.classList.add("cooldown");
         ultBox?.classList.remove("ult-ready");
@@ -1047,8 +1363,12 @@ export class UIManager {
       }
     } else if (player.species === "time" && timeSystem) {
       const inside = timeSystem.isInsideDomain(player);
+      const t1V2 = player.getBossSkillTier("boss_time_1") >= 2 ? " V2" : "";
+      const t2V2 = player.getBossSkillTier("boss_time_2") >= 2 ? " V2" : "";
+      const t3V2 = player.getBossSkillTier("boss_time_3") >= 2 ? " V2" : "";
+
       if (skillNameEl)
-        skillNameEl.textContent = inside ? "Bản Thể Thực" : "Dòng Chảy";
+        skillNameEl.textContent = (inside ? "Bản Thể Thực" : "Dòng Chảy") + t1V2;
       if (player.skillCooldownTimer > 0) {
         skillBox?.classList.add("cooldown");
         if (skillSub)
@@ -1061,7 +1381,7 @@ export class UIManager {
       const sk2Box = document.getElementById("skill2-box");
       const sk2Name = document.getElementById("hud-skill2-name");
       const sk2Sub = document.getElementById("hud-skill2-status");
-      if (sk2Name) sk2Name.textContent = "Lồng Giam";
+      if (sk2Name) sk2Name.textContent = `Lồng Giam${t2V2}`;
       if (player.skill2CooldownTimer > 0) {
         sk2Box?.classList.add("cooldown");
         if (sk2Sub)
@@ -1077,11 +1397,11 @@ export class UIManager {
       if (timeSystem.domain && !timeSystem.domain.rewindUsed) {
         ultBox?.classList.remove("cooldown");
         ultBox?.classList.add("ult-ready");
-        if (ultName) ultName.textContent = "Tua Ngược 3s";
+        if (ultName) ultName.textContent = `Tua Ngược 3s${t3V2}`;
         if (ultSub)
           ultSub.textContent = `${timeSystem.domain.timer.toFixed(1)}s [R]`;
       } else {
-        if (ultName) ultName.textContent = "Trường Thời Gian";
+        if (ultName) ultName.textContent = `Trường Thời Gian${t3V2}`;
         if (player.skill3CooldownTimer > 0) {
           ultBox?.classList.add("cooldown");
           ultBox?.classList.remove("ult-ready");
@@ -1135,6 +1455,7 @@ export class UIManager {
     if (evoCounterPill) evoCounterPill.textContent = evoRatioText;
 
     this.renderAugmentAndPassiveHUD(player);
+    this.renderBossSkillsHUD(player);
   }
 
   renderQuests(quests) {

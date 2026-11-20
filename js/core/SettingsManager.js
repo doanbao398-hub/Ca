@@ -1,6 +1,29 @@
 import { eventBus } from "./EventBus.js";
+import {
+  BOSS_SKILL_CORES,
+  ALL_BOSS_SKILL_IDS,
+} from "../data/bossSkillsData.js";
 
-const SETTINGS_KEY = "ocean_odyssey_settings_v4";
+const SETTINGS_KEY = "ocean_odyssey_settings_v5";
+
+export const PROTECTED_NATIVE_KEYS = new Set([
+  "KeyE",
+  "KeyQ",
+  "KeyR",
+  "Space",
+  "Digit1",
+  "Digit2",
+  "Digit3",
+  "Enter",
+  "NumpadEnter",
+  "Escape",
+  "F2",
+]);
+
+const DEFAULT_KEYBINDS = {};
+ALL_BOSS_SKILL_IDS.forEach((id) => {
+  DEFAULT_KEYBINDS[id] = BOSS_SKILL_CORES[id].defaultKey;
+});
 
 const DEFAULT_SETTINGS = {
   sfxVolume: 0.8,
@@ -12,6 +35,7 @@ const DEFAULT_SETTINGS = {
   mobileControlMode: "joystick",
   mobileButtonScale: 1.0,
   hudOpacity: 0.95,
+  keybinds: { ...DEFAULT_KEYBINDS },
 };
 
 export class SettingsManager {
@@ -31,10 +55,18 @@ export class SettingsManager {
   load() {
     try {
       const raw = localStorage.getItem(SETTINGS_KEY);
-      if (!raw) return { ...DEFAULT_SETTINGS };
-      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      if (!raw) return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
+      const parsed = JSON.parse(raw);
+      return {
+        ...DEFAULT_SETTINGS,
+        ...parsed,
+        keybinds: {
+          ...DEFAULT_KEYBINDS,
+          ...(parsed.keybinds || {}),
+        },
+      };
     } catch {
-      return { ...DEFAULT_SETTINGS };
+      return JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
     }
   }
 
@@ -51,8 +83,49 @@ export class SettingsManager {
     this.save();
   }
 
+  getKeybind(skillId) {
+    return (
+      this.data?.keybinds?.[skillId] ||
+      BOSS_SKILL_CORES[skillId]?.defaultKey ||
+      ""
+    );
+  }
+
+  setSkillKeybind(skillId, code) {
+    if (!code || PROTECTED_NATIVE_KEYS.has(code)) {
+      return {
+        ok: false,
+        reason: "PROTECTED",
+        msg: "❌ Phím này thuộc bộ điều khiển / Skill gốc (E, Q, R, Space, 1-3) nên không thể gán đè!",
+      };
+    }
+
+    const existingOwner = ALL_BOSS_SKILL_IDS.find(
+      (id) => id !== skillId && this.getKeybind(id) === code,
+    );
+    if (existingOwner) {
+      const ownerName =
+        BOSS_SKILL_CORES[existingOwner]?.shortName || existingOwner;
+      return {
+        ok: false,
+        reason: "DUPLICATE",
+        msg: `❌ Phím này đang được gán cho [${ownerName}]. Vui lòng chọn phím khác!`,
+      };
+    }
+
+    if (!this.data.keybinds) this.data.keybinds = { ...DEFAULT_KEYBINDS };
+    this.data.keybinds[skillId] = code;
+    this.save();
+    return { ok: true };
+  }
+
+  resetKeybinds() {
+    this.data.keybinds = { ...DEFAULT_KEYBINDS };
+    this.save();
+  }
+
   reset() {
-    this.data = { ...DEFAULT_SETTINGS };
+    this.data = JSON.parse(JSON.stringify(DEFAULT_SETTINGS));
     this.save();
   }
 
@@ -88,4 +161,3 @@ export class SettingsManager {
 }
 
 export const settings = new SettingsManager();
-

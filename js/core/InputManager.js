@@ -1,6 +1,7 @@
 import { eventBus } from "./EventBus.js";
 import { sound } from "./SoundSystem.js";
 import { settings } from "./SettingsManager.js";
+import { ALL_BOSS_SKILL_IDS } from "../data/bossSkillsData.js";
 
 export class InputManager {
   constructor(canvas) {
@@ -10,6 +11,7 @@ export class InputManager {
     this.isMouseDown = false;
     this.isSpaceDown = false;
     this.isTouchBoost = false;
+    this.isCapturingKeybind = false;
 
     this.joystick = {
       active: false,
@@ -54,6 +56,10 @@ export class InputManager {
     this.canvas.addEventListener("contextmenu", (e) => e.preventDefault());
     this.canvas.addEventListener("dragstart", (e) => e.preventDefault());
 
+    eventBus.on("KEYBIND_CAPTURE_STATE", (capturing) => {
+      this.isCapturingKeybind = !!capturing;
+    });
+
     eventBus.on("SETTINGS_CHANGED", () => {
       if (!this.isJoystickModeActive) {
         this.resetJoystickState();
@@ -93,6 +99,8 @@ export class InputManager {
     });
 
     window.addEventListener("keydown", (e) => {
+      if (this.isCapturingKeybind) return;
+
       const tag = document.activeElement?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") {
         return;
@@ -116,6 +124,15 @@ export class InputManager {
       if (e.code === "Digit2") eventBus.emit("USE_BAG_SLOT", 1);
       if (e.code === "Digit3") eventBus.emit("USE_BAG_SLOT", 2);
       if (e.code === "Escape") eventBus.emit("INPUT_PAUSE");
+
+      // Kiểm tra phím tắt Boss Skill do người chơi tự gán
+      for (let i = 0; i < ALL_BOSS_SKILL_IDS.length; i++) {
+        const sid = ALL_BOSS_SKILL_IDS[i];
+        if (settings.getKeybind(sid) === e.code) {
+          eventBus.emit("INPUT_BOSS_SKILL", sid);
+          break;
+        }
+      }
     });
 
     window.addEventListener("keyup", (e) => {
@@ -275,4 +292,3 @@ export class InputManager {
     zone.addEventListener("touchcancel", resetStick);
   }
 }
-

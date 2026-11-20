@@ -72,6 +72,8 @@ export class CombatSystem {
       enemies,
       remotePlayers,
       boss,
+      epicBoss,
+      epicBossSystem,
       particleSystem,
       camera,
       worldEvent,
@@ -222,6 +224,59 @@ export class CombatSystem {
             boss.x,
             boss.y,
             "Leviathan Chúa Tể",
+            particleSystem,
+            camera,
+          );
+        }
+      }
+    }
+
+    // Giao chiến trực diện với Boss Sử Thi (Không Gian / Thời Gian)
+    if (epicBoss && epicBoss.hp > 0 && epicBossSystem) {
+      const distEB = Math.hypot(player.x - epicBoss.x, player.y - epicBoss.y);
+      if (distEB < (player.radius + epicBoss.radius) * 0.78) {
+        const tailX =
+          epicBoss.x - Math.cos(epicBoss.angle) * epicBoss.radius * 0.9;
+        const tailY =
+          epicBoss.y - Math.sin(epicBoss.angle) * epicBoss.radius * 0.9;
+        const hitTail =
+          Math.hypot(player.x - tailX, player.y - tailY) <
+          epicBoss.radius * 0.75;
+
+        if (
+          hitTail ||
+          player.ultTimer > 0 ||
+          player.dashTimer > 0 ||
+          player.radius >= epicBoss.radius * 0.85
+        ) {
+          const { mult, extraTrueDmg } = this.getEffectiveBitePower(
+            player,
+            epicBoss.maxHp,
+          );
+          const dmg = 38 * mult + extraTrueDmg * 0.25;
+          epicBossSystem.damageBoss(epicBoss, dmg, player, particleSystem);
+          if (player.species === "time" && timeFishSystem) {
+            timeFishSystem.triggerTimePulseSteal(
+              player,
+              epicBoss,
+              particleSystem,
+            );
+          }
+          sound.playEat(3);
+          camera.shake = 12;
+          meatChunks.push(new MeatChunk(tailX, tailY, 95));
+          const bounce = Math.atan2(
+            player.y - epicBoss.y,
+            player.x - epicBoss.x,
+          );
+          player.x += Math.cos(bounce) * 62;
+          player.y += Math.sin(bounce) * 62;
+        } else {
+          player.takeDamage(
+            32,
+            epicBoss.x,
+            epicBoss.y,
+            epicBoss.name,
             particleSystem,
             camera,
           );
@@ -541,4 +596,3 @@ export class CombatSystem {
     });
   }
 }
-

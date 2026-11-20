@@ -38,6 +38,11 @@
   margin-top: 6px;
 }
 
+.upgrade-cards-grid.single-core-grid {
+  grid-template-columns: minmax(240px, 340px);
+  justify-content: center;
+}
+
 .upgrade-card {
   background: linear-gradient(
     145deg,
@@ -49,7 +54,9 @@
   padding: 14px 12px;
   text-align: center;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.2s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.2s;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -82,6 +89,27 @@
     rgba(8, 52, 68, 0.95),
     rgba(4, 18, 30, 0.98)
   );
+}
+
+.upgrade-card.boss-core-card {
+  border-width: 2.5px;
+  border-color: #c77dff;
+  background: linear-gradient(
+    145deg,
+    rgba(60, 9, 108, 0.96),
+    rgba(16, 0, 43, 0.98)
+  );
+  box-shadow: 0 0 28px rgba(199, 125, 255, 0.42);
+}
+
+.upgrade-card.boss-core-v2 {
+  border-color: #fee440;
+  background: linear-gradient(
+    145deg,
+    rgba(110, 12, 52, 0.96),
+    rgba(18, 6, 26, 0.98)
+  );
+  box-shadow: 0 0 32px rgba(254, 228, 64, 0.5);
 }
 
 .aug-system-tag,
@@ -181,7 +209,7 @@
 
 .settings-tabs {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   background: rgba(0, 0, 0, 0.45);
   padding: 5px;
@@ -189,13 +217,13 @@
 }
 
 .settings-tab-btn {
-  padding: 8px;
+  padding: 8px 6px;
   border: none;
   border-radius: 9px;
   background: transparent;
   color: #90e0ef;
   font-weight: 800;
-  font-size: 12px;
+  font-size: 11.5px;
   cursor: pointer;
 }
 
@@ -248,6 +276,68 @@
   font-size: 12px;
   line-height: 1.6;
   color: #caf0f8;
+}
+
+/* TAB GÁN PHÍM SKILL BOSS */
+.keybind-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 250px;
+  overflow-y: auto;
+}
+
+.keybind-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(100, 223, 223, 0.18);
+  font-size: 12px;
+  color: #e0fbfc;
+}
+
+.keybind-row.locked-key {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.keybind-btn {
+  min-width: 82px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  border: 1.5px solid #00f5d4;
+  background: rgba(0, 245, 212, 0.14);
+  color: #00f5d4;
+  font-weight: 900;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.keybind-btn.listening {
+  border-color: #fee440;
+  background: rgba(254, 228, 64, 0.22);
+  color: #fee440;
+  animation: pulseKey 0.8s infinite alternate;
+}
+
+@keyframes pulseKey {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.06);
+  }
+}
+
+.keybind-error {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #ff4d6d;
+  min-height: 16px;
 }
 
 /* BẢNG TÓM TẮT BUILD KHI TẠM DỪNG */

@@ -7,6 +7,7 @@ const PALETTES = [
   { primary: "#51cf66", secondary: "#2b8a3e", accent: "#b2f2bb" },
   { primary: "#fcc419", secondary: "#e67700", accent: "#fff3bf" },
   { primary: "#cc5de8", secondary: "#862e9c", accent: "#f3d9fa" },
+  { primary: "#ff758f", secondary: "#a4133c", accent: "#fff0f3" },
 ];
 
 const DANGER_NAMES = [
@@ -15,7 +16,13 @@ const DANGER_NAMES = [
   "Sấu Khổng Lồ",
   "Rùa Cổ Đại",
   "Cá Kiếm Hắc Ám",
+  "Cá Đèn Lồng Vực Thẳm",
 ];
+
+const CUTE_LABELS = {
+  octopus: "🐙 Bạch Tuộc Nhỏ",
+  seahorse: "🦄 Cá Ngựa",
+};
 
 export class EnemyBot extends Creature {
   constructor(playerRadius, mapKey = "coral") {
@@ -33,14 +40,20 @@ export class EnemyBot extends Creature {
     }
     radius = Math.min(radius, 260);
 
-    const types = ["fish", "turtle", "croc", "puffer"];
+    const types =
+      mapKey === "abyss"
+        ? ["fish", "angler", "octopus", "croc", "puffer"]
+        : ["fish", "turtle", "croc", "puffer", "octopus", "seahorse"];
     const type = types[Math.floor(Math.random() * types.length)];
+
     if (type === "puffer") radius = Math.min(34, radius);
+    if (type === "seahorse") radius = Math.min(28, radius);
+    if (type === "octopus") radius = Math.min(48, radius);
 
     const label =
       radius > playerRadius * 1.05
         ? `⚠️ ${DANGER_NAMES[Math.floor(Math.random() * DANGER_NAMES.length)]}`
-        : "";
+        : CUTE_LABELS[type] || "";
 
     super(x, y, radius, type, label, false);
     this.mapKey = mapKey;
@@ -97,4 +110,3 @@ export class EnemyBot extends Creature {
     if (this.eatAnim > 0) this.eatAnim = Math.max(0, this.eatAnim - 0.05);
   }
 }
-

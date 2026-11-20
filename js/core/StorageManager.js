@@ -29,6 +29,7 @@ const DEFAULT_SAVE = {
     space: 0,
     time: 0,
   },
+  speciesBossSkills: {},
   speciesProgress: {},
 };
 
@@ -91,6 +92,7 @@ class StorageManager {
             ...DEFAULT_SAVE.rebirthCount,
             ...(cloudData.rebirthCount || {}),
           },
+          speciesBossSkills: cloudData.speciesBossSkills || {},
           speciesProgress: cloudData.speciesProgress || {},
         };
       } else {
@@ -117,6 +119,22 @@ class StorageManager {
       );
       this.updateGlobalLeaderboardEntry(this.currentUser);
     }
+  }
+
+  getSpeciesBossSkills(speciesKey) {
+    return this.data?.speciesBossSkills?.[speciesKey] || {};
+  }
+
+  saveBossSkillUnlock(speciesKey, skillId, tier, isTrueV2) {
+    if (!this.data.speciesBossSkills) this.data.speciesBossSkills = {};
+    if (!this.data.speciesBossSkills[speciesKey]) {
+      this.data.speciesBossSkills[speciesKey] = {};
+    }
+    this.data.speciesBossSkills[speciesKey][skillId] = {
+      tier: Math.max(1, tier),
+      isTrueV2: !!isTrueV2,
+    };
+    this.save();
   }
 
   isEpicUnlocked(speciesKey) {
@@ -156,7 +174,6 @@ class StorageManager {
       this.data.rebirthCount = { space: 0, time: 0 };
     }
 
-    // Trùng sinh: Reset toàn bộ chỉ số đã cày của Cá Kiếm Hoàng Kim về cấp 1
     if (this.data.speciesProgress && this.data.speciesProgress.fish) {
       delete this.data.speciesProgress.fish;
     }

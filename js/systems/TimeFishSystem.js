@@ -3,6 +3,7 @@ import { eventBus } from "../core/EventBus.js";
 import { getCounterMultiplier } from "../data/speciesConfig.js";
 import { renderCreatureBody } from "../graphics/CreatureRenderer.js";
 import { getWorldSize } from "../data/mapsConfig.js";
+import { BOSS_SKILL_CORES } from "../data/bossSkillsData.js";
 
 function smoothRotate(currentAngle, targetAngle, turnRate) {
   let diff = targetAngle - currentAngle;
@@ -13,8 +14,14 @@ function smoothRotate(currentAngle, targetAngle, turnRate) {
 
 function calcLevelProgress(level) {
   const lvl = Math.min(100, Math.max(1, level || 1));
-  return (lvl - 1) / 99; // 0.0 tại Lv.1 -> 1.0 tại Lv.100
+  return (lvl - 1) / 99;
 }
+
+const TIME_V2_PALETTE = {
+  primary: "#38bdf8",
+  accent: "#f472b6",
+  gold: "#fef08a",
+};
 
 export class TimeFishSystem {
   constructor() {
@@ -77,37 +84,64 @@ export class TimeFishSystem {
     }
   }
 
-  damageBossIfHit(boss, cx, cy, hitRadius, dmg, player, particleSystem, camera) {
-    if (!boss || boss.hp <= 0) return false;
-    if (Math.hypot(boss.x - cx, boss.y - cy) <= hitRadius + boss.radius) {
-      boss.hp -= dmg;
-      boss.stunTimer = Math.max(boss.stunTimer || 0, 0.8);
-      this.triggerTimePulseSteal(player, boss, particleSystem);
-      particleSystem.addFloatingText(
-        boss.x,
-        boss.y - boss.radius - 14,
-        `⏳ -${Math.round(dmg)} BOSS!`,
-        "#fef08a",
-      );
-      if (boss.hp <= 0) {
-        player.addScore(
-          2500,
-          null,
-          player.selectedMap,
-          particleSystem,
-          camera,
-        );
-        sound.playEvolution();
-        particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
-        eventBus.emit(
-          "SHOW_BANNER",
-          "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN BẰNG NGHỊCH LÝ THỜI GIAN (+2500 XP)!",
-        );
-        eventBus.emit("BOSS_KILLED");
-      }
-      return true;
+  damageBossIfHit(
+    boss,
+    cx,
+    cy,
+    hitRadius,
+    dmg,
+    player,
+    particleSystem,
+    camera,
+    epicBoss = null,
+    epicBossSystem = null,
+  ) {
+    let hitAny = false;
+
+    if (
+      epicBoss &&
+      epicBoss.hp > 0 &&
+      epicBossSystem &&
+      Math.hypot(epicBoss.x - cx, epicBoss.y - cy) <=
+        hitRadius + epicBoss.radius
+    ) {
+      epicBossSystem.damageBoss(epicBoss, dmg, player, particleSystem);
+      epicBoss.stunTimer = Math.max(epicBoss.stunTimer || 0, 0.7);
+      this.triggerTimePulseSteal(player, epicBoss, particleSystem);
+      hitAny = true;
     }
-    return false;
+
+    if (boss && boss.hp > 0) {
+      if (Math.hypot(boss.x - cx, boss.y - cy) <= hitRadius + boss.radius) {
+        boss.hp -= dmg;
+        boss.stunTimer = Math.max(boss.stunTimer || 0, 0.8);
+        this.triggerTimePulseSteal(player, boss, particleSystem);
+        particleSystem.addFloatingText(
+          boss.x,
+          boss.y - boss.radius - 14,
+          `⏳ -${Math.round(dmg)} BOSS!`,
+          "#fef08a",
+        );
+        if (boss.hp <= 0) {
+          player.addScore(
+            2500,
+            null,
+            player.selectedMap,
+            particleSystem,
+            camera,
+          );
+          sound.playEvolution();
+          particleSystem.addShockwave(boss.x, boss.y, 450, "#ff006e");
+          eventBus.emit(
+            "SHOW_BANNER",
+            "🏆 BẠN ĐÃ HẠ GỤC LEVIATHAN BẰNG NGHỊCH LÝ THỜI GIAN (+2500 XP)!",
+          );
+          eventBus.emit("BOSS_KILLED");
+        }
+        hitAny = true;
+      }
+    }
+    return hitAny;
   }
 
   accumulateParadoxDamage(targetId, targetObj, rawDmg) {
@@ -129,25 +163,80 @@ export class TimeFishSystem {
     return absorbed;
   }
 
-  // SKILL 1 [E]: DÒNG CHẢY ĐA CHIỀU (Bản Thể Quá Khứ 0.5x & Bản Thể Tương Lai 2.0x)
-  triggerSkill1(player, context) {
-    if (!player || player.skillCooldownTimer > 0) return;
-    const { enemies, remotePlayers, boss, particleSystem, camera } = context;
+  triggerBossSkill(skillId, player, context) {
+    if (!player || player.bossSkillCooldowns?.[skillId] > 0) return;
+    const profile = player.getEffectiveBossSkillProfile(skillId);
+    if (!profile) return;
 
-    const inside = this.isInsideDomain(player);
+    const core = BOSS_SKILL_CORES[skillId];
     const syn = player.getSynergies();
     const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    const domainCdr = inside ? 0.5 : 1.0;
 
-    player.skillCooldownTimer =
-      player.cfg.skillCooldown * player.cdrMult * synCdr * domainCdr;
+    if (skillId === "boss_time_1") {
+      player.bossSkillCooldowns[skillId] =
+        core.cooldown * player.cdrMult * synCdr * profile.cdMult;
+      this.triggerSkill1(player, context, { ...profile, skipNativeCd: true });
+    } else if (skillId === "boss_time_2") {
+      player.bossSkillCooldowns[skillId] =
+        core.cooldown * player.cdrMult * synCdr * profile.cdMult;
+      this.triggerSkill2(player, context, { ...profile, skipNativeCd: true });
+    } else if (skillId === "boss_time_3") {
+      // Nếu đang có Trường Thời Gian chưa Tua Ngược -> bấm lần nữa để Tua Ngược ngay mà không tốn thêm CD
+      if (this.domain && !this.domain.rewindUsed) {
+        this.executeTimeRewind(
+          player,
+          context.particleSystem,
+          context.camera,
+          profile.v2Mode,
+        );
+        return;
+      }
+      player.bossSkillCooldowns[skillId] =
+        core.cooldown * player.cdrMult * synCdr * profile.cdMult;
+      this.triggerSkill3(player, context, { ...profile, skipNativeCd: true });
+    }
+  }
 
-    const lvl = Math.min(100, Math.max(1, player.level));
+  // SKILL 1 [E]: DÒNG CHẢY ĐA CHIỀU (Bản Thể Quá Khứ 0.5x & Bản Thể Tương Lai 2.0x)
+  triggerSkill1(player, context, customProfile = null) {
+    if (!player) return;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_time_1");
+    const inside = this.isInsideDomain(player);
+
+    if (!customProfile?.skipNativeCd) {
+      if (player.skillCooldownTimer > 0) return;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      const domainCdr = inside ? 0.5 : 1.0;
+      player.skillCooldownTimer =
+        player.cfg.skillCooldown *
+        player.cdrMult *
+        synCdr *
+        domainCdr *
+        profile.cdMult;
+    }
+
+    const {
+      enemies,
+      remotePlayers,
+      boss,
+      epicBoss,
+      epicBossSystem,
+      particleSystem,
+      camera,
+    } = context;
+
+    const isV2 = profile.v2Mode !== "none";
+    const isTrueV2 = profile.v2Mode === "true";
+    const lvl = Math.min(100, Math.max(1, profile.effectiveLevel));
     const t = calcLevelProgress(lvl);
-    const passiveBonus = player.evoStage >= 4 ? 1.5 : 0;
-    const duration = Number((6.5 + t * 7.5 + passiveBonus).toFixed(1));
-    const domainBoost = inside ? 1.25 : 1.0;
-
+    const passiveBonus =
+      player.species === "time" && player.evoStage >= 4 ? 1.5 : 0;
+    const duration = Number(
+      ((6.5 + t * 7.5 + passiveBonus) * (isTrueV2 ? 1.2 : 1.0)).toFixed(1),
+    );
+    const domainBoost = (inside ? 1.25 : 1.0) * profile.powerMult;
     const pairCount = lvl >= 60 ? 2 : 1;
 
     this.clones = [];
@@ -162,6 +251,8 @@ export class TimeFishSystem {
         scaleMult: pastScale,
         sideSign: -sideSign,
         isRealEntity: inside,
+        v2Mode: profile.v2Mode,
+        ownerEffectiveLevel: lvl,
         x:
           player.x +
           Math.cos(player.angle - spreadAngle) * (player.radius * 1.6),
@@ -188,6 +279,8 @@ export class TimeFishSystem {
         scaleMult: futureScale,
         sideSign: sideSign,
         isRealEntity: inside,
+        v2Mode: profile.v2Mode,
+        ownerEffectiveLevel: lvl,
         x:
           player.x +
           Math.cos(player.angle + spreadAngle) * (player.radius * 2.2),
@@ -209,13 +302,17 @@ export class TimeFishSystem {
       });
     }
 
-    const auraRadius = Math.round(240 + t * 560);
+    const auraRadius = Math.round((240 + t * 560) * profile.radiusMult);
     this.clones.forEach((c) => {
       particleSystem.addShockwave(
         c.x,
         c.y,
         c.radius * 3.0 + t * 220,
-        c.type === "past" ? "#f59e0b" : "#2dd4bf",
+        isV2
+          ? TIME_V2_PALETTE.primary
+          : c.type === "past"
+            ? "#f59e0b"
+            : "#2dd4bf",
       );
     });
 
@@ -227,20 +324,30 @@ export class TimeFishSystem {
         boss,
         particleSystem,
         camera,
+        epicBoss,
+        epicBossSystem,
       );
     }
 
     sound.playSkill();
-    camera.shake = 12;
-    particleSystem.addShockwave(player.x, player.y, auraRadius, "#f59e0b");
+    camera.shake = isV2 ? 15 : 12;
+    particleSystem.addShockwave(
+      player.x,
+      player.y,
+      auraRadius,
+      isV2 ? TIME_V2_PALETTE.primary : "#f59e0b",
+    );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 26,
-      `⏳ QUÁ KHỨ (0.5x) & TƯƠNG LAI KHỔNG LỒ (2.0x)!`,
-      "#fef08a",
+      isTrueV2
+        ? "⏳ [V2 THỨC TỈNH] VÒNG LẶP VĨNH HẰNG!"
+        : isV2
+          ? "⏳ [V2 GIỚI HẠN] BẢN THỂ ĐA CHIỀU!"
+          : "⏳ QUÁ KHỨ (0.5x) & TƯƠNG LAI KHỔNG LỒ (2.0x)!",
+      isV2 ? TIME_V2_PALETTE.gold : "#fef08a",
     );
 
-    // Đồng bộ hiệu ứng phân thân & xung chấn thời gian cho toàn phòng Online
     eventBus.emit("SKILL_BROADCAST", {
       type: "time_clones",
       x: player.x,
@@ -253,7 +360,7 @@ export class TimeFishSystem {
         r: Math.round(c.radius),
         type: c.type,
       })),
-      color: "#f59e0b",
+      color: isV2 ? TIME_V2_PALETTE.primary : "#f59e0b",
     });
     eventBus.emit("SKILL_USED_FOR_QUEST");
   }
@@ -265,9 +372,11 @@ export class TimeFishSystem {
     boss,
     particleSystem,
     camera,
+    epicBoss = null,
+    epicBossSystem = null,
   ) {
-    const t = calcLevelProgress(player.level);
     this.clones.forEach((c) => {
+      const t = calcLevelProgress(c.ownerEffectiveLevel || player.level);
       const blastR = Math.round(c.radius * 3.2 + t * 260);
       const dmg = Math.round(36 * player.bitePower * c.damageRatio);
 
@@ -280,6 +389,8 @@ export class TimeFishSystem {
         player,
         particleSystem,
         camera,
+        epicBoss,
+        epicBossSystem,
       );
 
       for (let k = enemies.length - 1; k >= 0; k--) {
@@ -327,14 +438,12 @@ export class TimeFishSystem {
   }
 
   castCloneStasisSkill(clone, player, targetEntity, particleSystem) {
-    const t = calcLevelProgress(player.level);
+    const t = calcLevelProgress(clone.ownerEffectiveLevel || player.level);
     const aimAngle = Math.atan2(
       targetEntity.y - clone.y,
       targetEntity.x - clone.x,
     );
     const scale = clone.scaleMult;
-
-    // Phạm vi Lồng Giam tăng theo cấp độ (Lv.1 = 210px -> Lv.100 = 760px)
     const baseCageR = 210 + t * 550;
     const baseDuration = 3.0 + t * 2.4;
     const maxRange = Math.round((520 + t * 950) * (scale === 2.0 ? 1.3 : 0.85));
@@ -352,6 +461,9 @@ export class TimeFishSystem {
         (baseDuration * (scale === 2.0 ? 1.2 : 0.85)).toFixed(1),
       ),
       ownerTag: clone.type,
+      v2Mode: clone.v2Mode || "none",
+      powerMult: Math.max(0.5, clone.damageRatio / scale),
+      effectiveLevel: clone.ownerEffectiveLevel || player.level,
     });
 
     particleSystem.addFloatingText(
@@ -371,19 +483,28 @@ export class TimeFishSystem {
     remotePlayers,
     boss,
     reservedTargets,
+    epicBoss = null,
   ) {
-    const t = calcLevelProgress(player.level);
+    const t = calcLevelProgress(clone.ownerEffectiveLevel || player.level);
     const searchRange = (clone.type === "future" ? 1350 : 900) + t * 650;
     let bestTarget = null;
     let bestScore = Infinity;
 
-    if (boss && boss.hp > 0) {
-      const distBoss = Math.hypot(boss.x - clone.x, boss.y - clone.y);
-      if (distBoss <= searchRange) {
-        bestScore = distBoss * 0.7 - (clone.type === "future" ? 420 : 120);
-        bestTarget = { kind: "boss", id: "boss", entity: boss };
+    [
+      { b: epicBoss, k: "epicBoss" },
+      { b: boss, k: "boss" },
+    ].forEach(({ b, k }) => {
+      if (b && b.hp > 0) {
+        const d = Math.hypot(b.x - clone.x, b.y - clone.y);
+        if (d <= searchRange) {
+          const score = d * 0.7 - (clone.type === "future" ? 450 : 140);
+          if (score < bestScore) {
+            bestScore = score;
+            bestTarget = { kind: k, id: k, entity: b };
+          }
+        }
       }
-    }
+    });
 
     Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
       if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
@@ -428,28 +549,33 @@ export class TimeFishSystem {
     return bestTarget;
   }
 
-  // SKILL 2 [Q]: CẦU NGƯNG ĐỌNG & LỒNG GIAM THỜI GIAN (Phạm vi tăng theo cấp Lv.1 -> Lv.100)
-  triggerSkill2(player, context) {
-    if (!player || player.skill2CooldownTimer > 0) return;
-    const { particleSystem, camera, input, width, height } = context;
-
+  // SKILL 2 [Q]: CẦU NGƯNG ĐỌNG & LỒNG GIAM THỜI GIAN
+  triggerSkill2(player, context, customProfile = null) {
+    if (!player) return;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_time_2");
     const inside = this.isInsideDomain(player);
-    const syn = player.getSynergies();
-    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    const domainCdr = inside ? 0.5 : 1.0;
 
-    player.skill2CooldownTimer = 8.5 * player.cdrMult * synCdr * domainCdr;
+    if (!customProfile?.skipNativeCd) {
+      if (player.skill2CooldownTimer > 0) return;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      const domainCdr = inside ? 0.5 : 1.0;
+      player.skill2CooldownTimer =
+        8.5 * player.cdrMult * synCdr * domainCdr * profile.cdMult;
+    }
 
-    const t = calcLevelProgress(player.level);
+    const { particleSystem, camera, input, width, height } = context;
+    const isV2 = profile.v2Mode !== "none";
+    const t = calcLevelProgress(profile.effectiveLevel);
     const worldMouseX = (input.x - width / 2) / camera.zoom + camera.x;
     const worldMouseY = (input.y - height / 2) / camera.zoom + camera.y;
     const aimAngle = input.isJoystickModeActive
       ? player.angle
       : Math.atan2(worldMouseY - player.y, worldMouseX - player.x);
 
-    // Tầm bay & bán kính Lồng Giam tăng theo cấp: Lv.1 = 220px -> Lv.100 = 820px
-    const maxRange = Math.round(540 + t * 1100);
-    const cageRadius = Math.round(220 + t * 600);
+    const maxRange = Math.round((540 + t * 1100) * profile.radiusMult);
+    const cageRadius = Math.round((220 + t * 600) * profile.radiusMult);
     const cageDuration = Number((3.4 + t * 2.6).toFixed(1));
 
     this.stasisOrbs.push({
@@ -463,6 +589,9 @@ export class TimeFishSystem {
       cageRadius,
       cageDuration,
       ownerTag: "main",
+      v2Mode: profile.v2Mode,
+      powerMult: profile.powerMult,
+      effectiveLevel: profile.effectiveLevel,
     });
 
     this.clones.forEach((c) => {
@@ -479,18 +608,23 @@ export class TimeFishSystem {
           (cageDuration * (c.scaleMult === 2.0 ? 1.15 : 0.85)).toFixed(1),
         ),
         ownerTag: c.type,
+        v2Mode: profile.v2Mode,
+        powerMult: profile.powerMult,
+        effectiveLevel: profile.effectiveLevel,
       });
     });
 
     sound.playSkill();
-    camera.shake = 8;
+    camera.shake = isV2 ? 11 : 8;
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 22,
-      this.clones.length > 0
-        ? `⌛ ĐỒNG LOẠT LỒNG GIAM ĐA CHIỀU (R=${cageRadius})!`
-        : `⌛ CẦU NGƯNG ĐỌNG THỜI GIAN (R=${cageRadius})!`,
-      "#2dd4bf",
+      isV2
+        ? `⌛ [V2] NGỤC TÙ CHRONOS (R=${cageRadius})!`
+        : this.clones.length > 0
+          ? `⌛ ĐỒNG LOẠT LỒNG GIAM ĐA CHIỀU (R=${cageRadius})!`
+          : `⌛ CẦU NGƯNG ĐỌNG THỜI GIAN (R=${cageRadius})!`,
+      isV2 ? TIME_V2_PALETTE.primary : "#2dd4bf",
     );
 
     eventBus.emit("SKILL_BROADCAST", {
@@ -501,35 +635,49 @@ export class TimeFishSystem {
       maxRange,
       maxR: cageRadius,
       duration: cageDuration,
-      color: "#2dd4bf",
+      color: isV2 ? TIME_V2_PALETTE.primary : "#2dd4bf",
     });
   }
 
-  // SKILL 3 [R]: BÀNH TRƯỚNG LÃNH ĐỊA: TRƯỜNG THỜI GIAN (Cấp 100 đạt 1/2 Map!) / TUA NGƯỢC 3S
-  triggerSkill3(player, context) {
+  // SKILL 3 [R]: BÀNH TRƯỚNG LÃNH ĐỊA: TRƯỜNG THỜI GIAN / TUA NGƯỢC 3S
+  triggerSkill3(player, context, customProfile = null) {
     if (!player) return;
     const { particleSystem, camera } = context;
+    const profile =
+      customProfile || player.getEffectiveBossSkillProfile("boss_time_3");
 
-    if (this.domain && !this.domain.rewindUsed) {
-      this.executeTimeRewind(player, particleSystem, camera);
+    if (
+      !customProfile?.skipNativeCd &&
+      this.domain &&
+      !this.domain.rewindUsed
+    ) {
+      this.executeTimeRewind(player, particleSystem, camera, profile.v2Mode);
       return;
     }
 
-    if (player.skill3CooldownTimer > 0) return;
+    if (!customProfile?.skipNativeCd) {
+      if (player.skill3CooldownTimer > 0) return;
+      const syn = player.getSynergies();
+      const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
+      player.skill3CooldownTimer =
+        16.0 * player.cdrMult * synCdr * profile.cdMult;
+    }
 
-    const syn = player.getSynergies();
-    const synCdr = syn.elemental >= 2 ? 0.85 : 1.0;
-    player.skill3CooldownTimer = 16.0 * player.cdrMult * synCdr;
-
-    // Quy luật tỷ lệ theo cấp độ: Lv.1 = 380px -> Lv.100 = 1/2 Map (worldSize * 0.5)
+    const isV2 = profile.v2Mode !== "none";
     const worldSize = getWorldSize(player.selectedMap);
     const maxHalfMapRadius = worldSize * 0.5;
-    const minDomainRadius = 380;
-    const t = calcLevelProgress(player.level);
-    const domainRadius = Math.round(
-      minDomainRadius + (maxHalfMapRadius - minDomainRadius) * t,
+    const minDomainRadius = 360;
+    const t = calcLevelProgress(profile.effectiveLevel);
+    const domainRadius = Math.min(
+      maxHalfMapRadius,
+      Math.round(
+        (minDomainRadius + (maxHalfMapRadius - minDomainRadius) * t) *
+          profile.radiusMult,
+      ),
     );
-    const domainDuration = Number((8.0 + t * 9.0).toFixed(1));
+    const domainDuration = Number(
+      ((8.0 + t * 9.0) * (profile.v2Mode === "true" ? 1.15 : 1.0)).toFixed(1),
+    );
 
     this.domain = {
       x: player.x,
@@ -538,42 +686,52 @@ export class TimeFishSystem {
       timer: domainDuration,
       maxTimer: domainDuration,
       rewindUsed: false,
+      v2Mode: profile.v2Mode,
     };
 
-    player.skillCooldownTimer *= 0.5;
-    player.skill2CooldownTimer *= 0.5;
+    if (player.species === "time") {
+      player.skillCooldownTimer *= 0.5;
+      player.skill2CooldownTimer *= 0.5;
+    }
 
     sound.playEvolution();
-    camera.shake = 18;
+    camera.shake = isV2 ? 22 : 18;
     eventBus.emit("HIT_STOP", 0.045);
-    particleSystem.addShockwave(player.x, player.y, domainRadius, "#f59e0b");
+    particleSystem.addShockwave(
+      player.x,
+      player.y,
+      domainRadius,
+      isV2 ? TIME_V2_PALETTE.primary : "#f59e0b",
+    );
     particleSystem.addShockwave(
       player.x,
       player.y,
       domainRadius * 0.65,
-      "#2dd4bf",
+      isV2 ? TIME_V2_PALETTE.accent : "#2dd4bf",
     );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 30,
-      `🕰️ TRƯỜNG THỜI GIAN R=${domainRadius} (${domainDuration}s)!`,
-      "#fef08a",
+      isV2
+        ? `🕰️ [V2] ĐẾ CHẾ CHRONOS R=${domainRadius}!`
+        : `🕰️ TRƯỜNG THỜI GIAN R=${domainRadius} (${domainDuration}s)!`,
+      isV2 ? TIME_V2_PALETTE.gold : "#fef08a",
     );
 
-    // Đồng bộ Lãnh Địa Trường Thời Gian sang toàn bộ người chơi Online
     eventBus.emit("SKILL_BROADCAST", {
       type: "time_domain",
       x: player.x,
       y: player.y,
       maxR: domainRadius,
       duration: domainDuration,
-      color: "#f59e0b",
+      color: isV2 ? TIME_V2_PALETTE.primary : "#f59e0b",
     });
   }
 
-  executeTimeRewind(player, particleSystem, camera) {
+  executeTimeRewind(player, particleSystem, camera, v2Mode = "none") {
     if (!this.domain || this.domain.rewindUsed) return;
     this.domain.rewindUsed = true;
+    const isV2 = v2Mode !== "none" || this.domain.v2Mode !== "none";
 
     const pastSnap = this.getSnapshotSecondsAgo(3.0) || {
       x: player.x,
@@ -584,7 +742,8 @@ export class TimeFishSystem {
 
     const oldX = player.x;
     const oldY = player.y;
-    const restoredHp = Math.max(player.hp, pastSnap.hp);
+    const v2BonusHeal = isV2 ? player.maxHp * 0.12 : 0;
+    const restoredHp = Math.max(player.hp, pastSnap.hp) + v2BonusHeal;
     const healedAmt = Math.max(0, Math.round(restoredHp - player.hp));
 
     player.x = pastSnap.x;
@@ -593,7 +752,7 @@ export class TimeFishSystem {
     player.stamina = player.maxStamina;
     player.stunTimer = 0;
     player.hurtTimer = 0;
-    player.invincibleTimer = Math.max(player.invincibleTimer, 1.2);
+    player.invincibleTimer = Math.max(player.invincibleTimer, isV2 ? 1.6 : 1.2);
 
     this.rewindEffects.push({
       fromX: oldX,
@@ -601,22 +760,28 @@ export class TimeFishSystem {
       toX: player.x,
       toY: player.y,
       life: 0.75,
+      v2: isV2,
     });
 
     sound.playEvolution();
     camera.shake = 14;
-    particleSystem.addShockwave(oldX, oldY, player.radius * 3, "#2dd4bf");
+    particleSystem.addShockwave(
+      oldX,
+      oldY,
+      player.radius * 3,
+      isV2 ? TIME_V2_PALETTE.accent : "#2dd4bf",
+    );
     particleSystem.addShockwave(
       player.x,
       player.y,
       player.radius * 4,
-      "#fef08a",
+      isV2 ? TIME_V2_PALETTE.primary : "#fef08a",
     );
     particleSystem.addFloatingText(
       player.x,
       player.y - player.radius - 28,
-      `⏪ TUA NGƯỢC 3 GIÂY (+${healedAmt} HP & XÓA BẤT LỢI)!`,
-      "#2dd4bf",
+      `⏪ TUA NGƯỢC 3 GIÂY (+${healedAmt} HP)!`,
+      isV2 ? TIME_V2_PALETTE.primary : "#2dd4bf",
     );
 
     eventBus.emit("SKILL_BROADCAST", {
@@ -626,7 +791,7 @@ export class TimeFishSystem {
       x: player.x,
       y: player.y,
       maxR: player.radius * 4,
-      color: "#2dd4bf",
+      color: isV2 ? TIME_V2_PALETTE.primary : "#2dd4bf",
     });
     eventBus.emit("FORCE_SYNC_PLAYER");
   }
@@ -646,9 +811,17 @@ export class TimeFishSystem {
   }
 
   update(dt, state) {
-    const { player, enemies, remotePlayers, boss, particleSystem, camera } =
-      state;
-    if (!player || player.species !== "time") return;
+    const {
+      player,
+      enemies,
+      remotePlayers,
+      boss,
+      epicBoss,
+      epicBossSystem,
+      particleSystem,
+      camera,
+    } = state;
+    if (!player) return;
 
     const frameScale = dt * 60;
     const now = performance.now();
@@ -674,7 +847,7 @@ export class TimeFishSystem {
     }
 
     const insideDomain = this.isInsideDomain(player);
-    player.timeDomainActive = insideDomain;
+    player.timeDomainActive = player.species === "time" && insideDomain;
     if (insideDomain) {
       player.stunTimer = 0;
     }
@@ -687,18 +860,25 @@ export class TimeFishSystem {
         player.hp > 0 &&
         player.hp <= player.maxHp * 0.22
       ) {
-        this.executeTimeRewind(player, particleSystem, camera);
+        this.executeTimeRewind(
+          player,
+          particleSystem,
+          camera,
+          this.domain.v2Mode,
+        );
       }
 
-      if (
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - this.domain.x, boss.y - this.domain.y) <=
-          this.domain.radius + boss.radius
-      ) {
-        boss.x -= Math.cos(boss.angle) * 1.4 * frameScale;
-        boss.y -= Math.sin(boss.angle) * 1.4 * frameScale;
-      }
+      [boss, epicBoss].forEach((b) => {
+        if (
+          b &&
+          b.hp > 0 &&
+          Math.hypot(b.x - this.domain.x, b.y - this.domain.y) <=
+            this.domain.radius + b.radius
+        ) {
+          b.x -= Math.cos(b.angle) * 1.4 * frameScale;
+          b.y -= Math.sin(b.angle) * 1.4 * frameScale;
+        }
+      });
 
       enemies.forEach((e) => {
         if (
@@ -741,6 +921,7 @@ export class TimeFishSystem {
         remotePlayers,
         boss,
         reservedTargets,
+        epicBoss,
       );
 
       let desiredVx = 0;
@@ -787,6 +968,7 @@ export class TimeFishSystem {
               y: c.y,
               r: Math.max(28, player.radius * 0.85),
               life: 3.5,
+              v2: c.v2Mode !== "none",
             });
           }
         }
@@ -822,27 +1004,39 @@ export class TimeFishSystem {
       const eatReach = c.radius * 1.12;
       let hitSomeone = false;
 
-      // 0. Tấn công Boss Leviathan
-      if (
-        c.biteCd <= 0 &&
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - c.x, boss.y - c.y) <= eatReach + boss.radius * 0.85
-      ) {
-        c.biteCd = 0.55;
-        c.backOffTimer = 0.26;
-        hitSomeone = true;
-        const bossDmg = Math.round(38 * player.bitePower * c.damageRatio);
-        this.damageBossIfHit(
-          boss,
-          c.x,
-          c.y,
-          eatReach + 30,
-          bossDmg,
-          player,
-          particleSystem,
-          camera,
-        );
+      // 0. Tấn công Boss (Leviathan & Boss Sử Thi)
+      if (c.biteCd <= 0) {
+        const activeBossTarget =
+          epicBoss &&
+          epicBoss.hp > 0 &&
+          Math.hypot(epicBoss.x - c.x, epicBoss.y - c.y) <=
+            eatReach + epicBoss.radius * 0.85
+            ? epicBoss
+            : boss &&
+                boss.hp > 0 &&
+                Math.hypot(boss.x - c.x, boss.y - c.y) <=
+                  eatReach + boss.radius * 0.85
+              ? boss
+              : null;
+
+        if (activeBossTarget) {
+          c.biteCd = 0.55;
+          c.backOffTimer = 0.26;
+          hitSomeone = true;
+          const bossDmg = Math.round(38 * player.bitePower * c.damageRatio);
+          this.damageBossIfHit(
+            boss,
+            c.x,
+            c.y,
+            eatReach + 30,
+            bossDmg,
+            player,
+            particleSystem,
+            camera,
+            epicBoss,
+            epicBossSystem,
+          );
+        }
       }
 
       // 1. Tấn công Người Chơi đối địch
@@ -983,9 +1177,13 @@ export class TimeFishSystem {
       orb.traveled += step;
 
       const hitBoss =
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - orb.x, boss.y - orb.y) <= orb.r + boss.radius;
+        (boss &&
+          boss.hp > 0 &&
+          Math.hypot(boss.x - orb.x, boss.y - orb.y) <= orb.r + boss.radius) ||
+        (epicBoss &&
+          epicBoss.hp > 0 &&
+          Math.hypot(epicBoss.x - orb.x, epicBoss.y - orb.y) <=
+            orb.r + epicBoss.radius);
       const hitBot = enemies.some(
         (e) => Math.hypot(e.x - orb.x, e.y - orb.y) <= orb.r + e.radius,
       );
@@ -1005,13 +1203,20 @@ export class TimeFishSystem {
           maxTimer: orb.cageDuration,
           storedDamage: new Map(),
           ownerTag: orb.ownerTag || "main",
+          v2Mode: orb.v2Mode || "none",
+          powerMult: orb.powerMult ?? 1.0,
+          effectiveLevel: orb.effectiveLevel ?? player.level,
         });
         sound.playEvolution();
         particleSystem.addShockwave(
           orb.x,
           orb.y,
           orb.cageRadius,
-          orb.ownerTag === "past" ? "#f59e0b" : "#2dd4bf",
+          orb.v2Mode !== "none"
+            ? TIME_V2_PALETTE.primary
+            : orb.ownerTag === "past"
+              ? "#f59e0b"
+              : "#2dd4bf",
         );
         eventBus.emit("SKILL_BROADCAST", {
           type: "time_cage",
@@ -1029,14 +1234,15 @@ export class TimeFishSystem {
       const cage = this.stasisCages[i];
       cage.timer -= dt;
 
-      if (
-        boss &&
-        boss.hp > 0 &&
-        Math.hypot(boss.x - cage.x, boss.y - cage.y) <=
-          cage.radius + boss.radius * 0.5
-      ) {
-        boss.stunTimer = Math.max(boss.stunTimer || 0, 0.3);
-      }
+      [boss, epicBoss].forEach((b) => {
+        if (
+          b &&
+          b.hp > 0 &&
+          Math.hypot(b.x - cage.x, b.y - cage.y) <= cage.radius + b.radius * 0.5
+        ) {
+          b.stunTimer = Math.max(b.stunTimer || 0, 0.3);
+        }
+      });
 
       enemies.forEach((e) => {
         if (
@@ -1047,7 +1253,6 @@ export class TimeFishSystem {
         }
       });
 
-      // Giữ chân & làm chậm đối thủ PvP trong Lồng Giam Thời Gian
       Object.entries(remotePlayers || {}).forEach(([id, rp]) => {
         if (!rp || rp.isStealthed || rp.invincibleTimer > 0) return;
         if (
@@ -1058,7 +1263,7 @@ export class TimeFishSystem {
           cage.tickCd -= dt;
           if (cage.tickCd <= 0) {
             cage.tickCd = 0.65;
-            const tickDmg = Math.round(18 * player.bitePower);
+            const tickDmg = Math.round(18 * player.bitePower * cage.powerMult);
             eventBus.emit("PVP_ATTACK", {
               targetId: id,
               dmg: tickDmg,
@@ -1074,9 +1279,13 @@ export class TimeFishSystem {
       });
 
       if (cage.timer <= 0) {
-        const paradoxMult = player.evoStage >= 6 ? 1.3 : 1.0;
+        const paradoxMult =
+          player.species === "time" && player.evoStage >= 6 ? 1.3 : 1.0;
         const burstBaseDmg = Math.round(
-          (55 + player.level * 1.4) * player.bitePower * paradoxMult,
+          (55 + cage.effectiveLevel * 1.4) *
+            player.bitePower *
+            paradoxMult *
+            cage.powerMult,
         );
 
         this.damageBossIfHit(
@@ -1088,6 +1297,8 @@ export class TimeFishSystem {
           player,
           particleSystem,
           camera,
+          epicBoss,
+          epicBossSystem,
         );
 
         enemies.forEach((e) => {
@@ -1101,13 +1312,14 @@ export class TimeFishSystem {
           }
         });
 
-        // Gây sát thương bùng nổ Nghịch Lý lên cả mục tiêu tích lũy lẫn toàn bộ kẻ địch trong lồng
         const damagedIds = new Set();
         cage.storedDamage.forEach((entry, targetId) => {
           const rp = remotePlayers?.[targetId];
           if (rp && entry.dmg > 0) {
             damagedIds.add(targetId);
-            const burstDmg = Math.round(entry.dmg * paradoxMult + burstBaseDmg * 0.5);
+            const burstDmg = Math.round(
+              entry.dmg * paradoxMult + burstBaseDmg * 0.5,
+            );
             eventBus.emit("PVP_ATTACK", {
               targetId,
               dmg: burstDmg,
@@ -1149,20 +1361,22 @@ export class TimeFishSystem {
           cage.x,
           cage.y,
           cage.radius * 1.25,
-          "#f59e0b",
+          cage.v2Mode !== "none" ? TIME_V2_PALETTE.accent : "#f59e0b",
         );
         particleSystem.addFloatingText(
           cage.x,
           cage.y - 26,
-          "💥 BÙNG NỔ NGHỊCH LÝ THỜI GIAN!",
-          "#f59e0b",
+          cage.v2Mode !== "none"
+            ? "💥 [V2] BÙNG NỔ CHRONOS!"
+            : "💥 BÙNG NỔ NGHỊCH LÝ THỜI GIAN!",
+          cage.v2Mode !== "none" ? TIME_V2_PALETTE.primary : "#f59e0b",
         );
         eventBus.emit("SKILL_BROADCAST", {
           type: "time_paradox_burst",
           x: cage.x,
           y: cage.y,
           maxR: cage.radius * 1.25,
-          color: "#f59e0b",
+          color: cage.v2Mode !== "none" ? TIME_V2_PALETTE.primary : "#f59e0b",
         });
         this.stasisCages.splice(i, 1);
       }
@@ -1177,6 +1391,7 @@ export class TimeFishSystem {
   drawWorldEffects(ctx, time) {
     if (this.domain) {
       const d = this.domain;
+      const isV2 = d.v2Mode !== "none";
       ctx.save();
       ctx.translate(d.x, d.y);
 
@@ -1188,9 +1403,15 @@ export class TimeFishSystem {
         0,
         d.radius,
       );
-      grad.addColorStop(0, "rgba(15, 23, 42, 0.25)");
-      grad.addColorStop(0.65, "rgba(245, 158, 11, 0.22)");
-      grad.addColorStop(1, "rgba(45, 212, 191, 0.55)");
+      if (isV2) {
+        grad.addColorStop(0, "rgba(10, 20, 48, 0.28)");
+        grad.addColorStop(0.65, "rgba(56, 189, 248, 0.24)");
+        grad.addColorStop(1, "rgba(244, 114, 182, 0.56)");
+      } else {
+        grad.addColorStop(0, "rgba(15, 23, 42, 0.25)");
+        grad.addColorStop(0.65, "rgba(245, 158, 11, 0.22)");
+        grad.addColorStop(1, "rgba(45, 212, 191, 0.55)");
+      }
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
@@ -1198,8 +1419,8 @@ export class TimeFishSystem {
 
       ctx.save();
       ctx.rotate(time * 0.0008);
-      ctx.strokeStyle = "#fbbf24";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = isV2 ? TIME_V2_PALETTE.primary : "#fbbf24";
+      ctx.lineWidth = isV2 ? 5 : 4;
       ctx.setLineDash([22, 12]);
       ctx.beginPath();
       ctx.arc(0, 0, d.radius, 0, Math.PI * 2);
@@ -1223,7 +1444,9 @@ export class TimeFishSystem {
 
       ctx.save();
       ctx.rotate(-time * 0.0014);
-      ctx.strokeStyle = "rgba(45, 212, 191, 0.7)";
+      ctx.strokeStyle = isV2
+        ? TIME_V2_PALETTE.accent
+        : "rgba(45, 212, 191, 0.7)";
       ctx.lineWidth = 3;
       ctx.setLineDash([14, 10]);
       ctx.beginPath();
@@ -1231,7 +1454,9 @@ export class TimeFishSystem {
       ctx.stroke();
       ctx.restore();
 
-      ctx.strokeStyle = "rgba(254, 240, 138, 0.65)";
+      ctx.strokeStyle = isV2
+        ? TIME_V2_PALETTE.gold
+        : "rgba(254, 240, 138, 0.65)";
       ctx.lineWidth = 2.5;
       for (let h = 0; h < 12; h++) {
         const a = (h * Math.PI * 2) / 12;
@@ -1251,23 +1476,34 @@ export class TimeFishSystem {
     }
 
     this.stasisCages.forEach((cage) => {
+      const isV2 = cage.v2Mode !== "none";
       ctx.save();
       ctx.translate(cage.x, cage.y);
 
       const cageGrad = ctx.createRadialGradient(0, 0, 10, 0, 0, cage.radius);
-      cageGrad.addColorStop(0, "rgba(45, 212, 191, 0.16)");
-      cageGrad.addColorStop(0.75, "rgba(245, 158, 11, 0.28)");
-      cageGrad.addColorStop(1, "rgba(45, 212, 191, 0.72)");
+      if (isV2) {
+        cageGrad.addColorStop(0, "rgba(56, 189, 248, 0.2)");
+        cageGrad.addColorStop(0.75, "rgba(244, 114, 182, 0.28)");
+        cageGrad.addColorStop(1, "rgba(254, 240, 138, 0.76)");
+      } else {
+        cageGrad.addColorStop(0, "rgba(45, 212, 191, 0.16)");
+        cageGrad.addColorStop(0.75, "rgba(245, 158, 11, 0.28)");
+        cageGrad.addColorStop(1, "rgba(45, 212, 191, 0.72)");
+      }
       ctx.fillStyle = cageGrad;
       ctx.beginPath();
       ctx.arc(0, 0, cage.radius, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.strokeStyle = cage.ownerTag === "past" ? "#f59e0b" : "#2dd4bf";
-      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = isV2
+        ? TIME_V2_PALETTE.primary
+        : cage.ownerTag === "past"
+          ? "#f59e0b"
+          : "#2dd4bf";
+      ctx.lineWidth = isV2 ? 4.5 : 3.5;
       ctx.stroke();
 
-      ctx.strokeStyle = "#fef08a";
+      ctx.strokeStyle = isV2 ? TIME_V2_PALETTE.accent : "#fef08a";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(0, 0);
@@ -1280,18 +1516,21 @@ export class TimeFishSystem {
     });
 
     this.stasisOrbs.forEach((orb) => {
+      const isV2 = orb.v2Mode !== "none";
       ctx.save();
       ctx.translate(orb.x, orb.y);
       ctx.rotate(time * 0.008);
-      ctx.fillStyle = "rgba(45, 212, 191, 0.35)";
-      ctx.strokeStyle = "#fef08a";
+      ctx.fillStyle = isV2
+        ? "rgba(56, 189, 248, 0.45)"
+        : "rgba(45, 212, 191, 0.35)";
+      ctx.strokeStyle = isV2 ? TIME_V2_PALETTE.accent : "#fef08a";
       ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(0, 0, orb.r, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = "#f59e0b";
+      ctx.fillStyle = isV2 ? TIME_V2_PALETTE.gold : "#f59e0b";
       ctx.beginPath();
       ctx.moveTo(-8, -9);
       ctx.lineTo(8, -9);
@@ -1306,8 +1545,10 @@ export class TimeFishSystem {
       ctx.save();
       ctx.translate(m.x, m.y);
       ctx.rotate(-time * 0.004);
-      ctx.strokeStyle = "#2dd4bf";
-      ctx.fillStyle = "rgba(45, 212, 191, 0.2)";
+      ctx.strokeStyle = m.v2 ? TIME_V2_PALETTE.accent : "#2dd4bf";
+      ctx.fillStyle = m.v2
+        ? "rgba(244, 114, 182, 0.22)"
+        : "rgba(45, 212, 191, 0.2)";
       ctx.lineWidth = 2.5;
       ctx.setLineDash([8, 6]);
       ctx.beginPath();
@@ -1318,14 +1559,25 @@ export class TimeFishSystem {
     });
 
     this.clones.forEach((c) => {
+      const isV2 = c.v2Mode && c.v2Mode !== "none";
       ctx.save();
       ctx.translate(c.x, c.y);
 
       ctx.font = "900 11px Segoe UI, sans-serif";
       ctx.textAlign = "center";
-      ctx.fillStyle = c.type === "future" ? "#2dd4bf" : "#fbbf24";
+      ctx.fillStyle = isV2
+        ? TIME_V2_PALETTE.primary
+        : c.type === "future"
+          ? "#2dd4bf"
+          : "#fbbf24";
       ctx.fillText(
-        c.type === "future" ? "⚡ TƯƠNG LAI (2.0x)" : "⏳ QUÁ KHỨ (0.5x)",
+        c.type === "future"
+          ? isV2
+            ? "⚡ [V2] TƯƠNG LAI (2.0x)"
+            : "⚡ TƯƠNG LAI (2.0x)"
+          : isV2
+            ? "⏳ [V2] QUÁ KHỨ (0.5x)"
+            : "⏳ QUÁ KHỨ (0.5x)",
         0,
         -c.radius - 10,
       );
@@ -1337,8 +1589,11 @@ export class TimeFishSystem {
       }
 
       const wag = Math.sin(c.animPhase) * (c.radius * 0.28);
-      const cloneColors =
-        c.type === "past"
+      const cloneColors = isV2
+        ? c.type === "past"
+          ? { primary: "#38bdf8", secondary: "#1e3a8a", accent: "#fef08a" }
+          : { primary: "#f472b6", secondary: "#311042", accent: "#e0f2fe" }
+        : c.type === "past"
           ? { primary: "#f59e0b", secondary: "#78350f", accent: "#fef08a" }
           : { primary: "#2dd4bf", secondary: "#115e59", accent: "#ccfbf1" };
 
@@ -1355,8 +1610,8 @@ export class TimeFishSystem {
     this.rewindEffects.forEach((rw) => {
       ctx.save();
       ctx.globalAlpha = Math.min(1, rw.life * 1.5);
-      ctx.strokeStyle = "#2dd4bf";
-      ctx.lineWidth = 4;
+      ctx.strokeStyle = rw.v2 ? TIME_V2_PALETTE.accent : "#2dd4bf";
+      ctx.lineWidth = rw.v2 ? 5 : 4;
       ctx.setLineDash([12, 8]);
       ctx.beginPath();
       ctx.moveTo(rw.fromX, rw.fromY);

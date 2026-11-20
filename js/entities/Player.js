@@ -16,6 +16,11 @@ import { getWorldSize } from "../data/mapsConfig.js";
 import { sound } from "../core/SoundSystem.js";
 import { eventBus } from "../core/EventBus.js";
 import { settings } from "../core/SettingsManager.js";
+import { storage } from "../core/StorageManager.js";
+import {
+  ALL_BOSS_SKILL_IDS,
+  BOSS_SKILL_CORES,
+} from "../data/bossSkillsData.js";
 
 export function calcXpRequiredForLevel(level) {
   return Math.floor(180 + Math.pow(level, 1.85) * 42);
@@ -52,6 +57,15 @@ export class Player extends Creature {
     this.spaceTeleportAiming = false;
     this.spatialHuntBonus = 0;
     this.timeDomainActive = false;
+
+    // Boss skills đã mở khóa & hồi chiêu riêng
+    this.bossSkills = JSON.parse(
+      JSON.stringify(storage.getSpeciesBossSkills(speciesKey) || {}),
+    );
+    this.bossSkillCooldowns = {};
+    ALL_BOSS_SKILL_IDS.forEach((id) => {
+      this.bossSkillCooldowns[id] = 0;
+    });
 
     this.invincibleTimer = 3.0;
     this.dashTimer = 0;
@@ -150,6 +164,72 @@ export class Player extends Creature {
       this.applyEvoAppearance(stage);
       this.recalculateRadius();
     }
+  }
+
+  getBossSkillTier(skillId) {
+    return this.bossSkills?.[skillId]?.tier || 0;
+  }
+
+  isBossSkillTrueV2(skillId) {
+    return !!this.bossSkills?.[skillId]?.isTrueV2;
+  }
+
+  unlockOrUpgradeBossSkill(skillId, mode = "unlock") {
+    const core = BOSS_SKILL_CORES[skillId];
+    if (!core) return;
+    const isSameSpecies = this.species === core.bossType;
+    const tier = mode === "true_v2" || mode === "limited_v2" ? 2 : 1;
+    const isTrueV2 = isSameSpecies && tier >= 2;
+
+    this.bossSkills[skillId] = { tier, isTrueV2 };
+    storage.saveBossSkillUnlock(this.species, skillId, tier, isTrueV2);
+    eventBus.emit("BOSS_SKILLS_UPDATED", this);
+  }
+
+  getEffectiveBossSkillProfile(skillId) {
+    const core = BOSS_SKILL_CORES[skillId];
+    if (!core) return null;
+    const isSameSpecies = this.species === core.bossType;
+    const tier = this.getBossSkillTier(skillId);
+    const isTrueV2 = isSameSpecies && tier >= 2;
+
+    if (isSameSpecies) {
+      return {
+        v2Mode: isTrueV2 ? "true" : "none",
+        effectiveLevel: this.level,
+        powerMult: isTrueV2 ? 1.45 : 1.0,
+        cdMult: isTrueV2 ? 0.8 : 1.0,
+        radiusMult: isTrueV2 ? 1.25 : 1.0,
+      };
+    }
+
+    // Khác hệ: cấp 1 bằng 50% sức mạnh hiện tại; V2 giới hạn tăng nhẹ lên 65% cấp độ nhưng vẫn yếu hơn nhiều so với cùng hệ
+    if (tier >= 2) {
+      return {
+        v2Mode: "limited",
+        effectiveLevel: Math.max(1, Math.round(this.level * 0.65)),
+        powerMult: 0.68,
+        cdMult: 0.95,
+        radiusMult: 0.95,
+      };
+    }
+
+    return {
+      v2Mode: "none",
+      effectiveLevel: Math.max(1, Math.round(this.level * 0.5)),
+      powerMult: 0.5,
+      cdMult: 1.05,
+      radiusMult: 0.82,
+    };
+  }
+
+  getUnlockedBossSkillList() {
+    return ALL_BOSS_SKILL_IDS.filter((id) => {
+      const core = BOSS_SKILL_CORES[id];
+      return (
+        core && this.species !== core.bossType && this.getBossSkillTier(id) > 0
+      );
+    });
   }
 
   addItemToBag(itemId) {
@@ -367,17 +447,27 @@ export class Player extends Creature {
           );
         }
       } else {
+        const stageCol = evo.tint?.primary || "#fee440";
+        const stageAcc = evo.tint?.accent || "#ffffff";
         particleSystem.addShockwave(
           this.x,
           this.y,
-          this.radius * 4.5,
-          "#fee440",
+          this.radius * (3.2 + clamped * 0.35),
+          stageCol,
         );
-        for (let i = 0; i < 35; i++) {
+        if (clamped >= 5) {
+          particleSystem.addShockwave(
+            this.x,
+            this.y,
+            this.radius * (4.2 + clamped * 0.35),
+            stageAcc,
+          );
+        }
+        for (let i = 0; i < 24 + clamped * 5; i++) {
           particleSystem.addParticle(
             this.x,
             this.y,
-            this.colors.primary,
+            i % 2 === 0 ? stageCol : stageAcc,
             Math.random() * 7 + 2,
             5,
           );
@@ -388,7 +478,7 @@ export class Player extends Creature {
         this.x,
         this.y - this.radius - 35,
         `✨ TIẾN HÓA: ${evo.title.toUpperCase()}! ✨`,
-        "#fee440",
+        evo.tint?.accent || "#fee440",
       );
     }
 
@@ -469,6 +559,16 @@ export class Player extends Creature {
       this.skill2CooldownTimer = Math.max(0, this.skill2CooldownTimer - dt);
     if (this.skill3CooldownTimer > 0)
       this.skill3CooldownTimer = Math.max(0, this.skill3CooldownTimer - dt);
+
+    ALL_BOSS_SKILL_IDS.forEach((id) => {
+      if (this.bossSkillCooldowns[id] > 0) {
+        this.bossSkillCooldowns[id] = Math.max(
+          0,
+          this.bossSkillCooldowns[id] - dt,
+        );
+      }
+    });
+
     if (this.invincibleTimer > 0)
       this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
     if (this.dashTimer > 0) this.dashTimer = Math.max(0, this.dashTimer - dt);
@@ -631,6 +731,7 @@ export class Player extends Creature {
       this.animPhase += 0.16;
     }
 
+    // Hiệu ứng hạt vệt sáng từ Dạng 2 đến Dạng 7 (và giữ nguyên Dạng 8)
     if (this.evoStage >= 8 && Math.random() < 0.45) {
       const rainbowHue = (Date.now() * 0.22 + Math.random() * 60) % 360;
       particleSystem.addParticle(
@@ -643,6 +744,28 @@ export class Player extends Creature {
         `hsl(${rainbowHue}, 100%, 62%)`,
         1.5,
         Math.random() * 4 + 2.5,
+        false,
+      );
+    } else if (
+      this.evoStage >= 2 &&
+      this.evoStage <= 7 &&
+      Math.random() < 0.12 + this.evoStage * 0.04
+    ) {
+      const evoTint = EVOLUTION_FORMS[this.evoStage - 1]?.tint;
+      const pCol =
+        Math.random() < 0.5
+          ? evoTint?.primary || "#00f5d4"
+          : evoTint?.accent || "#ffffff";
+      particleSystem.addParticle(
+        this.x -
+          Math.cos(this.angle) * this.radius * 0.75 +
+          (Math.random() - 0.5) * this.radius,
+        this.y -
+          Math.sin(this.angle) * this.radius * 0.75 +
+          (Math.random() - 0.5) * this.radius,
+        pCol,
+        1.1,
+        Math.random() * 3 + 2,
         false,
       );
     }
@@ -730,4 +853,3 @@ export class Player extends Creature {
     }
   }
 }
-

@@ -2,7 +2,7 @@ import { getWorldSize } from "../data/mapsConfig.js";
 
 export function drawOffscreenThreatIndicators(
   ctx,
-  { player, enemies, remotePlayers, camera, width, height }
+  { player, enemies, remotePlayers, camera, width, height },
 ) {
   if (!player) return;
   const threats = [...enemies];
@@ -26,11 +26,11 @@ export function drawOffscreenThreatIndicators(
       const pad = 34;
       const ix = Math.max(
         pad,
-        Math.min(width - pad, width / 2 + Math.cos(ang) * (width / 2 - pad))
+        Math.min(width - pad, width / 2 + Math.cos(ang) * (width / 2 - pad)),
       );
       const iy = Math.max(
         pad,
-        Math.min(height - pad, height / 2 + Math.sin(ang) * (height / 2 - pad))
+        Math.min(height - pad, height / 2 + Math.sin(ang) * (height / 2 - pad)),
       );
 
       ctx.save();
@@ -47,24 +47,22 @@ export function drawOffscreenThreatIndicators(
   });
 }
 
-/**
- * RADAR MINIMAP DI CHUYỂN THEO PLAYER (PLAYER-CENTERED RADAR)
- * Người chơi luôn nằm ở tâm radar, thế giới xung quanh dịch chuyển theo player.
- */
 export function drawMinimap(
   miniCtx,
   {
     player,
     enemies,
+    npcs = [],
     pearls,
     droppedItems,
     shrines,
     boss,
+    epicBoss = null,
     remotePlayers,
     selectedMap,
     selectedGameMode,
     zoneRadius,
-  }
+  },
 ) {
   const size = 165;
   const half = size / 2;
@@ -73,7 +71,6 @@ export function drawMinimap(
   if (!player) return;
 
   const worldSize = getWorldSize(selectedMap);
-  // Tầm quét radar xung quanh player (bán kính 1850px thế giới)
   const radarRange = 1850;
   const scale = half / radarRange;
 
@@ -83,12 +80,10 @@ export function drawMinimap(
   });
 
   miniCtx.save();
-  // Clip hình tròn radar
   miniCtx.beginPath();
   miniCtx.arc(half, half, half - 1, 0, Math.PI * 2);
   miniCtx.clip();
 
-  // 1. Lưới tọa độ dịch chuyển theo player
   const gridStep = 450;
   const startGridX = Math.floor((player.x - radarRange) / gridStep) * gridStep;
   const startGridY = Math.floor((player.y - radarRange) / gridStep) * gridStep;
@@ -110,14 +105,12 @@ export function drawMinimap(
     miniCtx.stroke();
   }
 
-  // 2. Đường biên giới hạn bản đồ (để player thấy tường đại dương khi tới gần)
   const topLeft = toRadar(0, 0);
   const mapPixelSize = worldSize * scale;
   miniCtx.strokeStyle = "rgba(255, 77, 109, 0.85)";
   miniCtx.lineWidth = 2.5;
   miniCtx.strokeRect(topLeft.x, topLeft.y, mapPixelSize, mapPixelSize);
 
-  // 3. Vòng bo Royale (nếu có)
   if (selectedGameMode === "royale") {
     const center = toRadar(worldSize / 2, worldSize / 2);
     miniCtx.strokeStyle = "#b5179e";
@@ -127,7 +120,6 @@ export function drawMinimap(
     miniCtx.stroke();
   }
 
-  // 4. Đền Thờ (kẹp viền radar nếu ở xa)
   if (Array.isArray(shrines)) {
     shrines.forEach((sh) => {
       let pt = toRadar(sh.x, sh.y);
@@ -146,7 +138,6 @@ export function drawMinimap(
     });
   }
 
-  // 5. Ngọc Trai
   miniCtx.fillStyle = "#fee440";
   pearls.forEach((p) => {
     const pt = toRadar(p.x, p.y);
@@ -156,7 +147,6 @@ export function drawMinimap(
     miniCtx.fill();
   });
 
-  // 6. Vật phẩm rơi
   if (Array.isArray(droppedItems)) {
     miniCtx.fillStyle = "#00f5d4";
     droppedItems.forEach((it) => {
@@ -168,7 +158,6 @@ export function drawMinimap(
     });
   }
 
-  // 7. Bot AI
   enemies.forEach((e) => {
     const pt = toRadar(e.x, e.y);
     if (Math.hypot(pt.x - half, pt.y - half) > half) return;
@@ -179,7 +168,17 @@ export function drawMinimap(
     miniCtx.fill();
   });
 
-  // 8. Người chơi thật khác (kẹp viền nếu ở xa để dễ săn/né)
+  if (Array.isArray(npcs)) {
+    miniCtx.fillStyle = "#4cc9f0";
+    npcs.forEach((npc) => {
+      const pt = toRadar(npc.x, npc.y);
+      if (Math.hypot(pt.x - half, pt.y - half) > half) return;
+      miniCtx.beginPath();
+      miniCtx.arc(pt.x, pt.y, 3.2, 0, Math.PI * 2);
+      miniCtx.fill();
+    });
+  }
+
   Object.values(remotePlayers).forEach((rp) => {
     if (!rp || rp.isStealthed) return;
     let pt = toRadar(rp.x, rp.y);
@@ -197,7 +196,6 @@ export function drawMinimap(
     miniCtx.fill();
   });
 
-  // 9. Boss Leviathan (luôn hiện chỉ hướng trên viền radar)
   if (boss) {
     let pt = toRadar(boss.x, boss.y);
     const dist = Math.hypot(pt.x - half, pt.y - half);
@@ -214,14 +212,31 @@ export function drawMinimap(
     miniCtx.fill();
   }
 
-  // 10. Vòng quét sonar nhẹ quanh tâm radar
+  if (epicBoss && epicBoss.hp > 0) {
+    let pt = toRadar(epicBoss.x, epicBoss.y);
+    const dist = Math.hypot(pt.x - half, pt.y - half);
+    if (dist > half - 8) {
+      const ang = Math.atan2(pt.y - half, pt.x - half);
+      pt = {
+        x: half + Math.cos(ang) * (half - 8),
+        y: half + Math.sin(ang) * (half - 8),
+      };
+    }
+    miniCtx.fillStyle = "#ff1e42";
+    miniCtx.strokeStyle = "#ffffff";
+    miniCtx.lineWidth = 1.5;
+    miniCtx.beginPath();
+    miniCtx.arc(pt.x, pt.y, 7, 0, Math.PI * 2);
+    miniCtx.fill();
+    miniCtx.stroke();
+  }
+
   miniCtx.strokeStyle = "rgba(0, 245, 212, 0.16)";
   miniCtx.lineWidth = 1;
   miniCtx.beginPath();
   miniCtx.arc(half, half, half * 0.5, 0, Math.PI * 2);
   miniCtx.stroke();
 
-  // 11. Mũi tên Player ngay tại tâm (xoay theo hướng bơi)
   miniCtx.save();
   miniCtx.translate(half, half);
   miniCtx.rotate(player.angle);
@@ -240,4 +255,3 @@ export function drawMinimap(
 
   miniCtx.restore();
 }
-
