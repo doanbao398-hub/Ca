@@ -101,7 +101,7 @@ function drawDetailedTurtle(ctx, creature, r, wag, colors) {
     r * 0.1,
     -r * 0.05,
     0,
-    r * 1.0
+    r * 1.0,
   );
   shellGrad.addColorStop(0, colors.primary);
   shellGrad.addColorStop(0.7, colors.secondary);
@@ -207,13 +207,195 @@ function drawDetailedDiver(ctx, creature, r, wag, colors) {
     r * 0.75,
     -r * 0.25,
     r * 1.1,
-    r * 0.25
+    r * 0.25,
   );
-  visorGrad.addColorStop(0, creature.evoStage >= 8 ? colors.primary : "#00f5d4");
+  visorGrad.addColorStop(
+    0,
+    creature.evoStage >= 8 ? colors.primary : "#00f5d4",
+  );
   visorGrad.addColorStop(1, creature.evoStage >= 8 ? colors.accent : "#00bbf9");
   ctx.fillStyle = visorGrad;
   ctx.beginPath();
   ctx.roundRect(r * 0.8, -r * 0.24, r * 0.28, r * 0.42, 6);
+  ctx.fill();
+}
+
+function drawDetailedSpaceFish(ctx, creature, r, wag, colors) {
+  const tailGrad = ctx.createLinearGradient(-r * 0.8, 0, -r * 2.3, 0);
+  tailGrad.addColorStop(0, colors.primary);
+  tailGrad.addColorStop(0.5, "#e0aaff");
+  tailGrad.addColorStop(1, "rgba(0, 245, 212, 0.15)");
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.75, 0);
+  ctx.quadraticCurveTo(-r * 1.6, -r * 1.05 + wag, -r * 2.35, -r * 0.55 + wag);
+  ctx.quadraticCurveTo(-r * 1.55, wag * 0.2, -r * 1.45, 0);
+  ctx.quadraticCurveTo(-r * 1.55, wag * 0.2, -r * 2.35, r * 0.55 + wag);
+  ctx.quadraticCurveTo(-r * 1.6, r * 1.05 + wag, -r * 0.75, 0);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(157, 78, 221, 0.55)";
+  ctx.strokeStyle = "#00f5d4";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.2, -r * 0.45);
+  ctx.quadraticCurveTo(r * 0.1, -r * 1.55, r * 0.55, -r * 0.45);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.2, r * 0.45);
+  ctx.quadraticCurveTo(r * 0.1, r * 1.55, r * 0.55, r * 0.45);
+  ctx.fill();
+  ctx.stroke();
+
+  const bodyGrad = ctx.createRadialGradient(
+    r * 0.2,
+    -r * 0.1,
+    r * 0.1,
+    0,
+    0,
+    r * 1.25,
+  );
+  bodyGrad.addColorStop(0, "#e0aaff");
+  bodyGrad.addColorStop(0.45, colors.primary);
+  bodyGrad.addColorStop(1, "#10002b");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.22, r * 0.62, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = colors.accent;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.save();
+  ctx.rotate(-0.28);
+  ctx.strokeStyle = "#fee440";
+  ctx.lineWidth = 2.2;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.45, r * 0.34, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+
+  ctx.fillStyle = "#00f5d4";
+  ctx.beginPath();
+  ctx.arc(r * 0.66, -r * 0.16, r * 0.18, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(r * 0.71, -r * 0.19, r * 0.08, 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawDetailedTimeFish(ctx, creature, r, wag, colors) {
+  const spin = Date.now() * 0.003;
+
+  // 1. Vòng hào quang bánh răng thiên văn sau lưng
+  ctx.save();
+  ctx.translate(-r * 0.15, 0);
+  ctx.rotate(spin);
+  ctx.strokeStyle = "rgba(251, 191, 36, 0.75)";
+  ctx.lineWidth = Math.max(2, r * 0.07);
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.18, 0, Math.PI * 2);
+  ctx.stroke();
+
+  const teeth = 12;
+  for (let i = 0; i < teeth; i++) {
+    const a = (i * Math.PI * 2) / teeth;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a) * r * 1.15, Math.sin(a) * r * 1.15);
+    ctx.lineTo(Math.cos(a) * r * 1.34, Math.sin(a) * r * 1.34);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  // 2. Đuôi đồng hồ cát phát sáng hổ phách & ngọc bích
+  const tailGrad = ctx.createLinearGradient(-r * 0.75, 0, -r * 2.25, 0);
+  tailGrad.addColorStop(0, colors.primary);
+  tailGrad.addColorStop(0.55, colors.accent);
+  tailGrad.addColorStop(1, "rgba(45, 212, 191, 0.1)");
+  ctx.fillStyle = tailGrad;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.75, 0);
+  ctx.quadraticCurveTo(-r * 1.55, -r * 1.0 + wag, -r * 2.25, -r * 0.65 + wag);
+  ctx.lineTo(-r * 1.45, wag * 0.25);
+  ctx.lineTo(-r * 2.25, r * 0.65 + wag);
+  ctx.quadraticCurveTo(-r * 1.55, r * 1.0 + wag, -r * 0.75, 0);
+  ctx.fill();
+
+  // 3. Cánh vây kim đồng hồ sắc bén 2 bên
+  ctx.fillStyle = "rgba(245, 158, 11, 0.75)";
+  ctx.strokeStyle = "#fef08a";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.15, -r * 0.45);
+  ctx.lineTo(r * 0.15, -r * 1.48);
+  ctx.lineTo(r * 0.48, -r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.15, r * 0.45);
+  ctx.lineTo(r * 0.15, r * 1.48);
+  ctx.lineTo(r * 0.48, r * 0.42);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // 4. Thân cá giáp vàng cổ điển & xanh ngọc ánh kim
+  const bodyGrad = ctx.createLinearGradient(
+    -r * 1.1,
+    -r * 0.6,
+    r * 1.2,
+    r * 0.6,
+  );
+  bodyGrad.addColorStop(0, "#0f172a");
+  bodyGrad.addColorStop(0.45, colors.primary);
+  bodyGrad.addColorStop(0.85, colors.accent);
+  bodyGrad.addColorStop(1, "#fef08a");
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, r * 1.22, r * 0.58, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#fef08a";
+  ctx.lineWidth = 2.4;
+  ctx.stroke();
+
+  // 5. Biểu tượng Đồng Hồ Cát Thời Gian khắc trên thân
+  ctx.save();
+  ctx.translate(-r * 0.1, 0);
+  ctx.strokeStyle = "#0f172a";
+  ctx.fillStyle = "rgba(254, 240, 138, 0.92)";
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  ctx.moveTo(-r * 0.24, -r * 0.24);
+  ctx.lineTo(r * 0.24, -r * 0.24);
+  ctx.lineTo(-r * 0.24, r * 0.24);
+  ctx.lineTo(r * 0.24, r * 0.24);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // 6. Mũi kiếm kim đồng hồ phía trước
+  ctx.fillStyle = "#fef08a";
+  ctx.beginPath();
+  ctx.moveTo(r * 1.05, -r * 0.11);
+  ctx.lineTo(r * 1.65, 0);
+  ctx.lineTo(r * 1.05, r * 0.11);
+  ctx.closePath();
+  ctx.fill();
+
+  // 7. Mắt ngọc thời gian phát sáng
+  ctx.fillStyle = "#2dd4bf";
+  ctx.beginPath();
+  ctx.arc(r * 0.68, -r * 0.16, r * 0.17, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "#ffffff";
+  ctx.beginPath();
+  ctx.arc(r * 0.72, -r * 0.18, r * 0.08, 0, Math.PI * 2);
   ctx.fill();
 }
 
@@ -222,6 +404,8 @@ const SPECIES_RENDERERS = {
   turtle: drawDetailedTurtle,
   croc: drawDetailedCrocodile,
   diver: drawDetailedDiver,
+  space: drawDetailedSpaceFish,
+  time: drawDetailedTimeFish,
   puffer: drawPufferfish,
 };
 

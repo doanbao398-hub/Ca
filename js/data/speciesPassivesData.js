@@ -119,6 +119,66 @@ export const SPECIES_EVOLUTION_PASSIVES = {
       desc: "Khi Nộ > 80% hoặc Hóa Thần, tự động gọi chùm tia vệ tinh bắn kẻ địch nhiều máu nhất.",
     },
   ],
+  space: [
+    {
+      stage: 2,
+      id: "space_p2",
+      name: "Rạn Nứt Không Gian",
+      icon: "🌌",
+      desc: "Kỹ năng gây sát thương để lại ấn Rạn Nứt, làm lệch hướng địch & tăng +35% tốc độ truy đuổi.",
+    },
+    {
+      stage: 4,
+      id: "space_p4",
+      name: "Hấp Thụ Chiều Không Gian",
+      icon: "🌀",
+      desc: "Khi đứng bên trong Lãnh Địa của bản thân, nhận +20% giảm sát thương và hồi thể lực nhanh gấp đôi.",
+    },
+    {
+      stage: 6,
+      id: "space_p6",
+      name: "Cộng Hưởng Bước Nhảy",
+      icon: "⚡",
+      desc: "Mỗi lần Bước Nhảy Không Gian tạo xung chấn nhẹ làm chậm kẻ địch xung quanh điểm đến.",
+    },
+    {
+      stage: 8,
+      id: "space_p8",
+      name: "Chúa Tể Đa Vũ Trụ",
+      icon: "👑",
+      desc: "Bán kính Lãnh Địa mở rộng tối đa & mọi kỹ năng trong Lãnh Địa giảm 25% thời gian hồi chiêu.",
+    },
+  ],
+  time: [
+    {
+      stage: 2,
+      id: "time_p2",
+      name: "Nhịp Đập Thời Không",
+      icon: "⏳",
+      desc: "Mỗi đòn cắn hoặc kỹ năng trúng địch đánh cắp 1 giây thời gian, làm khựng mục tiêu & giảm 1s hồi chiêu.",
+    },
+    {
+      stage: 4,
+      id: "time_p4",
+      name: "Dư Ảnh Lệch Pha",
+      icon: "🕰️",
+      desc: "Bản Thể Quá Khứ & Tương Lai được kéo dài thời gian tồn tại và tăng tỷ lệ kế thừa sát thương.",
+    },
+    {
+      stage: 6,
+      id: "time_p6",
+      name: "Nghịch Lý Bùng Nổ",
+      icon: "💫",
+      desc: "Sát thương tích tụ bên trong Lồng Giam Thời Gian được khuếch đại thêm +30% khi phát nổ.",
+    },
+    {
+      stage: 8,
+      id: "time_p8",
+      name: "Chúa Tể Vĩnh Hằng",
+      icon: "👑",
+      desc: "Trong Lãnh Địa Trường Thời Gian, giảm 50% hồi chiêu & mở khóa Tua Ngược Dòng Thời Gian 3 giây.",
+    },
+  ],
 };
 
 export function getUnlockedPassives(species, evoStage) {

@@ -67,10 +67,53 @@ export const SPECIES_CONFIG = {
     counters: "turtle",
     colors: { primary: "#ff9f1c", secondary: "#2b2d42", accent: "#00f5d4" },
   },
+  space: {
+    name: "Cá Không Gian",
+    rarity: "SỬ THI (ADMIN)",
+    adminOnly: true,
+    skillId: "space_domain",
+    skillName: "Bành Trướng",
+    skill2Name: "Lát Cắt",
+    skill3Name: "Hạ Cấp",
+    skillCooldown: 12.0,
+    baseSpeed: 4.25,
+    boostMult: 1.82,
+    maxHp: 120,
+    maxStamina: 145,
+    staminaDrain: 28,
+    staminaRegen: 24,
+    eatRangeMult: 1.15,
+    scoreMult: 1.25,
+    favMap: "abyss",
+    counters: "croc",
+    colors: { primary: "#9d4edd", secondary: "#240046", accent: "#00f5d4" },
+  },
+  time: {
+    name: "Cá Thời Gian",
+    rarity: "SỬ THI (ĐA CHIỀU)",
+    skillId: "time_clones",
+    skillName: "Dòng Chảy",
+    skill2Name: "Lồng Giam",
+    skill3Name: "Trường Thời Gian",
+    skillCooldown: 10.5,
+    baseSpeed: 4.2,
+    boostMult: 1.82,
+    maxHp: 125,
+    maxStamina: 140,
+    staminaDrain: 28,
+    staminaRegen: 24,
+    eatRangeMult: 1.15,
+    scoreMult: 1.22,
+    favMap: "hybrid",
+    counters: "diver",
+    colors: { primary: "#f59e0b", secondary: "#0f172a", accent: "#2dd4bf" },
+  },
 };
 
 export function getCounterMultiplier(attackerSpecies, targetSpecies) {
   const cfg = SPECIES_CONFIG[attackerSpecies];
-  if (cfg && cfg.counters === targetSpecies) return 1.18;
+  if (!cfg) return 1.0;
+  if (attackerSpecies === "space" || attackerSpecies === "time") return 1.15;
+  if (cfg.counters === targetSpecies) return 1.18;
   return 1.0;
 }

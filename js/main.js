@@ -20,9 +20,13 @@ import { Pearl, DroppedItem } from "./entities/Pickups.js";
 import { triggerPlayerSkill } from "./systems/SkillSystem.js";
 import { CombatSystem } from "./systems/CombatSystem.js";
 import { PassiveAndAugmentSystem } from "./systems/PassiveAndAugmentSystem.js";
+import { SpaceFishSystem } from "./systems/SpaceFishSystem.js";
+import { TimeFishSystem } from "./systems/TimeFishSystem.js";
 import { RoomSync } from "./network/RoomSync.js";
 import { UIManager } from "./ui/UIManager.js";
 import { AdminPanel } from "./ui/AdminPanel.js";
+
+const ADMIN_EMAILS = ["doanbao398@gmail.com"];
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
@@ -43,6 +47,8 @@ const worldRenderer = new WorldRenderer();
 const particleSystem = new ParticleSystem();
 const combatSystem = new CombatSystem();
 const passiveAndAugmentSystem = new PassiveAndAugmentSystem();
+const spaceFishSystem = new SpaceFishSystem();
+const timeFishSystem = new TimeFishSystem();
 const roomSync = new RoomSync();
 const ui = new UIManager();
 const adminPanel = new AdminPanel(() => player, particleSystem, camera);
@@ -121,7 +127,8 @@ function triggerRandomWorldEvent() {
   worldEvent = { ...ev, timer: ev.duration };
   ui.showEventBanner(ev.name, 5000);
   if (ev.type === "pearl_rain") {
-    for (let i = 0; i < 18; i++) pearls.push(new Pearl(null, null, selectedMap));
+    for (let i = 0; i < 18; i++)
+      pearls.push(new Pearl(null, null, selectedMap));
   }
 }
 
@@ -129,6 +136,12 @@ function startGame() {
   if (!storage.currentUser) {
     alert("Vui lòng đăng nhập tài khoản trước khi vào chơi!");
     return;
+  }
+
+  const userEmail = storage.currentUser.email?.toLowerCase() || "";
+  if (selectedSpecies === "space" && !ADMIN_EMAILS.includes(userEmail)) {
+    alert("🌌 Cá Không Gian là sinh vật Sử Thi độc quyền Admin!");
+    selectedSpecies = "fish";
   }
 
   sound.resume();
@@ -183,7 +196,8 @@ function startGame() {
 
   pearls = [];
   const pearlCount = selectedMap === "hybrid" ? 36 : 22;
-  for (let i = 0; i < pearlCount; i++) pearls.push(new Pearl(null, null, selectedMap));
+  for (let i = 0; i < pearlCount; i++)
+    pearls.push(new Pearl(null, null, selectedMap));
 
   meatChunks = [];
   droppedItems = [];
@@ -201,6 +215,8 @@ function startGame() {
   particleSystem.clear();
   combatSystem.reset();
   passiveAndAugmentSystem.clear();
+  spaceFishSystem.clear();
+  timeFishSystem.clear();
 
   quests = createInitialQuests();
   if (savedRun && Array.isArray(savedRun.quests)) {
@@ -228,6 +244,8 @@ function triggerGameOver(killerName = "") {
   if (gameState === "GAMEOVER") return;
   gameState = "GAMEOVER";
   roomSync.leaveRoom();
+  spaceFishSystem.clear();
+  timeFishSystem.clear();
 
   const earnedGems = Math.floor(player.score / 25) + player.evoStage * 20;
   storage.data.gems += earnedGems;
@@ -266,6 +284,7 @@ eventBus.on("AUTH_STATE_CHANGED", (user) => {
   } else {
     roomSync.leaveRoom();
     player = null;
+    selectedSpecies = "fish";
     gameState = "AUTH";
   }
 });
@@ -360,8 +379,30 @@ eventBus.on("SKILL_USED_FOR_QUEST", () => {
   }
 });
 
+// SKILL 1 [E]
 eventBus.on("INPUT_SKILL", () => {
-  if (gameState === "PLAYING" && player) {
+  if (gameState !== "PLAYING" || !player) return;
+  if (player.species === "space") {
+    spaceFishSystem.triggerSkill1(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  } else if (player.species === "time") {
+    timeFishSystem.triggerSkill1(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  } else {
     triggerPlayerSkill(player, {
       enemies,
       remotePlayers: roomSync.remotePlayers,
@@ -371,10 +412,75 @@ eventBus.on("INPUT_SKILL", () => {
   }
 });
 
+// SKILL 2 [Q]
+eventBus.on("INPUT_SKILL_2", () => {
+  if (gameState !== "PLAYING" || !player) return;
+  if (player.species === "space") {
+    spaceFishSystem.triggerSkill2(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  } else if (player.species === "time") {
+    timeFishSystem.triggerSkill2(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  }
+});
+
+// SKILL 3 / ULTIMATE [R]
 eventBus.on("INPUT_ULTIMATE", () => {
-  if (gameState === "PLAYING" && player) {
+  if (gameState !== "PLAYING" || !player) return;
+  if (player.species === "space") {
+    spaceFishSystem.triggerSkill3(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  } else if (player.species === "time") {
+    timeFishSystem.triggerSkill3(player, {
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+      input,
+      width,
+      height,
+    });
+  } else {
     player.useUltimate(particleSystem, camera);
   }
+});
+
+// XỬ LÝ CLICK / CHẠM ĐỂ DỊCH CHUYỂN TỨC THỜI TRONG LÃNH ĐỊA KHÔNG GIAN
+eventBus.on("CANVAS_POINTER_TAP", ({ clientX, clientY }) => {
+  if (gameState !== "PLAYING" || !player || player.species !== "space") return;
+  if (!player.spaceTeleportAiming || !spaceFishSystem.isInsideDomain(player))
+    return;
+
+  const tapWorldX = (clientX - width / 2) / camera.zoom + camera.x;
+  const tapWorldY = (clientY - height / 2) / camera.zoom + camera.y;
+  spaceFishSystem.executeTeleport(
+    player,
+    tapWorldX,
+    tapWorldY,
+    particleSystem,
+    camera,
+  );
 });
 
 eventBus.on("USE_BAG_SLOT", (slotIdx) => {
@@ -454,6 +560,9 @@ document.querySelectorAll("#emote-bar .emote-btn").forEach((btn) => {
 document.getElementById("skill-box").addEventListener("click", () => {
   eventBus.emit("INPUT_SKILL");
 });
+document.getElementById("skill2-box")?.addEventListener("click", () => {
+  eventBus.emit("INPUT_SKILL_2");
+});
 document.getElementById("ult-box").addEventListener("click", () => {
   eventBus.emit("INPUT_ULTIMATE");
 });
@@ -465,6 +574,8 @@ document.getElementById("btn-quit-lobby").addEventListener("click", () => {
     storage.saveSpeciesRun(player, quests);
   }
   roomSync.leaveRoom();
+  spaceFishSystem.clear();
+  timeFishSystem.clear();
   player = null;
   ui.dom.pauseScreen.classList.add("hidden");
   ui.dom.lobbyScreen.classList.remove("hidden");
@@ -555,9 +666,29 @@ function gameLoop(time) {
       camera,
       input,
     });
+    spaceFishSystem.update(dt, {
+      player,
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+    });
+    timeFishSystem.update(dt, {
+      player,
+      enemies,
+      remotePlayers: roomSync.remotePlayers,
+      particleSystem,
+      camera,
+    });
     camera.follow(player, width, height, selectedMap);
     const zoneLabel = getZoneNameAt(player.x, player.y, selectedMap);
-    ui.updateHUD(player, survivalTime, zoneLabel);
+    ui.updateHUD(
+      player,
+      survivalTime,
+      zoneLabel,
+      spaceFishSystem,
+      timeFishSystem,
+    );
   }
 
   ctx.save();
@@ -580,6 +711,8 @@ function gameLoop(time) {
     dt,
   );
 
+  spaceFishSystem.drawWorldEffects(ctx, time, enemies, roomSync.remotePlayers);
+  timeFishSystem.drawWorldEffects(ctx, time);
   passiveAndAugmentSystem.drawWorldEffects(ctx);
 
   if (Math.random() < 0.25) {
@@ -648,6 +781,7 @@ function gameLoop(time) {
       worldEvent,
       selectedMap,
       time,
+      timeFishSystem,
     });
     player.draw(ctx, time, false);
   }

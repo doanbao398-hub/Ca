@@ -77,6 +77,7 @@ export class CombatSystem {
       worldEvent,
       selectedMap,
       time,
+      timeFishSystem,
     } = state;
 
     if (!player) return;
@@ -176,6 +177,9 @@ export class CombatSystem {
           );
           const dmg = 32 * mult + extraTrueDmg * 0.25;
           boss.hp -= dmg;
+          if (player.species === "time" && timeFishSystem) {
+            timeFishSystem.triggerTimePulseSteal(player, boss, particleSystem);
+          }
           sound.playEat(3);
           camera.shake = 12;
           meatChunks.push(new MeatChunk(bossTailX, bossTailY, 120));
@@ -248,6 +252,10 @@ export class CombatSystem {
           const comboBonus = this.comboCount > 1 ? this.comboCount * 8 : 0;
           const pts = Math.ceil(e.radius * 1.6) + comboBonus;
 
+          if (player.species === "time" && timeFishSystem) {
+            timeFishSystem.triggerTimePulseSteal(player, e, particleSystem);
+          }
+
           player.addScore(pts, worldEvent, selectedMap, particleSystem, camera);
           const healAmt =
             player.lifeSteal * (player.crocFrenzyActive ? 1.25 : 1.0);
@@ -256,7 +264,11 @@ export class CombatSystem {
             player.heal(player.maxHp * 0.05);
           }
 
-          if (Array.isArray(droppedItems) && e.radius >= 38 && Math.random() < 0.16) {
+          if (
+            Array.isArray(droppedItems) &&
+            e.radius >= 38 &&
+            Math.random() < 0.16
+          ) {
             const rndIt = getRandomItemConfig();
             droppedItems.push(new DroppedItem(e.x, e.y, rndIt.id));
           }
@@ -301,6 +313,9 @@ export class CombatSystem {
             e.radius *= 0.82;
             e.stunTimer =
               player.species === "croc" && player.evoStage >= 4 ? 2.5 : 1.5;
+            if (player.species === "time" && timeFishSystem) {
+              timeFishSystem.triggerTimePulseSteal(player, e, particleSystem);
+            }
             sound.playEat(2);
             meatChunks.push(new MeatChunk(tailX, tailY, 65));
             particleSystem.addFloatingText(
@@ -380,6 +395,19 @@ export class CombatSystem {
           player.heal(player.maxHp * 0.15);
         }
 
+        if (player.species === "time" && timeFishSystem) {
+          timeFishSystem.triggerTimePulseSteal(player, rp, particleSystem);
+          if (timeFishSystem.accumulateParadoxDamage(id, rp, tailDmg)) {
+            particleSystem.addFloatingText(
+              rp.x,
+              rp.y - rp.radius - 12,
+              `⏳ TÍCH TỤ +${tailDmg}`,
+              "#2dd4bf",
+            );
+            return;
+          }
+        }
+
         eventBus.emit("PVP_ATTACK", {
           targetId: id,
           dmg: tailDmg,
@@ -412,8 +440,22 @@ export class CombatSystem {
 
         const isCrit = player.dashTimer > 0 || player.ultTimer > 0 || isCounter;
         const finalDmg = Math.round(
-          (32 * mult + extraTrueDmg) * (player.dashTimer > 0 || player.ultTimer > 0 ? 1.5 : 1.0),
+          (32 * mult + extraTrueDmg) *
+            (player.dashTimer > 0 || player.ultTimer > 0 ? 1.5 : 1.0),
         );
+
+        if (player.species === "time" && timeFishSystem) {
+          timeFishSystem.triggerTimePulseSteal(player, rp, particleSystem);
+          if (timeFishSystem.accumulateParadoxDamage(id, rp, finalDmg)) {
+            particleSystem.addFloatingText(
+              rp.x,
+              rp.y - rp.radius - 12,
+              `⏳ TÍCH TỤ +${finalDmg}`,
+              "#2dd4bf",
+            );
+            return;
+          }
+        }
 
         const isLethal = rp.hp - finalDmg <= 0;
         let bonusScore = 150;

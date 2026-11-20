@@ -23,7 +23,7 @@ export function calcXpRequiredForLevel(level) {
 
 export class Player extends Creature {
   constructor(name, speciesKey, saveUpgrades, selectedMap, savedRun = null) {
-    const cfg = SPECIES_CONFIG[speciesKey];
+    const cfg = SPECIES_CONFIG[speciesKey] || SPECIES_CONFIG.fish;
     const worldSize = getWorldSize(selectedMap);
     const startSizeMult = 1 + (saveUpgrades.startSize || 0) * 0.08;
     const spawnX = worldSize / 2 + (Math.random() - 0.5) * 450;
@@ -47,12 +47,19 @@ export class Player extends Creature {
     this.isExhausted = false;
 
     this.skillCooldownTimer = 0;
+    this.skill2CooldownTimer = 0;
+    this.skill3CooldownTimer = 0;
+    this.spaceTeleportAiming = false;
+    this.spatialHuntBonus = 0;
+    this.timeDomainActive = false;
+
     this.invincibleTimer = 3.0;
     this.dashTimer = 0;
     this.rage = 0;
     this.ultTimer = 0;
 
-    this.speedBonus = (cfg.favMap === selectedMap || selectedMap === "hybrid") ? 0.15 : 0;
+    this.speedBonus =
+      cfg.favMap === selectedMap || selectedMap === "hybrid" ? 0.15 : 0;
     this.loneHunterBonus = 0;
     this.cdrMult = 1.0;
     this.magnetRadius = 35 + (saveUpgrades.gemMagnet || 0) * 30;
@@ -95,11 +102,17 @@ export class Player extends Creature {
       this.level = Math.min(MAX_PLAYER_LEVEL, Math.max(1, savedRun.level || 1));
       this.xp = savedRun.xp || 0;
       this.xpNext = savedRun.xpNext || calcXpRequiredForLevel(this.level);
-      this.baseRadius = Math.max(this.baseRadius, savedRun.baseRadius || this.baseRadius);
+      this.baseRadius = Math.max(
+        this.baseRadius,
+        savedRun.baseRadius || this.baseRadius,
+      );
       this.maxHp = Math.max(this.maxHp, savedRun.maxHp || this.maxHp);
       this.hp = Math.min(this.maxHp, Math.max(20, savedRun.hp || this.maxHp));
       this.cdrMult = savedRun.cdrMult || 1.0;
-      this.magnetRadius = Math.max(this.magnetRadius, savedRun.magnetRadius || this.magnetRadius);
+      this.magnetRadius = Math.max(
+        this.magnetRadius,
+        savedRun.magnetRadius || this.magnetRadius,
+      );
       this.bitePower = Math.max(1.0, savedRun.bitePower || 1.0);
       this.lifeSteal = Math.max(3, savedRun.lifeSteal || 3);
       this.bounty = savedRun.bounty || 0;
@@ -130,7 +143,10 @@ export class Player extends Creature {
         ];
       }
 
-      const stage = Math.min(EVOLUTION_FORMS.length, Math.max(1, savedRun.evoStage || 1));
+      const stage = Math.min(
+        EVOLUTION_FORMS.length,
+        Math.max(1, savedRun.evoStage || 1),
+      );
       this.applyEvoAppearance(stage);
       this.recalculateRadius();
     }
@@ -326,9 +342,20 @@ export class Player extends Creature {
       camera.shake = clamped >= 8 ? 24 : 16;
 
       if (clamped >= 8) {
-        const rainbowColors = ["#ff006e", "#ffbe0b", "#06d6a0", "#00bbf9", "#8338ec"];
+        const rainbowColors = [
+          "#ff006e",
+          "#ffbe0b",
+          "#06d6a0",
+          "#00bbf9",
+          "#8338ec",
+        ];
         rainbowColors.forEach((col, idx) => {
-          particleSystem.addShockwave(this.x, this.y, this.radius * (2.5 + idx * 0.9), col);
+          particleSystem.addShockwave(
+            this.x,
+            this.y,
+            this.radius * (2.5 + idx * 0.9),
+            col,
+          );
         });
         for (let i = 0; i < 65; i++) {
           particleSystem.addParticle(
@@ -340,7 +367,12 @@ export class Player extends Creature {
           );
         }
       } else {
-        particleSystem.addShockwave(this.x, this.y, this.radius * 4.5, "#fee440");
+        particleSystem.addShockwave(
+          this.x,
+          this.y,
+          this.radius * 4.5,
+          "#fee440",
+        );
         for (let i = 0; i < 35; i++) {
           particleSystem.addParticle(
             this.x,
@@ -433,6 +465,10 @@ export class Player extends Creature {
 
     if (this.skillCooldownTimer > 0)
       this.skillCooldownTimer = Math.max(0, this.skillCooldownTimer - dt);
+    if (this.skill2CooldownTimer > 0)
+      this.skill2CooldownTimer = Math.max(0, this.skill2CooldownTimer - dt);
+    if (this.skill3CooldownTimer > 0)
+      this.skill3CooldownTimer = Math.max(0, this.skill3CooldownTimer - dt);
     if (this.invincibleTimer > 0)
       this.invincibleTimer = Math.max(0, this.invincibleTimer - dt);
     if (this.dashTimer > 0) this.dashTimer = Math.max(0, this.dashTimer - dt);
@@ -447,8 +483,10 @@ export class Player extends Creature {
       if (this.ultTimer === 0) this.recalculateRadius();
     }
 
-    // Chiếm Đền Thờ (Domination / Hybrid)
-    if (Array.isArray(shrines) && (selectedGameMode === "domination" || selectedMap === "hybrid")) {
+    if (
+      Array.isArray(shrines) &&
+      (selectedGameMode === "domination" || selectedMap === "hybrid")
+    ) {
       shrines.forEach((sh) => {
         const d = Math.hypot(this.x - sh.x, this.y - sh.y);
         if (d < sh.radius) {
@@ -458,10 +496,19 @@ export class Player extends Creature {
               sh.captured = true;
               sound.playEvolution();
               particleSystem.addShockwave(sh.x, sh.y, sh.radius, "#06d6a0");
-              eventBus.emit("SHOW_BANNER", `⛩️ BẠN ĐÃ CHIẾM ĐƯỢC ${sh.name.toUpperCase()}!`);
+              eventBus.emit(
+                "SHOW_BANNER",
+                `⛩️ BẠN ĐÃ CHIẾM ĐƯỢC ${sh.name.toUpperCase()}!`,
+              );
             }
           } else {
-            this.addScore(35 * dt, worldEvent, selectedMap, particleSystem, camera);
+            this.addScore(
+              35 * dt,
+              worldEvent,
+              selectedMap,
+              particleSystem,
+              camera,
+            );
           }
         }
       });
@@ -502,9 +549,12 @@ export class Player extends Creature {
     let moveIntensity = 1.0;
     const sens = settings.data.mouseSensitivity || 1.0;
 
-    // TÁCH BIỆT HOÀN TOÀN 2 CHẾ ĐỘ ĐIỀU KHIỂN: JOYSTICK vs CLICK
     if (input.isJoystickModeActive) {
-      if (input.joystick && input.joystick.active && input.joystick.force > 0.05) {
+      if (
+        input.joystick &&
+        input.joystick.active &&
+        input.joystick.force > 0.05
+      ) {
         const targetAngle = Math.atan2(input.joystick.dy, input.joystick.dx);
         let diff = targetAngle - this.angle;
         while (diff < -Math.PI) diff += Math.PI * 2;
@@ -538,6 +588,8 @@ export class Player extends Creature {
       1 +
       this.speedBonus +
       (this.loneHunterBonus || 0) +
+      (this.spatialHuntBonus || 0) +
+      (this.timeDomainActive ? 0.35 : 0) +
       (this.ultTimer > 0 ? 0.3 : 0);
 
     if (this.dashTimer > 0) {
@@ -559,7 +611,9 @@ export class Player extends Creature {
         particleSystem.addParticle(
           this.x,
           this.y,
-          this.evoStage >= 8 ? `hsl(${(Date.now() * 0.2) % 360}, 100%, 60%)` : "#fff",
+          this.evoStage >= 8
+            ? `hsl(${(Date.now() * 0.2) % 360}, 100%, 60%)`
+            : "#fff",
           1,
           Math.random() * 4 + 2,
           true,
@@ -577,12 +631,15 @@ export class Player extends Creature {
       this.animPhase += 0.16;
     }
 
-    // Hạt hào quang cầu vồng rơi phía sau khi đạt Dạng 8
     if (this.evoStage >= 8 && Math.random() < 0.45) {
       const rainbowHue = (Date.now() * 0.22 + Math.random() * 60) % 360;
       particleSystem.addParticle(
-        this.x - Math.cos(this.angle) * this.radius * 0.8 + (Math.random() - 0.5) * this.radius,
-        this.y - Math.sin(this.angle) * this.radius * 0.8 + (Math.random() - 0.5) * this.radius,
+        this.x -
+          Math.cos(this.angle) * this.radius * 0.8 +
+          (Math.random() - 0.5) * this.radius,
+        this.y -
+          Math.sin(this.angle) * this.radius * 0.8 +
+          (Math.random() - 0.5) * this.radius,
         `hsl(${rainbowHue}, 100%, 62%)`,
         1.5,
         Math.random() * 4 + 2.5,

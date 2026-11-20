@@ -76,6 +76,12 @@ export class InputManager {
     this.canvas.addEventListener("mousedown", (e) => {
       if (e.button === 0) {
         e.preventDefault();
+        this.x = e.clientX;
+        this.y = e.clientY;
+        eventBus.emit("CANVAS_POINTER_TAP", {
+          clientX: e.clientX,
+          clientY: e.clientY,
+        });
         if (this.isJoystickModeActive) return;
         this.isMouseDown = true;
         sound.resume();
@@ -104,6 +110,7 @@ export class InputManager {
         sound.resume();
       }
       if (e.code === "KeyE") eventBus.emit("INPUT_SKILL");
+      if (e.code === "KeyQ") eventBus.emit("INPUT_SKILL_2");
       if (e.code === "KeyR") eventBus.emit("INPUT_ULTIMATE");
       if (e.code === "Digit1") eventBus.emit("USE_BAG_SLOT", 0);
       if (e.code === "Digit2") eventBus.emit("USE_BAG_SLOT", 1);
@@ -117,13 +124,16 @@ export class InputManager {
 
     this.bindVirtualJoystick();
 
-    // KHÓA CỨNG: Nếu đang bật chế độ Cần Gạt Ảo (Joystick), chạm/vuốt trên màn hình tuyệt đối KHÔNG điều khiển hướng bơi!
     this.canvas.addEventListener(
       "touchstart",
       (e) => {
-        if (!this.isClickMoveMode) return;
         const touch = e.changedTouches[0];
         if (!touch) return;
+        eventBus.emit("CANVAS_POINTER_TAP", {
+          clientX: touch.clientX,
+          clientY: touch.clientY,
+        });
+        if (!this.isClickMoveMode) return;
         this.x = touch.clientX;
         this.y = touch.clientY;
         sound.resume();

@@ -143,13 +143,28 @@
             >
               🧬 <span id="evo-counter-pill" style="color: #00f5d4">1/8</span>
             </button>
-            <button type="button" class="btn-hud" id="btn-mute" title="Bật/Tắt Âm Thanh">
+            <button
+              type="button"
+              class="btn-hud"
+              id="btn-mute"
+              title="Bật/Tắt Âm Thanh"
+            >
               🔊
             </button>
-            <button type="button" class="btn-hud" id="btn-settings" title="Cài Đặt Hệ Thống">
+            <button
+              type="button"
+              class="btn-hud"
+              id="btn-settings"
+              title="Cài Đặt Hệ Thống"
+            >
               ⚙️
             </button>
-            <button type="button" class="btn-hud" id="btn-pause" title="Tạm Dừng & Xem Build">
+            <button
+              type="button"
+              class="btn-hud"
+              id="btn-pause"
+              title="Tạm Dừng & Xem Build"
+            >
               ⏸️
             </button>
           </div>
@@ -202,17 +217,22 @@
       <div class="hud-bottom">
         <div class="hud-bottom-left">
           <div class="hud-radar-emote-row">
-            <div
-              class="minimap-wrap"
-              title="Radar Đại Dương"
-            >
+            <div class="minimap-wrap" title="Radar Đại Dương">
               <canvas id="minimapCanvas" width="165" height="165"></canvas>
             </div>
             <div class="emote-bar" id="emote-bar">
-              <button type="button" class="emote-btn" data-emote="👋">👋</button>
-              <button type="button" class="emote-btn" data-emote="😂">😂</button>
-              <button type="button" class="emote-btn" data-emote="😡">😡</button>
-              <button type="button" class="emote-btn" data-emote="🤝">🤝</button>
+              <button type="button" class="emote-btn" data-emote="👋">
+                👋
+              </button>
+              <button type="button" class="emote-btn" data-emote="😂">
+                😂
+              </button>
+              <button type="button" class="emote-btn" data-emote="😡">
+                😡
+              </button>
+              <button type="button" class="emote-btn" data-emote="🤝">
+                🤝
+              </button>
             </div>
           </div>
 
@@ -283,11 +303,32 @@
             </div>
           </div>
 
+          <div class="skill-box hidden" id="skill2-box">
+            <div class="skill-key">Q</div>
+            <div>
+              <div
+                class="skill-title-text"
+                style="font-size: 12px; font-weight: 800; color: #fff"
+                id="hud-skill2-name"
+              >
+                Lát Cắt
+              </div>
+              <div
+                class="skill-subtext"
+                style="font-size: 10px; color: #e0aaff"
+                id="hud-skill2-status"
+              >
+                Sẵn Sàng [Q]
+              </div>
+            </div>
+          </div>
+
           <div class="skill-box cooldown" id="ult-box">
             <div class="skill-key">R</div>
             <div>
               <div
                 class="skill-title-text"
+                id="hud-ult-name"
                 style="font-size: 12px; font-weight: 800; color: #fff"
               >
                 Hóa Thần
@@ -322,8 +363,12 @@
         </div>
 
         <div class="auth-tabs">
-          <button type="button" class="auth-tab active" id="tab-login">ĐĂNG NHẬP</button>
-          <button type="button" class="auth-tab" id="tab-register">ĐĂNG KÝ MỚI</button>
+          <button type="button" class="auth-tab active" id="tab-login">
+            ĐĂNG NHẬP
+          </button>
+          <button type="button" class="auth-tab" id="tab-register">
+            ĐĂNG KÝ MỚI
+          </button>
         </div>
 
         <form id="auth-form" class="auth-form">
@@ -508,8 +553,8 @@
                 <b>Bơi nhanh:</b> Giữ Chuột Trái hoặc phím <code>Space</code>
               </div>
               <div>
-                <b>Kỹ năng loài:</b> Phím <code>E</code> | <b>Hóa Thần:</b> Phím
-                <code>R</code>
+                <b>Kỹ năng loài:</b> Phím <code>E</code> / <code>Q</code> |
+                <b>Chiêu cuối:</b> Phím <code>R</code>
               </div>
               <div>
                 <b>Túi đồ nhanh:</b> Phím <code>1</code>, <code>2</code>,
@@ -535,7 +580,10 @@
               </label>
               <label class="radio-option">
                 <input type="radio" name="mobile-ctrl-mode" value="click" />
-                <span>Chạm / Vuốt trực tiếp lên màn hình để bơi tới (Ẩn Joystick)</span>
+                <span
+                  >Chạm / Vuốt trực tiếp lên màn hình để bơi tới (Ẩn
+                  Joystick)</span
+                >
               </label>
             </div>
 
@@ -606,10 +654,17 @@
             flex-wrap: wrap;
           "
         >
-          <button type="button" class="btn-play" id="btn-resume" style="margin: 0">
+          <button
+            type="button"
+            class="btn-play"
+            id="btn-resume"
+            style="margin: 0"
+          >
             TIẾP TỤC CHƠI
           </button>
-          <button type="button" class="btn-hud" id="btn-pause-settings">⚙️ Cài Đặt</button>
+          <button type="button" class="btn-hud" id="btn-pause-settings">
+            ⚙️ Cài Đặt
+          </button>
           <button type="button" class="btn-hud" id="btn-quit-lobby">
             Thoát Về Sảnh Chính
           </button>
@@ -649,7 +704,9 @@
             style="color: #fee440; font-weight: 800"
             >🟡 Đang kiểm tra kết nối...</span
           >
-          <button type="button" class="btn-hud" id="btn-lobby-settings">⚙️ Cài Đặt</button>
+          <button type="button" class="btn-hud" id="btn-lobby-settings">
+            ⚙️ Cài Đặt
+          </button>
           <button
             type="button"
             class="btn-hud"
@@ -731,6 +788,55 @@
                 Thẳm.
               </div>
             </div>
+            <div
+              class="card-option"
+              data-species="time"
+              style="
+                border-color: #f59e0b;
+                background: linear-gradient(
+                  145deg,
+                  rgba(120, 53, 15, 0.45),
+                  rgba(15, 23, 42, 0.88)
+                );
+              "
+            >
+              <div class="saved-run-tag hidden" id="saved-tag-time"></div>
+              <div class="card-icon">⏳</div>
+              <div class="card-title" style="color: #fef08a">
+                Cá Thời Gian
+                <span style="font-size: 10px; color: #2dd4bf">[SỬ THI]</span>
+              </div>
+              <div class="card-skill">Skill [E/Q/R]: Bản Thể & Tua Ngược</div>
+              <div class="card-desc">
+                <b>Đa Chiều:</b> Triệu hồi Bản Thể Quá Khứ & Tương Lai, Lồng
+                Giam Ngưng Đọng & Tua Ngược 3s.
+              </div>
+            </div>
+            <div
+              class="card-option hidden"
+              id="admin-species-space"
+              data-species="space"
+              style="
+                border-color: #9d4edd;
+                background: linear-gradient(
+                  145deg,
+                  rgba(60, 9, 108, 0.55),
+                  rgba(16, 0, 43, 0.85)
+                );
+              "
+            >
+              <div class="saved-run-tag hidden" id="saved-tag-space"></div>
+              <div class="card-icon">🌌</div>
+              <div class="card-title" style="color: #e0aaff">
+                Cá Không Gian
+                <span style="font-size: 10px; color: #fee440">[SỬ THI]</span>
+              </div>
+              <div class="card-skill">Skill [E/Q/R]: Lãnh Địa & Hạ Cấp</div>
+              <div class="card-desc">
+                <b>Độc quyền Admin:</b> Kiến tạo Lãnh Địa Vũ Trụ, dịch chuyển
+                tức thời & giam cầm D'arcy.
+              </div>
+            </div>
           </div>
         </div>
 
@@ -793,7 +899,9 @@
           </div>
         </div>
 
-        <button type="button" class="btn-play" id="start-btn">VÀO PHÒNG CHƠI ONLINE</button>
+        <button type="button" class="btn-play" id="start-btn">
+          VÀO PHÒNG CHƠI ONLINE
+        </button>
       </div>
     </div>
 
@@ -825,7 +933,9 @@
             border-radius: 12px;
           "
         ></p>
-        <button type="button" class="btn-play" id="restart-btn">QUAY LẠI SẢNH CHÍNH</button>
+        <button type="button" class="btn-play" id="restart-btn">
+          QUAY LẠI SẢNH CHÍNH
+        </button>
       </div>
     </div>
 

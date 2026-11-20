@@ -24,6 +24,8 @@ import {
   myPlayerId,
 } from "../network/FirebaseClient.js";
 
+const ADMIN_EMAILS = ["doanbao398@gmail.com"];
+
 export class UIManager {
   constructor() {
     this.dom = {
@@ -73,10 +75,12 @@ export class UIManager {
       const isHidden = questPanel?.classList.toggle("collapsed-panel");
       btnQuest.classList.toggle("active-pill", !isHidden);
     });
-    document.getElementById("btn-close-quest")?.addEventListener("click", () => {
-      questPanel?.classList.add("collapsed-panel");
-      btnQuest?.classList.remove("active-pill");
-    });
+    document
+      .getElementById("btn-close-quest")
+      ?.addEventListener("click", () => {
+        questPanel?.classList.add("collapsed-panel");
+        btnQuest?.classList.remove("active-pill");
+      });
 
     document.querySelectorAll("#quick-bag-bar .bag-slot").forEach((slotEl) => {
       slotEl.addEventListener("click", () => {
@@ -386,7 +390,7 @@ export class UIManager {
   }
 
   renderSavedSpeciesBadges() {
-    ["fish", "turtle", "croc", "diver"].forEach((sp) => {
+    ["fish", "turtle", "croc", "diver", "space", "time"].forEach((sp) => {
       const tag = document.getElementById(`saved-tag-${sp}`);
       if (!tag) return;
       const run = storage.getSpeciesRun(sp);
@@ -401,9 +405,14 @@ export class UIManager {
 
   bindBusEvents() {
     eventBus.on("AUTH_STATE_CHANGED", (user) => {
+      const adminCard = document.getElementById("admin-species-space");
       if (user) {
         this.dom.authScreen?.classList.add("hidden");
         this.dom.lobbyScreen?.classList.remove("hidden");
+        const email = user.email?.toLowerCase() || "";
+        const isAdmin = ADMIN_EMAILS.includes(email);
+        adminCard?.classList.toggle("hidden", !isAdmin);
+
         const disp =
           user.displayName ||
           (user.email ? user.email.split("@")[0] : "Thủy Quái");
@@ -412,6 +421,7 @@ export class UIManager {
         const nameInput = document.getElementById("player-name-input");
         if (nameInput && disp) nameInput.value = disp.slice(0, 16);
       } else {
+        adminCard?.classList.add("hidden");
         this.dom.lobbyScreen?.classList.add("hidden");
         this.dom.gameoverScreen?.classList.add("hidden");
         this.dom.pauseScreen?.classList.add("hidden");
@@ -560,6 +570,19 @@ export class UIManager {
     if (roomEl) roomEl.textContent = `Phòng: ${roomId}`;
     const skEl = document.getElementById("hud-skill-name");
     if (skEl) skEl.textContent = player.cfg.skillName;
+
+    const sk2Box = document.getElementById("skill2-box");
+    const ultNameEl = document.getElementById("hud-ult-name");
+    if (selectedSpecies === "space") {
+      sk2Box?.classList.remove("hidden");
+      if (ultNameEl) ultNameEl.textContent = "Hạ Cấp";
+    } else if (selectedSpecies === "time") {
+      sk2Box?.classList.remove("hidden");
+      if (ultNameEl) ultNameEl.textContent = "Trường Thời Gian";
+    } else {
+      sk2Box?.classList.add("hidden");
+      if (ultNameEl) ultNameEl.textContent = "Hóa Thần";
+    }
 
     settings.applyToDOM();
     this.renderAugmentAndPassiveHUD(player);
@@ -790,7 +813,13 @@ export class UIManager {
     `;
   }
 
-  updateHUD(player, survivalTime, zoneLabel = "") {
+  updateHUD(
+    player,
+    survivalTime,
+    zoneLabel = "",
+    spaceSystem = null,
+    timeSystem = null,
+  ) {
     if (!player) return;
 
     const evoForm =
@@ -832,32 +861,132 @@ export class UIManager {
     }
 
     const skillBox = document.getElementById("skill-box");
+    const skillNameEl = document.getElementById("hud-skill-name");
     const skillSub = document.getElementById("hud-skill-status");
-    if (skillBox && skillSub) {
-      if (player.skillCooldownTimer > 0) {
-        skillBox.classList.add("cooldown");
-        skillSub.textContent = `${player.skillCooldownTimer.toFixed(1)}s`;
-      } else {
-        skillBox.classList.remove("cooldown");
-        skillSub.textContent = "Sẵn Sàng [E]";
-      }
-    }
 
-    const ultBox = document.getElementById("ult-box");
-    const ultSub = document.getElementById("hud-ult-status");
-    if (ultBox && ultSub) {
-      if (player.ultTimer > 0) {
-        ultBox.classList.remove("cooldown");
-        ultBox.classList.add("ult-ready");
-        ultSub.textContent = `${player.ultTimer.toFixed(1)}s`;
-      } else if (player.rage >= 100) {
-        ultBox.classList.remove("cooldown");
-        ultBox.classList.add("ult-ready");
-        ultSub.textContent = "SẴN SÀNG [R]!";
+    if (player.species === "space" && spaceSystem) {
+      const inside = spaceSystem.isInsideDomain(player);
+      if (inside) {
+        skillBox?.classList.remove("cooldown");
+        if (skillNameEl) skillNameEl.textContent = "Bước Nhảy";
+        if (skillSub) {
+          skillSub.textContent = `${spaceSystem.domain.timer.toFixed(1)}s [E/Chạm]`;
+        }
       } else {
-        ultBox.classList.add("cooldown");
-        ultBox.classList.remove("ult-ready");
-        ultSub.textContent = `Nộ: ${Math.floor(player.rage)}%`;
+        if (skillNameEl) skillNameEl.textContent = "Bành Trướng";
+        if (player.skillCooldownTimer > 0) {
+          skillBox?.classList.add("cooldown");
+          if (skillSub)
+            skillSub.textContent = `${player.skillCooldownTimer.toFixed(1)}s`;
+        } else {
+          skillBox?.classList.remove("cooldown");
+          if (skillSub) skillSub.textContent = "Sẵn Sàng [E]";
+        }
+      }
+
+      const sk2Box = document.getElementById("skill2-box");
+      const sk2Name = document.getElementById("hud-skill2-name");
+      const sk2Sub = document.getElementById("hud-skill2-status");
+      if (sk2Name) sk2Name.textContent = inside ? "Chém Tuyệt Đối" : "Lát Cắt";
+      if (player.skill2CooldownTimer > 0) {
+        sk2Box?.classList.add("cooldown");
+        if (sk2Sub)
+          sk2Sub.textContent = `${player.skill2CooldownTimer.toFixed(1)}s`;
+      } else {
+        sk2Box?.classList.remove("cooldown");
+        if (sk2Sub) sk2Sub.textContent = "Sẵn Sàng [Q]";
+      }
+
+      const ultBox = document.getElementById("ult-box");
+      const ultName = document.getElementById("hud-ult-name");
+      const ultSub = document.getElementById("hud-ult-status");
+      if (ultName)
+        ultName.textContent = inside ? "Bóp Méo Ngay" : "Bán Lãnh Địa";
+      if (player.skill3CooldownTimer > 0) {
+        ultBox?.classList.add("cooldown");
+        ultBox?.classList.remove("ult-ready");
+        if (ultSub)
+          ultSub.textContent = `${player.skill3CooldownTimer.toFixed(1)}s`;
+      } else {
+        ultBox?.classList.remove("cooldown");
+        ultBox?.classList.add("ult-ready");
+        if (ultSub) ultSub.textContent = "Sẵn Sàng [R]";
+      }
+    } else if (player.species === "time" && timeSystem) {
+      const inside = timeSystem.isInsideDomain(player);
+      if (skillNameEl)
+        skillNameEl.textContent = inside ? "Bản Thể Thực" : "Dòng Chảy";
+      if (player.skillCooldownTimer > 0) {
+        skillBox?.classList.add("cooldown");
+        if (skillSub)
+          skillSub.textContent = `${player.skillCooldownTimer.toFixed(1)}s`;
+      } else {
+        skillBox?.classList.remove("cooldown");
+        if (skillSub) skillSub.textContent = "Sẵn Sàng [E]";
+      }
+
+      const sk2Box = document.getElementById("skill2-box");
+      const sk2Name = document.getElementById("hud-skill2-name");
+      const sk2Sub = document.getElementById("hud-skill2-status");
+      if (sk2Name) sk2Name.textContent = "Lồng Giam";
+      if (player.skill2CooldownTimer > 0) {
+        sk2Box?.classList.add("cooldown");
+        if (sk2Sub)
+          sk2Sub.textContent = `${player.skill2CooldownTimer.toFixed(1)}s`;
+      } else {
+        sk2Box?.classList.remove("cooldown");
+        if (sk2Sub) sk2Sub.textContent = "Sẵn Sàng [Q]";
+      }
+
+      const ultBox = document.getElementById("ult-box");
+      const ultName = document.getElementById("hud-ult-name");
+      const ultSub = document.getElementById("hud-ult-status");
+      if (timeSystem.domain && !timeSystem.domain.rewindUsed) {
+        ultBox?.classList.remove("cooldown");
+        ultBox?.classList.add("ult-ready");
+        if (ultName) ultName.textContent = "Tua Ngược 3s";
+        if (ultSub)
+          ultSub.textContent = `${timeSystem.domain.timer.toFixed(1)}s [R]`;
+      } else {
+        if (ultName) ultName.textContent = "Trường Thời Gian";
+        if (player.skill3CooldownTimer > 0) {
+          ultBox?.classList.add("cooldown");
+          ultBox?.classList.remove("ult-ready");
+          if (ultSub)
+            ultSub.textContent = `${player.skill3CooldownTimer.toFixed(1)}s`;
+        } else {
+          ultBox?.classList.remove("cooldown");
+          ultBox?.classList.add("ult-ready");
+          if (ultSub) ultSub.textContent = "Sẵn Sàng [R]";
+        }
+      }
+    } else {
+      if (skillBox && skillSub) {
+        if (player.skillCooldownTimer > 0) {
+          skillBox.classList.add("cooldown");
+          skillSub.textContent = `${player.skillCooldownTimer.toFixed(1)}s`;
+        } else {
+          skillBox.classList.remove("cooldown");
+          skillSub.textContent = "Sẵn Sàng [E]";
+        }
+      }
+
+      const ultBox = document.getElementById("ult-box");
+      const ultSub = document.getElementById("hud-ult-status");
+      if (ultBox && ultSub) {
+        if (player.ultTimer > 0) {
+          ultBox.classList.remove("cooldown");
+          ultBox.classList.add("ult-ready");
+          ultSub.textContent = `${player.ultTimer.toFixed(1)}s`;
+        } else if (player.rage >= 100) {
+          ultBox.classList.remove("cooldown");
+          ultBox.classList.add("ult-ready");
+          ultSub.textContent = "SẴN SÀNG [R]!";
+        } else {
+          ultBox.classList.add("cooldown");
+          ultBox.classList.remove("ult-ready");
+          ultSub.textContent = `Nộ: ${Math.floor(player.rage)}%`;
+        }
       }
     }
 
